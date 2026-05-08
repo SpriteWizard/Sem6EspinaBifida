@@ -1,3 +1,5 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-options";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ListItemEstudio from "@/components/ListItemEstudio";
@@ -29,6 +31,7 @@ export default async function DetalleConsultaPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await getServerSession(authOptions);
   const { id } = await params;
 
   const res = await fetch(
@@ -72,12 +75,14 @@ export default async function DetalleConsultaPage({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            { ((session as any).user as any).role === "admin" || ((session as any).user as any).role === "superadmin" ? (
+              
             <Link
               href={`/servicios/${id}/editar-consulta`}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-10"
             >
               Editar consulta
-            </Link>
+            </Link>) : null}
             <button className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-10">
               Solicitar estudio
             </button>

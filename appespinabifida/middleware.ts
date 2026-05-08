@@ -18,6 +18,9 @@ export default withAuth(function middleware(req) {
 			}
 
 			if (req.nextUrl.pathname.startsWith("/servicios")){
+				if (req.nextUrl.pathname.includes("editar")){
+					return token.role === "superadmin" || token.role === "admin"
+				}
 				return token.role === "superadmin" || token.role === "admin" || token.role === "secretaria"
 			}
 
@@ -25,7 +28,7 @@ export default withAuth(function middleware(req) {
 				return token.role === "superadmin" || token.role === "CEO"
 			}
 
-			if (req.nextUrl.pathname.startsWith("/nuevoUsuario")){
+			if (req.nextUrl.pathname.startsWith("/usuarios")){
 				return token.role === "superadmin"
 			}
 
@@ -45,6 +48,8 @@ export const config = {
 		"/asociados/:path*",
 		"/servicios/:path*",
 		"/inventory/:path*",
-		"/api/:path*"
+		"/metricas/:path*",
+		"/usuarios/:path*",
+		"/recibos/:path*",
 	],
 };
