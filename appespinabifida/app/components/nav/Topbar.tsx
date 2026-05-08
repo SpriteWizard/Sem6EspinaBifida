@@ -12,6 +12,7 @@ import halfLogo from '../../assets/HalfLogo.png' // Visual from Snippet 2
 const NAV_ITEMS = [
   { href: '/recibos', label: 'Recibos' },
   { href: '/asociados', label: 'Asociados' },
+  { href: '/usuarios', label: 'Usuarios' },
   { href: '/servicios', label: 'Servicios' },
   { href: '/inventory', label: 'Inventario' },
   { href: '/', label: 'Métricas' },
