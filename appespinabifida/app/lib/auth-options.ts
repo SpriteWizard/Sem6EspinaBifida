@@ -74,6 +74,8 @@ export const authOptions: NextAuthOptions = {
 						if (dbUser) {
 						token.id = String(dbUser.id_usuario);
 						token.role = dbUser.role;
+						token.name = dbUser.nombre ?? dbUser.correo ?? user.name ?? user.email;
+						token.email = dbUser.correo ?? user.email;
 						}
 					}
 
@@ -84,6 +86,8 @@ export const authOptions: NextAuthOptions = {
 					if (token) {
 						session.user.id = token.id as string;
 						session.user.role = token.role as string;
+						session.user.name = token.name as string;
+						session.user.email = token.email as string;
 					}
 					return session;
 				},

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, SquareArrowOutUpRight } from 'lucide-react'
+import { Search, SquareArrowOutUpRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { listCategories, listInventory } from '@/lib/api/inventory'
@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { InventoryTable } from '../components/inventory/InventoryTable'
-import { NewProductModal } from '../components/inventory/NewProductModal'
+import { InventoryItemDetailModal } from '../components/inventory/InventoryItemDetailModal'
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value)
@@ -34,7 +34,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [newProductOpen, setNewProductOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
 
   const queryKey = useMemo(
     () => `${categoryId}__${debouncedSearch}`,
@@ -77,27 +77,6 @@ export default function InventoryPage() {
     }
   }, [queryKey, categoryId, debouncedSearch])
 
-  async function onProductCreated(_created: InventoryItem) {
-    setSearch('')
-    setCategoryId('all')
-    setError(null)
-    setLoading(true)
-    try {
-      const res = await listInventory({
-        categoryId: 'all',
-        search: '',
-        cursor: null,
-        limit: 5,
-      })
-      setItems(res.items)
-      setNextCursor(res.nextCursor)
-    } catch {
-      setError('No se pudo actualizar el inventario.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   async function onLoadMore() {
     if (!nextCursor) return
     setLoadingMore(true)
@@ -117,6 +96,13 @@ export default function InventoryPage() {
     }
   }
 
+  function handleItemUpdated(updatedItem: InventoryItem) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
+    )
+    setSelectedItem(updatedItem)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -124,13 +110,6 @@ export default function InventoryPage() {
           Inventario
         </h1>
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="secondary"
-            leftIcon={<Plus className="h-4 w-4" />}
-            onClick={() => setNewProductOpen(true)}
-          >
-            Nuevo Producto
-          </Button>
           <Button
             variant="secondary"
             leftIcon={<SquareArrowOutUpRight className="h-4 w-4" />}
@@ -179,7 +158,12 @@ export default function InventoryPage() {
       </div>
 
       <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
-        <InventoryTable items={items} loading={loading} error={error} />
+        <InventoryTable
+          items={items}
+          loading={loading}
+          error={error}
+          onItemClick={(item) => setSelectedItem(item)}
+        />
         <div className="flex justify-center p-5">
           <Button
             variant="secondary"
@@ -191,11 +175,11 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <NewProductModal
-        open={newProductOpen}
-        onClose={() => setNewProductOpen(false)}
-        categories={categories}
-        onCreated={onProductCreated}
+      <InventoryItemDetailModal
+        open={Boolean(selectedItem)}
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onItemUpdated={handleItemUpdated}
       />
     </div>
   )

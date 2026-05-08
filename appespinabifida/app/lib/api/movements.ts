@@ -1,3 +1,12 @@
+import {
+  categoryIdFromMovementItemType,
+  createProduct,
+  findInventoryItemByExactName,
+  findSimilarInventoryItemsByName,
+  getInventoryItemById,
+  listCategories,
+  movementItemTypeFromCategoryId,
+} from './inventory'
 import type {
   CreateMovementInput,
   InventoryMovement,
@@ -6,81 +15,153 @@ import type {
   MovementItemType,
 } from '../types/movements'
 
-const MOCK_ITEM_TYPES: MovementItemType[] = [
+const KNOWN_ITEM_TYPES: MovementItemType[] = [
   'Material Médico',
   'Equipo Médico',
   'Medicamento',
   'Consumible',
 ]
 
-const MOCK_MOVEMENTS: InventoryMovement[] = [
-  {
-    id: 47951,
-    itemName: 'Válvula de Derivación Ventrículo-Peritoneal',
-    itemType: 'Equipo Médico',
-    date: '2024-01-15',
-    movementType: 'in',
-    quantity: 5,
-    notes: 'Entrada por donación',
-  },
-  {
-    id: 47953,
-    itemName: 'Catéter Vesical Pediátrico',
-    itemType: 'Material Médico',
-    date: '2024-02-20',
-    movementType: 'out',
-    quantity: 12,
-    notes: 'Salida a pacientes',
-  },
-  {
-    id: 47955,
-    itemName: 'Andadera Ortopédica Infantil',
-    itemType: 'Equipo Médico',
-    date: '2024-03-10',
-    movementType: 'in',
-    quantity: 3,
-    notes: '',
-  },
-  {
-    id: 47957,
-    itemName: 'Sondas Urinarias Calibre 8-12',
-    itemType: 'Consumible',
-    date: '2024-01-25',
-    movementType: 'in',
-    quantity: 50,
-    notes: 'Reabastecimiento',
-  },
-  {
-    id: 47959,
-    itemName: 'Silla de Ruedas Pediátrica',
-    itemType: 'Equipo Médico',
-    date: '2024-02-15',
-    movementType: 'out',
-    quantity: 2,
-    notes: '',
-  },
-]
-
-let nextMockId =
-  MOCK_MOVEMENTS.reduce((max, it) => Math.max(max, it.id), 0) + 1
-
 function normalize(s: string) {
-  return s.trim().toLowerCase()
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms))
+function toQueryString(params: Record<string, string | number | null | undefined>) {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined || value === '') continue
+    query.set(key, String(value))
+  }
+  const serialized = query.toString()
+  return serialized ? `?${serialized}` : ''
+}
+
+async function parseJsonResponse(response: Response) {
+  const text = await response.text()
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    cache: 'no-store',
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  })
+
+  const payload = await parseJsonResponse(response)
+  if (!response.ok) {
+    const errorMessage =
+      payload && typeof payload === 'object' && 'error' in payload
+        ? String((payload as { error?: string }).error)
+        : `Error HTTP ${response.status}`
+    throw new Error(errorMessage)
+  }
+
+  return payload as T
+}
+
+function asPositiveQuantity(rawQuantity: number) {
+  const quantity = Math.floor(Number(rawQuantity))
+  if (Number.isNaN(quantity) || quantity <= 0) {
+    throw new Error('Indica una cantidad válida (mayor a 0).')
+  }
+  return quantity
+}
+
+function formatSimilarList(names: string[]) {
+  if (names.length === 0) return ''
+  return names.join(', ')
+}
+
+function mapMovementItemType(value: unknown): MovementItemType {
+  const normalized = normalize(String(value ?? ''))
+  if (normalized === 'material medico') return 'Material Médico'
+  if (normalized === 'equipo medico') return 'Equipo Médico'
+  if (normalized === 'medicamento') return 'Medicamento'
+  return 'Consumible'
+}
+
+function mapMovement(raw: Partial<InventoryMovement> & Record<string, unknown>): InventoryMovement {
+  const userFirstName = String(raw.userFirstName ?? raw.first_name ?? '').trim() || null
+  const userLastName = String(raw.userLastName ?? raw.last_name ?? '').trim() || null
+  const userEmail = String(raw.userEmail ?? raw.email ?? raw.correo ?? '').trim() || null
+  const userName =
+    String(raw.userName ?? raw.full_name ?? raw.name ?? '').trim() ||
+    [userFirstName, userLastName].filter(Boolean).join(' ').trim() ||
+    null
+
+  return {
+    id: Math.max(0, Math.floor(Number(raw.id ?? 0))),
+    itemId:
+      raw.itemId === null || raw.itemId === undefined
+        ? null
+        : Math.max(0, Math.floor(Number(raw.itemId))),
+    itemName: String(raw.itemName ?? 'Articulo sin nombre').trim(),
+    itemType: mapMovementItemType(raw.itemType),
+    date: String(raw.date ?? '').slice(0, 10),
+    movementType: raw.movementType === 'in' ? 'in' : 'out',
+    quantity: Math.max(0, Math.floor(Number(raw.quantity ?? 0))),
+    notes: String(raw.notes ?? '').trim(),
+    userId:
+      raw.userId === null || raw.userId === undefined
+        ? null
+        : Math.max(0, Math.floor(Number(raw.userId))),
+    userName,
+    userEmail,
+    userFirstName,
+    userLastName,
+    userRole: String(raw.userRole ?? raw.createdByRole ?? '').trim() || null,
+  }
+}
+
+function mapMovementListResult(payload: unknown): ListMovementsResult {
+  if (payload && typeof payload === 'object' && 'items' in payload) {
+    const objectPayload = payload as {
+      items?: Array<Partial<InventoryMovement> & Record<string, unknown>>
+      nextCursor?: string | null
+    }
+
+    return {
+      items: (objectPayload.items ?? []).map((item) => mapMovement(item)),
+      nextCursor: objectPayload.nextCursor ?? null,
+    }
+  }
+
+  const items = Array.isArray(payload)
+    ? payload.map((item) => mapMovement(item as Partial<InventoryMovement> & Record<string, unknown>))
+    : []
+
+  return {
+    items,
+    nextCursor: null,
+  }
 }
 
 export async function listMovementItemTypes(): Promise<MovementItemType[]> {
-  await sleep(120)
-  return MOCK_ITEM_TYPES
+  try {
+    const categories = await listCategories()
+    const mapped = categories
+      .filter((category) => category.id !== 'all')
+      .map((category) => movementItemTypeFromCategoryId(category.id))
+
+    return Array.from(new Set([...KNOWN_ITEM_TYPES, ...mapped]))
+  } catch {
+    return KNOWN_ITEM_TYPES
+  }
 }
 
-/**
- * Mock API shaped like a cursor-based backend.
- * Replace internals with a real fetch later.
- */
 export async function listMovements(
   params: ListMovementsParams,
 ): Promise<ListMovementsResult> {
@@ -88,62 +169,127 @@ export async function listMovements(
     search = '',
     movementType = 'all',
     itemType = 'all',
+    itemId,
+    itemName = '',
     date = '',
+    dateFrom = '',
+    dateTo = '',
     cursor,
     limit = 6,
   } = params
 
-  await sleep(220)
-
-  const filtered = MOCK_MOVEMENTS.filter((m) => {
-    const matchesSearch =
-      !normalize(search) ||
-      normalize(m.itemName).includes(normalize(search)) ||
-      normalize(m.notes).includes(normalize(search))
-
-    const matchesType =
-      movementType === 'all' || !movementType || m.movementType === movementType
-
-    const matchesItemType = itemType === 'all' || !itemType || m.itemType === itemType
-
-    const matchesDate = !date || m.date === date
-
-    return matchesSearch && matchesType && matchesItemType && matchesDate
+  const query = toQueryString({
+    search,
+    movementType,
+    itemType,
+    itemId,
+    itemName,
+    date,
+    dateFrom,
+    dateTo,
+    cursor,
+    limit,
   })
 
-  const start = cursor ? Number(cursor) : 0
-  const page = filtered.slice(start, start + limit)
-  const nextCursor = start + limit < filtered.length ? String(start + limit) : null
-
-  return { items: page, nextCursor }
+  const payload = await requestJson<unknown>(`/api/inventario/movimientos/obtener${query}`)
+  return mapMovementListResult(payload)
 }
 
-/**
- * Mock create; replace with POST /inventory/movements later.
- */
 export async function createMovement(
   input: CreateMovementInput,
 ): Promise<InventoryMovement> {
-  await sleep(200)
-
-  const trimmedName = input.itemName.trim()
-  if (!trimmedName) throw new Error('Nombre inválido')
-  if (!MOCK_ITEM_TYPES.includes(input.itemType)) throw new Error('Tipo inválido')
-
-  const qty = Math.floor(Number(input.quantity))
-  if (Number.isNaN(qty) || qty <= 0) throw new Error('Cantidad inválida')
-
-  const m: InventoryMovement = {
-    id: nextMockId++,
-    itemName: trimmedName,
-    itemType: input.itemType,
-    date: input.date,
-    movementType: input.movementType,
-    quantity: qty,
-    notes: input.notes.trim(),
+  if (!KNOWN_ITEM_TYPES.includes(input.itemType)) {
+    throw new Error('Selecciona un tipo de artículo válido.')
   }
 
-  MOCK_MOVEMENTS.unshift(m)
-  return m
+  const qty = asPositiveQuantity(input.quantity)
+
+  let resolvedItem =
+    input.itemId !== undefined ? await getInventoryItemById(input.itemId) : null
+
+  const trimmedName = input.itemName.trim()
+
+  if (!resolvedItem && trimmedName) {
+    const exactByName = await findInventoryItemByExactName(trimmedName)
+    if (exactByName) {
+      resolvedItem = exactByName
+    }
+  }
+
+  if (input.movementType === 'out' && !resolvedItem) {
+    throw new Error('Para salida debes seleccionar un artículo existente.')
+  }
+
+  if (input.movementType === 'in' && !resolvedItem) {
+    if (!trimmedName) {
+      throw new Error('Indica el nombre del artículo.')
+    }
+
+    const similar = await findSimilarInventoryItemsByName(trimmedName, 4)
+    if (similar.length > 0 && !input.allowSimilarCreate) {
+      const similarNames = similar.map((item) => item.name)
+      throw new Error(
+        `Se encontraron artículos similares: ${formatSimilarList(similarNames)}. Selecciona una sugerencia o confirma crear uno nuevo.`,
+      )
+    }
+
+    const newItemUnidad = input.newItemUnidad?.trim() ?? ''
+    const newItemProveedor = input.newItemProveedor?.trim() ?? ''
+    const newItemDescription = input.newItemDescription?.trim() ?? ''
+    const newItemStockMinimo = Math.floor(Number(input.newItemStockMinimo ?? 0))
+
+    if (!newItemUnidad) {
+      throw new Error('La unidad del articulo nuevo es obligatoria.')
+    }
+    if (!newItemProveedor) {
+      throw new Error('El proveedor del articulo nuevo es obligatorio.')
+    }
+    if (Number.isNaN(newItemStockMinimo) || newItemStockMinimo < 0) {
+      throw new Error('Stock minimo invalido para el articulo nuevo.')
+    }
+
+    const created = await createProduct({
+      name: trimmedName,
+      categoryId: categoryIdFromMovementItemType(input.itemType),
+      description: newItemDescription || 'Sin descripcion',
+      unidad: newItemUnidad,
+      proveedor: newItemProveedor,
+      stockMinimo: newItemStockMinimo,
+      cuotaRecuperacion: input.newItemCuotaRecuperacion ?? null,
+      quantity: 0,
+    })
+
+    resolvedItem = created
+  }
+
+  if (!resolvedItem) {
+    throw new Error('No se pudo resolver el artículo para registrar el movimiento.')
+  }
+
+  const createdMovementRaw = await requestJson<unknown>('/api/inventario/movimientos/agregar', {
+    method: 'POST',
+    body: JSON.stringify({
+      itemId: resolvedItem.id,
+      movementType: input.movementType,
+      date: input.date,
+      quantity: qty,
+      notes: input.notes.trim(),
+    }),
+  })
+
+  const createdMovement = mapMovement(
+    createdMovementRaw as Partial<InventoryMovement> & Record<string, unknown>,
+  )
+
+  return {
+    ...createdMovement,
+    itemId: createdMovement.itemId ?? resolvedItem.id,
+    itemName: createdMovement.itemName || resolvedItem.name,
+    itemType:
+      createdMovement.itemType ||
+      movementItemTypeFromCategoryId(resolvedItem.categoryId),
+    notes: createdMovement.notes || input.notes.trim(),
+    date: createdMovement.date || input.date,
+  }
 }
 

@@ -51,7 +51,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="bg-slate-800 text-white">
+    <header className="sticky top-0 z-50 bg-slate-800 text-white shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between py-3 px-4">
         
         <div className="flex items-center gap-70">

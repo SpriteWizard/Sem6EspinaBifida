@@ -1,38 +1,82 @@
-export type InventoryStatus = 'in_stock' | 'out_of_stock' | 'low_stock'
+import {
+    extractOrdsItems,
+    fetchOrdsJsonCandidates,
+    getCandidatePaths,
+    normalizeText,
+    toInventoryItem,
+} from '@/lib/server/inventory-ords'
+import type { InventoryItem } from '@/lib/types/inventory'
 
-export type InventoryItem = {
-  id: number
-  name: string
-  categoryId: string
-  categoryName: string
-  description: string
-  quantity: number
-  status: InventoryStatus
+const DEFAULT_LIST_PATHS = ['inventario/obtenerInventario']
+
+function parsePositiveInteger(value: string | null, fallback: number, max = 500) {
+    const parsed = Number(value)
+    if (Number.isNaN(parsed) || parsed <= 0) return fallback
+    return Math.min(Math.floor(parsed), max)
 }
 
-export async function GET(){
-    const res = await fetch("https://g53bc679c5acb2c-espinabd.adb.mx-queretaro-1.oraclecloudapps.com/ords/admin/inventario/obtenerInventario",{
-        method: "GET",
-        headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Basic " + Buffer.from(`${process.env.DB_USER}:${process.env.DB_PASSWORD}`).toString("base64"),
+function parseCursor(value: string | null) {
+    const parsed = Number(value)
+    if (Number.isNaN(parsed) || parsed < 0) return 0
+    return Math.floor(parsed)
+}
+
+export async function GET(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url)
+
+        const id = parsePositiveInteger(searchParams.get('id'), 0, Number.MAX_SAFE_INTEGER)
+        const search = searchParams.get('search') ?? ''
+        const categoryId = searchParams.get('categoryId') ?? 'all'
+        const cursor = parseCursor(searchParams.get('cursor'))
+        const limit = parsePositiveInteger(searchParams.get('limit'), 50)
+
+        const paths = getCandidatePaths('ORDS_INVENTORY_LIST_PATHS', DEFAULT_LIST_PATHS)
+        const { data } = await fetchOrdsJsonCandidates(paths, {
+            method: 'GET',
+        })
+
+        let items = extractOrdsItems(data).map((row) => toInventoryItem(row))
+
+        if (id > 0) {
+            items = items.filter((item) => item.id === id)
         }
-    });
-    const data = (await res.json()).items;
 
-    function sentenceCase(sentence: String){
-        return sentence[0].toUpperCase() + sentence.slice(1);
+        const normalizedSearch = normalizeText(search)
+        const normalizedCategory = normalizeText(categoryId)
+
+        const filtered = items.filter((item) => {
+            const matchesSearch =
+                !normalizedSearch ||
+                normalizeText(item.name).includes(normalizedSearch) ||
+                normalizeText(item.description).includes(normalizedSearch)
+
+            const matchesCategory =
+                !normalizedCategory ||
+                normalizedCategory === 'all' ||
+                normalizeText(item.categoryId) === normalizedCategory
+
+            return matchesSearch && matchesCategory
+        })
+
+        const page = filtered.slice(cursor, cursor + limit)
+        const nextCursor = cursor + limit < filtered.length ? String(cursor + limit) : null
+
+        return Response.json({
+            items: page,
+            nextCursor,
+        })
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : 'No se pudo obtener inventario real.'
+
+        return Response.json(
+            {
+                items: [] as InventoryItem[],
+                nextCursor: null,
+                error: message,
+            },
+            { status: 500 },
+        )
     }
-
-    const inventory: InventoryItem[] = data.map((item : any) => ({
-        id: item.id_articulo,
-        name: item.nombre,
-        categoryId: item.categoria,
-        categoryName: sentenceCase(item.categoria),
-        description: item.descripcion,
-        quantity: item.inventario_actual,
-        status: (item.inventario_actual > 0)? ((item.inventario_actual > item.stock_minimo) ? 'in_stock' : 'low_stock') : 'out_of_stock'
-    }));
-
-    return Response.json(inventory);
 }

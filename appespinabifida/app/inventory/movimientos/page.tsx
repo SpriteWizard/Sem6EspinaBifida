@@ -10,11 +10,7 @@ import { Select } from '../../components/ui/Select'
 import { MovementHistoryList } from '../../components/inventory/MovementHistoryList'
 import { NewMovementModal } from '../../components/inventory/NewMovementModal'
 import { listMovementItemTypes, listMovements } from '../../lib/api/movements'
-import type {
-  InventoryMovement,
-  MovementItemType,
-  MovementType,
-} from '../../lib/types/movements'
+import type { InventoryMovement, MovementItemType, MovementType } from '../../lib/types/movements'
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value)
@@ -31,8 +27,8 @@ export default function InventoryMovementsPage() {
   const debouncedSearch = useDebouncedValue(search, 350)
 
   const [movementType, setMovementType] = useState<MovementType | 'all'>('all')
-  const [itemType, setItemType] = useState<MovementItemType | 'all'>('all')
-  const [date, setDate] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const [itemTypes, setItemTypes] = useState<MovementItemType[]>([])
 
@@ -47,9 +43,12 @@ export default function InventoryMovementsPage() {
     null,
   )
 
+  const movementTypeSelectValue = movementType === 'all' ? '' : movementType
+  const movementTypeIsPlaceholder = movementType === 'all'
+
   const queryKey = useMemo(
-    () => `${movementType}__${itemType}__${date}__${debouncedSearch}`,
-    [movementType, itemType, date, debouncedSearch],
+    () => `${movementType}__${dateFrom}__${dateTo}__${debouncedSearch}`,
+    [movementType, dateFrom, dateTo, debouncedSearch],
   )
 
   useEffect(() => {
@@ -72,8 +71,8 @@ export default function InventoryMovementsPage() {
     listMovements({
       search: debouncedSearch,
       movementType,
-      itemType,
-      date,
+      dateFrom,
+      dateTo,
       cursor: null,
       limit: 6,
     })
@@ -82,9 +81,13 @@ export default function InventoryMovementsPage() {
         setItems(res.items)
         setNextCursor(res.nextCursor)
       })
-      .catch(() => {
+      .catch((error) => {
         if (!alive) return
-        setError('No se pudo cargar el historial de movimientos.')
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo cargar el historial de movimientos.',
+        )
       })
       .finally(() => {
         if (!alive) return
@@ -93,7 +96,7 @@ export default function InventoryMovementsPage() {
     return () => {
       alive = false
     }
-  }, [queryKey, movementType, itemType, date, debouncedSearch])
+  }, [queryKey, movementType, dateFrom, dateTo, debouncedSearch])
 
   async function onLoadMore() {
     if (!nextCursor) return
@@ -102,15 +105,17 @@ export default function InventoryMovementsPage() {
       const res = await listMovements({
         search: debouncedSearch,
         movementType,
-        itemType,
-        date,
+        dateFrom,
+        dateTo,
         cursor: nextCursor,
         limit: 6,
       })
       setItems((prev) => [...prev, ...res.items])
       setNextCursor(res.nextCursor)
-    } catch {
-      setError('No se pudo cargar más datos.')
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : 'No se pudo cargar más datos.',
+      )
     } finally {
       setLoadingMore(false)
     }
@@ -119,8 +124,8 @@ export default function InventoryMovementsPage() {
   function resetFilters() {
     setSearch('')
     setMovementType('all')
-    setItemType('all')
-    setDate('')
+    setDateFrom('')
+    setDateTo('')
     setError(null)
   }
 
@@ -130,7 +135,7 @@ export default function InventoryMovementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-4xl font-semibold tracking-tight text-slate-800">
           Movimientos de Inventario
         </h1>
@@ -142,141 +147,108 @@ export default function InventoryMovementsPage() {
           >
             Volver a Inventario
           </Button>
+          <Button
+            variant="secondary"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              setEditingMovement(null)
+              setNewMovementOpen(true)
+            }}
+          >
+            Agregar
+          </Button>
+          <Button variant="secondary" onClick={resetFilters}>
+            Reset filtros
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <div className="rounded-2xl bg-slate-800 p-4 shadow-md ring-1 ring-slate-900/10">
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar"
-                  aria-label="Buscar movimientos"
-                  className="border-white/10 bg-white/10 pl-9 text-white placeholder:text-slate-300 focus-visible:ring-slate-200/40"
-                />
-              </div>
+      <div className="rounded-2xl bg-white/70 p-4 shadow-sm ring-1 ring-slate-200/70">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+          <div className="relative md:col-span-5">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar movimientos..."
+              aria-label="Buscar movimientos"
+              className="pl-9"
+            />
+          </div>
 
-              <Button
-                variant="secondary"
-                className="w-full justify-center bg-slate-500 hover:bg-slate-400 active:bg-slate-600"
-                leftIcon={<Plus className="h-4 w-4" />}
-                onClick={() => {
-                  setEditingMovement(null)
-                  setNewMovementOpen(true)
-                }}
-              >
-                Agregar
-              </Button>
+          <div className="relative md:col-span-3">
+            <Select
+              value={movementTypeSelectValue}
+              onChange={(e) =>
+                setMovementType(
+                  e.target.value ? (e.target.value as MovementType) : 'all',
+                )
+              }
+              aria-label="Filtrar por tipo"
+              className={movementTypeIsPlaceholder ? 'text-slate-400' : 'text-slate-900'}
+            >
+              <option value="" disabled>
+                Tipo de movimiento
+              </option>
+              <option value="in">Entrada</option>
+              <option value="out">Salida</option>
+            </Select>
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              ▼
+            </span>
+          </div>
 
-              <div className="space-y-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-200">
-                    Tipo
-                  </label>
-                  <div className="relative">
-                    <Select
-                      value={movementType}
-                      onChange={(e) =>
-                        setMovementType(e.target.value as MovementType | 'all')
-                      }
-                      aria-label="Filtrar por tipo"
-                      className="border-white/10 bg-white/10 text-white focus-visible:ring-slate-200/40"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="in">Entrada</option>
-                      <option value="out">Salida</option>
-                    </Select>
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">
-                      ▼
-                    </span>
-                  </div>
-                </div>
+          <div className="space-y-1 md:col-span-2">
+            <span className="text-xs font-medium text-slate-500">Desde</span>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="Filtrar desde"
+            />
+          </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-200">
-                    Artículo
-                  </label>
-                  <div className="relative">
-                    <Select
-                      value={itemType}
-                      onChange={(e) =>
-                        setItemType(e.target.value as MovementItemType | 'all')
-                      }
-                      aria-label="Filtrar por tipo de artículo"
-                      className="border-white/10 bg-white/10 text-white focus-visible:ring-slate-200/40"
-                    >
-                      <option value="all">Todos</option>
-                      {itemTypes.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </Select>
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">
-                      ▼
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-200">
-                    Fecha
-                  </label>
-                  <Input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    aria-label="Filtrar por fecha"
-                    className="border-white/10 bg-white/10 text-white placeholder:text-slate-300 focus-visible:ring-slate-200/40"
-                  />
-                </div>
-              </div>
-
-              <Button
-                variant="secondary"
-                className="w-full justify-center bg-slate-600 hover:bg-slate-500 active:bg-slate-700"
-                onClick={resetFilters}
-              >
-                Reset filtros
-              </Button>
-            </div>
+          <div className="space-y-1 md:col-span-2">
+            <span className="text-xs font-medium text-slate-500">Hasta</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="Filtrar hasta"
+            />
           </div>
         </div>
+      </div>
 
-        <div className="lg:col-span-8">
-          <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
-            <div className="rounded-t-2xl bg-slate-600 px-5 py-4 text-white">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                <h2 className="text-lg font-semibold">Historial de Movimientos</h2>
-                <p className="text-sm text-white/80">
-                  {items.length}
-                  {items.length === 1 ? ' movimiento' : ' movimientos'}
-                </p>
-              </div>
-            </div>
-            <MovementHistoryList
-              items={items}
-              loading={loading}
-              error={error}
-              onEdit={(m) => {
-                setEditingMovement(m)
-                setNewMovementOpen(true)
-              }}
-            />
-            <div className="flex justify-center p-5">
-              <Button
-                variant="secondary"
-                onClick={onLoadMore}
-                disabled={!nextCursor || loading || loadingMore}
-              >
-                {loadingMore ? 'Cargando…' : 'Cargar más datos'}
-              </Button>
-            </div>
+      <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
+        <div className="rounded-t-2xl bg-slate-600 px-4 py-4 text-white">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+            <h2 className="text-lg font-semibold">
+              Historial de Movimientos
+            </h2>
+            <p className="text-sm text-white/80">
+              {items.length}
+              {items.length === 1 ? ' movimiento' : ' movimientos'}
+            </p>
           </div>
+        </div>
+        <MovementHistoryList
+          items={items}
+          loading={loading}
+          error={error}
+          onEdit={(m) => {
+            setEditingMovement(m)
+            setNewMovementOpen(true)
+          }}
+        />
+        <div className="flex justify-center p-5">
+          <Button
+            variant="secondary"
+            onClick={onLoadMore}
+            disabled={!nextCursor || loading || loadingMore}
+          >
+            {loadingMore ? 'Cargando…' : 'Cargar más datos'}
+          </Button>
         </div>
       </div>
 
