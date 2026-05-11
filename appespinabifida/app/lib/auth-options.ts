@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
 						return false;
 					}
 
-					const res = await fetch(`${process.env.BASE_URL}/api/login/log_acceso`,{
+					const res = await fetch(`${process.env.NEXTAUTH_URL}/api/login/log_acceso`,{
 						method: "PUT",
 						headers: {
 						"Content-Type": "application/json",
