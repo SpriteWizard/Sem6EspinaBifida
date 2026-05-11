@@ -52,8 +52,23 @@ export const authOptions: NextAuthOptions = {
 
 			callbacks: {
 				async signIn({user, account}: any){
+
+					const existingUser = await getUserByEmail(user.email!);
+
+					if (existingUser.activo == 0){
+						return false;
+					}
+
+					const res = await fetch(`${process.env.BASE_URL}/api/login/log_acceso`,{
+						method: "PUT",
+						headers: {
+						"Content-Type": "application/json",
+							"Authorization": "Basic " + Buffer.from(`${process.env.DB_USER}:${process.env.DB_PASSWORD}`).toString("base64"),
+						},
+						body : JSON.stringify({email: user.email})
+					})
+
 					if (account?.provider === "google"){
-						const existingUser = await getUserByEmail(user.email!);
 
 						if (!existingUser){
 							await createUser({

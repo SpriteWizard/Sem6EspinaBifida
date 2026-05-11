@@ -35,5 +35,27 @@ const usuarios = [
 ];
 
 export async function GET() {
-  return NextResponse.json(usuarios);
+  const res = await fetch("https://g53bc679c5acb2c-espinabd.adb.mx-queretaro-1.oraclecloudapps.com/ords/admin/usuarios/lista_usuarios",{
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Basic " + Buffer.from(`${process.env.DB_USER}:${process.env.DB_PASSWORD}`).toString("base64"),
+    }
+  })
+
+  if (res.ok) {
+    const data = await res.json();
+    const usuarios = data.items
+    return Response.json({
+      res: "Success",
+      usuarios: usuarios
+    })
+  }
+
+  else{
+    return Response.json({
+      res: "Failed",
+      usuarios: []
+    })
+  }
 }

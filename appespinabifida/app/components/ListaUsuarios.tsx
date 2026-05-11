@@ -34,9 +34,12 @@ export default function ListaUsuarios({ filtros }: ListaUsuariosProps) {
     async function loadUsers() {
       const res = await fetch("/api/usuarios/lista");
       if (res.ok) {
-        const users: UsuarioDetalle[] = await res.json();
-        setRawData(users);
-        setData(users);
+        const data = await res.json();
+        if (data.res === "Success") {
+          const users: UsuarioDetalle[] = data.usuarios;
+          setRawData(users);
+          setData(users);
+        }
       }
     }
 
@@ -49,7 +52,7 @@ export default function ListaUsuarios({ filtros }: ListaUsuariosProps) {
         const idFilter = !filtros.id || String(element.id).includes(String(filtros.id));
         const nombreFilter =
           filtros.nombre === "" || element.nombre.toLowerCase().includes(filtros.nombre.toLowerCase());
-        const fechaFilter = filtros.fecha === "" || element.fechaAlta === filtros.fecha;
+        const fechaFilter = filtros.fecha === "" || element.fechaalta === filtros.fecha;
         const statusFilter = filtros.estatus === "" || element.estatus === filtros.estatus;
         return idFilter && nombreFilter && fechaFilter && statusFilter;
       }),
@@ -60,12 +63,12 @@ export default function ListaUsuarios({ filtros }: ListaUsuariosProps) {
     key: String(row.id),
     cells: [
       row.id,
-      row.nombre,
+      row.nombre + " " + row.apellidos,
       row.email,
-      <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[row.estatus]}`}>
-        {row.estatus}
+      <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[(row.estatus) ? "Activo" : "Inactivo"]}`}>
+        {(row.estatus) ? "Activo" : "Inactivo"}
       </span>,
-      row.ultimoAcceso,
+      row.ultimoacceso,
     ],
   }));
 
