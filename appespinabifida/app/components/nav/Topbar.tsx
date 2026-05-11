@@ -4,24 +4,51 @@ import { LogOut, User } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation' // Added to detect active route
 import { useSession, signOut } from 'next-auth/react'
-
 import { Button } from '../ui/Button'
 import halfLogo from '../../assets/HalfLogo.png' // Visual from Snippet 2
 
 // Combined Snippet 2's labels with Snippet 1's routing structure
-const NAV_ITEMS = [
-  { href: '/recibos', label: 'Recibos' },
-  { href: '/asociados', label: 'Asociados' },
-  { href: '/servicios', label: 'Servicios' },
-  { href: '/inventory', label: 'Inventario' },
-  { href: '/', label: 'Métricas' },
-] as const
 
 export function Topbar() {
   const pathname = usePathname() // Gets the current URL path
   const { data: session, status } = useSession()
 
   if (status === 'loading' || !session) return null
+
+  const role = (session?.user as any)?.role;
+
+  let NAV_ITEMS : any[]= [];
+  if (role == "superadmin"){
+    NAV_ITEMS = [
+      { href: '/recibos', label: 'Recibos' },
+      { href: '/asociados', label: 'Asociados' },
+      { href: '/servicios', label: 'Servicios' },
+      { href: '/inventory', label: 'Inventario' },
+      { href: '/metricas', label: 'Métricas' },
+      { href: '/usuarios', label: 'Empleados'},
+    ]
+  }
+  else if (role == "CEO"){
+    NAV_ITEMS = [
+      { href: '/inventory', label: 'Inventario' },
+      { href: '/metricas', label: 'Métricas' },
+    ]
+  }
+  else if (role == "admin"){
+    NAV_ITEMS = [
+      { href: '/recibos', label: 'Recibos' },
+      { href: '/asociados', label: 'Asociados' },
+      { href: '/servicios', label: 'Servicios' },
+      { href: '/inventory', label: 'Inventario' },
+    ]
+  }
+  else{
+    NAV_ITEMS = [
+      { href: '/recibos', label: 'Recibos' },
+      { href: '/asociados', label: 'Asociados' },
+      { href: '/servicios', label: 'Servicios' },
+    ]
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-slate-800 text-white shadow-md">
