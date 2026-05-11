@@ -63,7 +63,6 @@ export const authOptions: NextAuthOptions = {
 						method: "PUT",
 						headers: {
 						"Content-Type": "application/json",
-							"Authorization": "Basic " + Buffer.from(`${process.env.DB_USER}:${process.env.DB_PASSWORD}`).toString("base64"),
 						},
 						body : JSON.stringify({email: user.email})
 					})
