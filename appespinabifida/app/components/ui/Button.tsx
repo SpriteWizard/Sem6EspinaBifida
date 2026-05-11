@@ -4,7 +4,7 @@ import * as React from 'react'
 
 import { cn } from '../../lib/utils/cn'
 
-type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost'
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'destructive'
 type ButtonSize = 'sm' | 'md'
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -21,6 +21,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   tertiary:
     'bg-slate-700 text-white hover:bg-slate-800 active:bg-slate-900 shadow-sm',
   ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 active:bg-slate-200',
+  destructive:
+    'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-sm',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
