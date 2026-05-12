@@ -14,6 +14,8 @@ type CreateUsuarioModalProps = {
 
 type FormState = {
   nombre: string;
+  apellido: string;
+  telefono: string;
   email: string;
   password: string;
   role: string;
@@ -29,6 +31,8 @@ const ROLES = [
 
 const initialFormState: FormState = {
   nombre: "",
+  apellido: "",
+  telefono: "",
   email: "",
   password: "",
   role: "secretaria",
@@ -56,6 +60,9 @@ export default function CreateUsuarioModal({ open, onClose, onSuccess }: CreateU
     const nextErrors: FieldErrors = {};
 
     if (!form.nombre.trim()) nextErrors.nombre = "El nombre es requerido.";
+    if (!form.apellido.trim()) nextErrors.apellido = "El apellido es requerido.";
+    if (!form.telefono.trim()) nextErrors.telefono = "El teléfono es requerido.";
+    else if (!/^[0-9+\-\s()]{7,20}$/.test(form.telefono)) nextErrors.telefono = "Ingresa un teléfono válido.";
     if (!form.email.trim()) nextErrors.email = "El correo es requerido.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) nextErrors.email = "Ingresa un correo válido.";
     if (!form.password.trim()) nextErrors.password = "La contraseña es requerida.";
@@ -100,14 +107,36 @@ export default function CreateUsuarioModal({ open, onClose, onSuccess }: CreateU
     <Modal open={open} onClose={onClose} titleId="create-user-modal" title="Crear nuevo usuario">
       <div className="space-y-4 px-5 py-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Nombre</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Nombres</label>
           <Input
             type="text"
             value={form.nombre}
             onChange={(e) => updateField("nombre", e.target.value)}
-            placeholder="Nombre completo"
+            placeholder="Nombres"
           />
           {errors.nombre && <p className="mt-1 text-sm text-rose-700">{errors.nombre}</p>}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Apellidos</label>
+          <Input
+            type="text"
+            value={form.apellido}
+            onChange={(e) => updateField("apellido", e.target.value)}
+            placeholder="Apellidos"
+          />
+          {errors.apellido && <p className="mt-1 text-sm text-rose-700">{errors.apellido}</p>}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Teléfono</label>
+          <Input
+            type="tel"
+            value={form.telefono}
+            onChange={(e) => updateField("telefono", e.target.value)}
+            placeholder="81 1234 5678"
+          />
+          {errors.telefono && <p className="mt-1 text-sm text-rose-700">{errors.telefono}</p>}
         </div>
 
         <div>
