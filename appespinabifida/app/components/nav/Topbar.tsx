@@ -54,16 +54,16 @@ export function Topbar() {
     <header className="sticky top-0 z-50 bg-slate-800 text-white shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between py-3 px-4">
         
-        <div className="flex items-center gap-70">
-          <div className="flex h-14 items-center justify-center rounded-lg bg-white/10">
-            <img 
-              src={typeof halfLogo === 'string' ? halfLogo : halfLogo.src} 
-              alt="Logo" 
-              className="h-10 w-auto object-contain px-2" 
+        <div className="flex flex-1 items-center gap-6">
+          <div className="flex h-14 min-w-[56px] items-center justify-center rounded-lg bg-white/10">
+            <Image
+              src={halfLogo}
+              alt="Logo"
+              className="h-10 w-auto object-contain px-2"
             />
           </div>
           
-          <nav className="hidden items-center gap-2 md:flex">
+          <nav className="hidden flex-1 items-center justify-center gap-2 md:flex">
             {NAV_ITEMS.map((item) => {
               // Dynamically check if this link is the current page
               const isActive = pathname === item.href
