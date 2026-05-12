@@ -1,12 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSession } from "next-auth/react";
 
 export default function RecibosPage() {
 	let session;
 	const [sessionLoaded, setSessionLoaded] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
+
+	const [recibos, setRecibos] = useState<Recibo[]>(RECIBOS_INICIALES);
+	const [pagos, setPagos] = useState<Pago[]>(PAGOS_INICIALES);
+
+	const [nuevoOpen, setNuevoOpen] = useState(false);
+	const [reciboActivo, setReciboActivo] = useState<Recibo | null>(null);
+
+	const [filterId, setFilterId] = useState("");
+	const [filterNombre, setFilterNombre] = useState("");
+	const [filterFecha, setFilterFecha] = useState("");
+	const [filterEstatus, setFilterEstatus] = useState("todos");
+
+	const debouncedId = useDebouncedValue(filterId, 300);
+	const debouncedNombre = useDebouncedValue(filterNombre, 300);
 
 	useEffect(() => {
 		getSession().then((session) => {
@@ -15,6 +29,60 @@ export default function RecibosPage() {
 			setLoading(false);
 		});
 	}, []);
+
+	function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
+		if (!reciboActivo) return;
+
+		const nuevoPago: Pago = {
+			id: `PAG-${Date.now()}`,
+			idRecibo: reciboActivo.id,
+			monto,
+			metodoPago,
+			fechaPago: new Date().toISOString().split("T")[0],
+		};
+
+		setPagos((prev) => [...prev, nuevoPago]);
+
+		setRecibos((prev) =>
+			prev.map((r) => {
+				if (r.id !== reciboActivo.id) return r;
+				return {
+					...r,
+					montoPagado: Math.round((r.montoPagado + monto) * 100) / 100,
+				};
+			}),
+		);
+
+		// Keep modal summary in sync without closing
+		setReciboActivo((prev) => {
+			if (!prev) return null;
+			return {
+				...prev,
+				montoPagado: Math.round((prev.montoPagado + monto) * 100) / 100,
+			};
+		});
+	}
+
+	const recibosFiltrados = useMemo(
+		() =>
+			recibos.filter((r) => {
+				if (
+					debouncedId &&
+					!r.id.toLowerCase().includes(debouncedId.toLowerCase())
+				)
+					return false;
+				if (
+					debouncedNombre &&
+					!r.asociado.toLowerCase().includes(debouncedNombre.toLowerCase())
+				)
+					return false;
+				if (filterFecha && r.fechaEmision !== filterFecha) return false;
+				if (filterEstatus !== "todos" && derivarEstatus(r) !== filterEstatus)
+					return false;
+				return true;
+			}),
+		[recibos, debouncedId, debouncedNombre, filterFecha, filterEstatus],
+	);
 
 	if (loading) {
 		return (
@@ -158,6 +226,14 @@ export default function RecibosPage() {
 							</div>
 						</div>
 					</div>
+					<Button
+						variant="secondary"
+						leftIcon={<Plus className="h-4 w-4" />}
+						onClick={() => setNuevoOpen(true)}
+					>
+						Nuevo recibo
+					</Button>
+				</div>
 
 					{/* Conceptos Table */}
 					<div className="mb-8">
@@ -228,6 +304,20 @@ export default function RecibosPage() {
 								</tbody>
 							</table>
 						</div>
+						<Input
+							type="date"
+							value={filterFecha}
+							onChange={(e) => setFilterFecha(e.target.value)}
+						/>
+						<Select
+							value={filterEstatus}
+							onChange={(e) => setFilterEstatus(e.target.value)}
+						>
+							<option value="todos">Todos los estatus</option>
+							<option value="Pagado">Pagado</option>
+							<option value="Pagado parcialmente">Pagado parcialmente</option>
+							<option value="Pendiente">Pendiente</option>
+						</Select>
 					</div>
 
 					{/* Método de Pago */}
