@@ -45,17 +45,10 @@ export async function GET() {
 
   if (res.ok) {
     const data = await res.json();
-    const usuarios = data.items
-    return Response.json({
-      res: "Success",
-      usuarios: usuarios
-    })
+    const usuarios = data.items || [];
+    return NextResponse.json(usuarios);
   }
 
-  else{
-    return Response.json({
-      res: "Failed",
-      usuarios: []
-    })
-  }
+  return NextResponse.json([]);
 }
+

@@ -1,6 +1,7 @@
 'use client'
 
 import { LogOut, User } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation' // Added to detect active route
 import { useSession, signOut } from 'next-auth/react'
@@ -56,10 +57,10 @@ export function Topbar() {
         
         <div className="flex items-center gap-70">
           <div className="flex h-14 items-center justify-center rounded-lg bg-white/10">
-            <img 
-              src={typeof halfLogo === 'string' ? halfLogo : halfLogo.src} 
-              alt="Logo" 
-              className="h-10 w-auto object-contain px-2" 
+            <Image
+              src={halfLogo}
+              alt="Logo"
+              className="h-10 w-auto object-contain px-2"
             />
           </div>
           

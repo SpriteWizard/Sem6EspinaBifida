@@ -58,6 +58,8 @@ export async function createUser(data: any) {
         email: data.email,
         provider: data.provider,
         passhash: data.password,
+        role: data.role,
+        nombre: data.nombre,
       }),
     }
   );
