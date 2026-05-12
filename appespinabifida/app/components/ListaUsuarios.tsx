@@ -23,9 +23,10 @@ type Filters = {
 
 type ListaUsuariosProps = {
   filtros: Filters;
+  refreshKey?: number;
 };
 
-export default function ListaUsuarios({ filtros }: ListaUsuariosProps) {
+export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [rawData, setRawData] = useState<UsuarioDetalle[]>([]);
   const [data, setData] = useState<UsuarioDetalle[]>([]);
@@ -35,16 +36,19 @@ export default function ListaUsuarios({ filtros }: ListaUsuariosProps) {
       const res = await fetch("/api/usuarios/lista");
       if (res.ok) {
         const data = await res.json();
-        if (data.res === "Success") {
-          const users: UsuarioDetalle[] = data.usuarios;
-          setRawData(users);
-          setData(users);
-        }
+        const users: UsuarioDetalle[] = Array.isArray(data)
+          ? data
+          : data.res === "Success"
+          ? data.usuarios
+          : [];
+
+        setRawData(users);
+        setData(users);
       }
     }
 
     loadUsers();
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     setData(

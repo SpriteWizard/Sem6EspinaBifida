@@ -1,6 +1,7 @@
 'use client'
 
 import { LogOut, User } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation' // Added to detect active route
 import { useSession, signOut } from 'next-auth/react'
@@ -54,8 +55,8 @@ export function Topbar() {
     <header className="sticky top-0 z-50 bg-slate-800 text-white shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between py-3 px-4">
         
-        <div className="flex flex-1 items-center gap-6">
-          <div className="flex h-14 min-w-[56px] items-center justify-center rounded-lg bg-white/10">
+        <div className="flex items-center gap-70">
+          <div className="flex h-14 items-center justify-center rounded-lg bg-white/10">
             <Image
               src={halfLogo}
               alt="Logo"
