@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "../components/ui/Button";
-import { Badge } from "../components/ui/Badge";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
@@ -63,10 +62,10 @@ function formatDate(iso: string) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ESTATUS_VARIANT: Record<Estatus, "success" | "warning" | "failed"> = {
-	Pagado: "success",
-	"Pagado parcialmente": "warning",
-	Pendiente: "failed",
+const ESTATUS_AMOUNT_CLASS: Record<Estatus, string> = {
+	Pagado: "text-emerald-600",
+	"Pagado parcialmente": "text-amber-600",
+	Pendiente: "text-slate-400",
 };
 
 const METODO_LABELS: Record<MetodoPago, string> = {
@@ -614,7 +613,7 @@ export default function RecibosPage() {
 						</p>
 					</div>
 					<Button
-						variant="primary"
+						variant="secondary"
 						leftIcon={<Plus className="h-4 w-4" />}
 						onClick={() => setNuevoOpen(true)}
 					>
@@ -663,7 +662,7 @@ export default function RecibosPage() {
 				{/* Table */}
 				<div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
 					<div className="w-full overflow-x-auto">
-						<table className="min-w-[700px] w-full border-collapse">
+						<table className="min-w-[500px] w-full border-collapse">
 							<thead>
 								<tr className="bg-slate-600 text-white">
 									<th className="rounded-tl-2xl px-5 py-4 text-left text-sm font-semibold">
@@ -675,14 +674,8 @@ export default function RecibosPage() {
 									<th className="px-5 py-4 text-left text-sm font-semibold">
 										Fecha de emisión
 									</th>
-									<th className="px-5 py-4 text-right text-sm font-semibold">
+									<th className="rounded-tr-2xl px-5 py-4 text-right text-sm font-semibold">
 										Pagado / Total
-									</th>
-									<th className="px-5 py-4 text-left text-sm font-semibold">
-										Estatus
-									</th>
-									<th className="rounded-tr-2xl px-5 py-4 text-center text-sm font-semibold">
-										Acciones
 									</th>
 								</tr>
 							</thead>
@@ -690,7 +683,7 @@ export default function RecibosPage() {
 								{recibosFiltrados.length === 0 ? (
 									<tr>
 										<td
-											colSpan={6}
+											colSpan={4}
 											className="px-5 py-10 text-center text-sm text-slate-400"
 										>
 											No se encontraron recibos.
@@ -699,9 +692,12 @@ export default function RecibosPage() {
 								) : (
 									recibosFiltrados.map((r) => {
 										const estatus = derivarEstatus(r);
-										const isPagado = estatus === "Pagado";
 										return (
-											<tr key={r.id} className="transition hover:bg-slate-50">
+											<tr
+												key={r.id}
+												className="cursor-pointer transition hover:bg-slate-50"
+												onClick={() => setReciboActivo(r)}
+											>
 												<td className="px-5 py-4 text-sm font-medium text-slate-800">
 													{r.id}
 												</td>
@@ -712,33 +708,13 @@ export default function RecibosPage() {
 													{formatDate(r.fechaEmision)}
 												</td>
 												<td className="px-5 py-4 text-right text-sm">
-													<span className="font-medium text-slate-800">
+													<span className={cn("font-medium", ESTATUS_AMOUNT_CLASS[estatus])}>
 														{formatCurrency(r.montoPagado)}
 													</span>
 													<span className="text-slate-400">
 														{" "}
 														/ {formatCurrency(r.montoTotal)}
 													</span>
-												</td>
-												<td className="px-5 py-4">
-													<Badge variant={ESTATUS_VARIANT[estatus]}>
-														{estatus}
-													</Badge>
-												</td>
-												<td className="px-5 py-4 text-center">
-													{isPagado ? (
-														<span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-															<Check className="h-4 w-4" />
-														</span>
-													) : (
-														<Button
-															size="sm"
-															variant="secondary"
-															onClick={() => setReciboActivo(r)}
-														>
-															Registrar pago
-														</Button>
-													)}
 												</td>
 											</tr>
 										);
