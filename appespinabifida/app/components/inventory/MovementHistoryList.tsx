@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil } from 'lucide-react'
+import { Eye } from 'lucide-react'
 
 import type { InventoryMovement } from '../../lib/types/movements'
 import { Badge } from '../ui/Badge'
@@ -89,9 +89,22 @@ export function MovementHistoryList({
                   </div>
                 </div>
 
-                <Badge variant={movementVariant(m)} className="shrink-0">
-                  {movementLabel(m)}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant={movementVariant(m)}>
+                    {movementLabel(m)}
+                  </Badge>
+                  {onEdit ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 w-9 p-0 text-slate-400 hover:text-slate-600"
+                      aria-label="Ver movimiento"
+                      onClick={() => onEdit(m)}
+                    >
+                      <Eye className="h-4 w-4" aria-hidden />
+                    </Button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -113,18 +126,6 @@ export function MovementHistoryList({
               </div>
 
             </div>
-
-            {onEdit ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-10 w-10 shrink-0 rounded-xl p-0 opacity-90 group-hover:opacity-100"
-                aria-label="Editar movimiento"
-                onClick={() => onEdit(m)}
-              >
-                <Pencil className="h-4 w-4" aria-hidden />
-              </Button>
-            ) : null}
           </div>
         </div>
       ))}

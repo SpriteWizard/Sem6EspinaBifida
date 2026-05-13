@@ -66,6 +66,14 @@ function toMovementType(value: unknown): MovementType {
   return 'out'
 }
 
+function toMovementEsComodatoFlag(value: unknown): boolean {
+  if (value === true) return true
+  if (value === false || value === null || value === undefined) return false
+  if (typeof value === 'number' && !Number.isNaN(value)) return value === 1
+  const s = toStringValue(value).trim().toLowerCase()
+  return s === '1' || s === 'true' || s === 'y' || s === 's' || s === 'si' || s === 'sí'
+}
+
 function toMovementItemType(categoryId: string): MovementItemType {
   return MOVEMENT_ITEM_TYPE_BY_CATEGORY_ID[normalizeText(categoryId)] ?? 'Consumible'
 }
@@ -196,6 +204,18 @@ export function toInventoryMovement(
       ),
     ),
     notes: toStringValue(getRowValue(row, ['notas', 'notes', 'NOTAS'], '')).trim(),
+    esComodato: toMovementEsComodatoFlag(
+      getRowValue(row, ['es_comodato', 'esComodato', 'ES_COMODATO'], null),
+    ),
+    comodatoAQuien: toStringValue(
+      getRowValue(row, ['comodato_a_quien', 'comodatoAQuien', 'COMODATO_A_QUIEN'], ''),
+    ).trim(),
+    comodatoTiempo: toStringValue(
+      getRowValue(row, ['comodato_tiempo', 'comodatoTiempo', 'COMODATO_TIEMPO'], ''),
+    ).trim(),
+    comodatoCondiciones: toStringValue(
+      getRowValue(row, ['comodato_condiciones', 'comodatoCondiciones', 'COMODATO_CONDICIONES'], ''),
+    ).trim(),
     userId: toNullableNumberValue(
       getRowValue(row, ['id_usuario', 'idUsuario', 'usuario_id', 'userId'], null),
     ),

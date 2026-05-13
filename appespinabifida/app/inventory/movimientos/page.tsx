@@ -10,7 +10,12 @@ import { Select } from '../../components/ui/Select'
 import { MovementHistoryList } from '../../components/inventory/MovementHistoryList'
 import { NewMovementModal } from '../../components/inventory/NewMovementModal'
 import { listMovementItemTypes, listMovements } from '../../lib/api/movements'
-import type { InventoryMovement, MovementItemType, MovementType } from '../../lib/types/movements'
+import type {
+  InventoryMovement,
+  MovementItemType,
+  MovementListFilter,
+  MovementType,
+} from '../../lib/types/movements'
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value)
@@ -26,7 +31,7 @@ export default function InventoryMovementsPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 350)
 
-  const [movementType, setMovementType] = useState<MovementType | 'all'>('all')
+  const [movementType, setMovementType] = useState<MovementListFilter>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
@@ -39,6 +44,7 @@ export default function InventoryMovementsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [newMovementOpen, setNewMovementOpen] = useState(false)
+  const [viewOnly, setViewOnly] = useState(false)
   const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(
     null,
   )
@@ -179,11 +185,12 @@ export default function InventoryMovementsPage() {
           <div className="relative md:col-span-3">
             <Select
               value={movementTypeSelectValue}
-              onChange={(e) =>
-                setMovementType(
-                  e.target.value ? (e.target.value as MovementType) : 'all',
-                )
-              }
+              onChange={(e) => {
+                const v = e.target.value
+                if (!v) setMovementType('all')
+                else if (v === 'out_comodato') setMovementType('out_comodato')
+                else setMovementType(v as MovementType)
+              }}
               aria-label="Filtrar por tipo"
               className={movementTypeIsPlaceholder ? 'text-slate-400' : 'text-slate-900'}
             >
@@ -192,6 +199,7 @@ export default function InventoryMovementsPage() {
               </option>
               <option value="in">Entrada</option>
               <option value="out">Salida</option>
+              <option value="out_comodato">Salida (Solo Comodatos)</option>
             </Select>
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
               ▼
@@ -222,15 +230,9 @@ export default function InventoryMovementsPage() {
 
       <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
         <div className="rounded-t-2xl bg-slate-600 px-4 py-4 text-white">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-            <h2 className="text-lg font-semibold">
-              Historial de Movimientos
-            </h2>
-            <p className="text-sm text-white/80">
-              {items.length}
-              {items.length === 1 ? ' movimiento' : ' movimientos'}
-            </p>
-          </div>
+          <h2 className="text-lg font-semibold">
+            Historial de Movimientos
+          </h2>
         </div>
         <MovementHistoryList
           items={items}
@@ -238,6 +240,7 @@ export default function InventoryMovementsPage() {
           error={error}
           onEdit={(m) => {
             setEditingMovement(m)
+            setViewOnly(true)
             setNewMovementOpen(true)
           }}
         />
@@ -254,10 +257,15 @@ export default function InventoryMovementsPage() {
 
       <NewMovementModal
         open={newMovementOpen}
-        onClose={() => setNewMovementOpen(false)}
+        onClose={() => {
+          setNewMovementOpen(false)
+          setViewOnly(false)
+          setEditingMovement(null)
+        }}
         itemTypes={itemTypes}
         onCreated={handleCreated}
         initial={editingMovement}
+        viewOnly={viewOnly}
       />
     </div>
   )

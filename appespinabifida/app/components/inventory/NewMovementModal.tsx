@@ -19,9 +19,11 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import { Switch } from '../ui/Switch'
 import { Textarea } from '../ui/Textarea'
 
 const TITLE_ID = 'new-movement-modal-title'
+const COMODATO_SWITCH_LABEL_ID = 'new-movement-comodato-label'
 
 type FieldErrors = {
   movementType?: string
@@ -34,6 +36,9 @@ type FieldErrors = {
   newItemCuotaRecuperacion?: string
   date?: string
   quantity?: string
+  comodatoAQuien?: string
+  comodatoTiempo?: string
+  comodatoCondiciones?: string
 }
 
 type Props = {
@@ -42,6 +47,7 @@ type Props = {
   itemTypes: MovementItemType[]
   onCreated: (m: InventoryMovement) => void
   initial?: InventoryMovement | null
+  viewOnly?: boolean
 }
 
 function todayISO() {
@@ -66,6 +72,7 @@ export function NewMovementModal({
   itemTypes,
   onCreated,
   initial,
+  viewOnly,
 }: Props) {
   const [movementType, setMovementType] = useState<MovementType>('in')
   const [itemType, setItemType] = useState<MovementItemType | ''>('')
@@ -79,6 +86,10 @@ export function NewMovementModal({
   const [date, setDate] = useState('')
   const [quantity, setQuantity] = useState('')
   const [notes, setNotes] = useState('')
+  const [esComodato, setEsComodato] = useState(false)
+  const [comodatoAQuien, setComodatoAQuien] = useState('')
+  const [comodatoTiempo, setComodatoTiempo] = useState('')
+  const [comodatoCondiciones, setComodatoCondiciones] = useState('')
   const [allowSimilarCreate, setAllowSimilarCreate] = useState(false)
 
   const [suggestions, setSuggestions] = useState<InventoryItem[]>([])
@@ -115,9 +126,17 @@ export function NewMovementModal({
       setDate(initial.date)
       setQuantity(String(initial.quantity))
       setNotes(initial.notes ?? '')
+      setEsComodato(Boolean(initial.esComodato))
+      setComodatoAQuien(initial.comodatoAQuien ?? '')
+      setComodatoTiempo(initial.comodatoTiempo ?? '')
+      setComodatoCondiciones(initial.comodatoCondiciones ?? '')
       return
     }
 
+    setEsComodato(false)
+    setComodatoAQuien('')
+    setComodatoTiempo('')
+    setComodatoCondiciones('')
     setMovementType('in')
     setItemType('')
     setSelectedItemId(null)
@@ -180,7 +199,40 @@ export function NewMovementModal({
   useEffect(() => {
     if (!open) return
     setAllowSimilarCreate(false)
+    if (movementType !== 'out') {
+      setEsComodato(false)
+      setComodatoAQuien('')
+      setComodatoTiempo('')
+      setComodatoCondiciones('')
+    }
   }, [movementType, open])
+
+  function handleEsComodatoCheckedChange(next: boolean) {
+    if (next) {
+      setEsComodato(true)
+      return
+    }
+    const hasComodatoData =
+      notes.trim() !== '' ||
+      comodatoAQuien.trim() !== '' ||
+      comodatoTiempo.trim() !== '' ||
+      comodatoCondiciones.trim() !== ''
+    if (!hasComodatoData) {
+      setEsComodato(false)
+      return
+    }
+    if (
+      window.confirm(
+        'Si desactivas el comodato, se borrarán la descripción y las respuestas del comodato. ¿Continuar?',
+      )
+    ) {
+      setNotes('')
+      setComodatoAQuien('')
+      setComodatoTiempo('')
+      setComodatoCondiciones('')
+      setEsComodato(false)
+    }
+  }
 
   function validate(): boolean {
     const next: FieldErrors = {}
@@ -203,6 +255,17 @@ export function NewMovementModal({
     if (movementType === 'out') {
       if (!selectedItemId) {
         next.itemName = 'Para salida debes seleccionar un artículo existente.'
+      }
+      if (esComodato) {
+        if (!comodatoAQuien.trim()) {
+          next.comodatoAQuien = 'Indica a quién se lo prestaste.'
+        }
+        if (!comodatoTiempo.trim()) {
+          next.comodatoTiempo = 'Indica cuánto tiempo.'
+        }
+        if (!comodatoCondiciones.trim()) {
+          next.comodatoCondiciones = 'Indica las condiciones acordadas.'
+        }
       }
     } else {
       if (!trimmedName) {
@@ -278,6 +341,9 @@ export function NewMovementModal({
       newItemProveedor: undefined,
       newItemStockMinimo: undefined,
       newItemCuotaRecuperacion: undefined,
+      comodatoAQuien: undefined,
+      comodatoTiempo: undefined,
+      comodatoCondiciones: undefined,
     }))
   }
 
@@ -313,6 +379,11 @@ export function NewMovementModal({
         date,
         quantity: Math.floor(Number(quantity)),
         notes: notes.trim(),
+        esComodato: movementType === 'out' && esComodato,
+        comodatoAQuien: movementType === 'out' && esComodato ? comodatoAQuien.trim() : undefined,
+        comodatoTiempo: movementType === 'out' && esComodato ? comodatoTiempo.trim() : undefined,
+        comodatoCondiciones:
+          movementType === 'out' && esComodato ? comodatoCondiciones.trim() : undefined,
         allowSimilarCreate,
       }
       const m = await createMovement(input)
@@ -333,13 +404,13 @@ export function NewMovementModal({
     <Modal
       open={open}
       titleId={TITLE_ID}
-      title={initial ? 'Editar movimiento' : 'Registrar movimiento'}
+      title={viewOnly ? 'Ver movimiento' : (initial ? 'Editar movimiento' : 'Registrar movimiento')}
       onClose={onClose}
-      className="max-w-6xl"
+      className={viewOnly ? 'max-w-md' : 'max-w-6xl'}
     >
       <form onSubmit={handleSubmit} className="flex max-h-[calc(100vh-8rem)] flex-col px-5 pb-5 pt-4">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden md:grid-cols-[1.05fr_0.95fr]">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-50">
+        <div className={`grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden ${viewOnly ? 'justify-center' : 'md:grid-cols-[1.05fr_0.95fr]'}`}>
+          {!viewOnly && (<section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-50">
             <div className="border-b border-slate-200/70 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Artículo
@@ -610,8 +681,9 @@ export function NewMovementModal({
               ) : null}
             </div>
           </section>
+          )}
 
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white">
+          <section className={viewOnly ? 'w-full max-w-md' : 'flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white'} style={viewOnly ? {display: 'flex', minHeight: 0, flexDirection: 'column', overflow: 'hidden', borderRadius: '1rem', borderWidth: '1px', borderColor: 'rgba(15, 23, 42, 0.1)', backgroundColor: 'white'} : {}}>
             <div className="border-b border-slate-200/70 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Movimiento
@@ -627,6 +699,7 @@ export function NewMovementModal({
                   Tipo de movimiento
                 </label>
                 <Select
+                  disabled={viewOnly}
                   value={movementType}
                   onChange={(e) => {
                     setMovementType(e.target.value as MovementType)
@@ -647,6 +720,7 @@ export function NewMovementModal({
                   Cantidad
                 </label>
                 <Input
+                  disabled={viewOnly}
                   type="number"
                   min={1}
                   step={1}
@@ -668,6 +742,7 @@ export function NewMovementModal({
                   Fecha
                 </label>
                 <Input
+                  disabled={viewOnly}
                   type="date"
                   value={date}
                   onChange={(e) => {
@@ -681,17 +756,95 @@ export function NewMovementModal({
                 ) : null}
               </div>
 
+              {movementType === 'out' ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2.5">
+                  <p
+                    id={COMODATO_SWITCH_LABEL_ID}
+                    className="text-sm font-medium text-slate-700"
+                  >
+                    Es comodato
+                  </p>
+                  <Switch
+                    disabled={viewOnly}
+                    checked={esComodato}
+                    onCheckedChange={handleEsComodatoCheckedChange}
+                    aria-labelledby={COMODATO_SWITCH_LABEL_ID}
+                  />
+                </div>
+              ) : null}
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Descripción
                 </label>
                 <Textarea
+                  disabled={viewOnly}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Detalles del movimiento"
                   rows={8}
                 />
               </div>
+
+              {movementType === 'out' && esComodato ? (
+                <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                    Datos del comodato
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                      ¿A quién se lo prestaste?
+                    </label>
+                    <Input                      disabled={viewOnly}                      value={comodatoAQuien}
+                      onChange={(e) => {
+                        setComodatoAQuien(e.target.value)
+                        setErrors((prev) => ({ ...prev, comodatoAQuien: undefined }))
+                      }}
+                      placeholder="Nombre o identificación"
+                      aria-invalid={Boolean(errors.comodatoAQuien)}
+                    />
+                    {errors.comodatoAQuien ? (
+                      <p className="mt-1 text-sm text-rose-700">{errors.comodatoAQuien}</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                      ¿Cuánto tiempo?
+                    </label>
+                    <Input
+                      disabled={viewOnly}
+                      value={comodatoTiempo}
+                      onChange={(e) => {
+                        setComodatoTiempo(e.target.value)
+                        setErrors((prev) => ({ ...prev, comodatoTiempo: undefined }))
+                      }}
+                      placeholder="Ej. 2 semanas, hasta marzo…"
+                      aria-invalid={Boolean(errors.comodatoTiempo)}
+                    />
+                    {errors.comodatoTiempo ? (
+                      <p className="mt-1 text-sm text-rose-700">{errors.comodatoTiempo}</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                      ¿Condiciones acordadas?
+                    </label>
+                    <Input
+                      disabled={viewOnly}
+                      value={comodatoCondiciones}
+                      onChange={(e) => {
+                        setComodatoCondiciones(e.target.value)
+                        setErrors((prev) => ({ ...prev, comodatoCondiciones: undefined }))
+                      }}
+                      placeholder="Condiciones del préstamo"
+                      aria-invalid={Boolean(errors.comodatoCondiciones)}
+                    />
+                    {errors.comodatoCondiciones ? (
+                      <p className="mt-1 text-sm text-rose-700">{errors.comodatoCondiciones}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
 
               {submitError ? (
                 <p className="text-sm text-rose-700" role="alert">
@@ -703,17 +856,19 @@ export function NewMovementModal({
           </section>
         </div>
 
-        <div className="mt-4 flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+        <div className={`mt-4 flex flex-wrap ${viewOnly ? 'justify-center' : 'justify-end'} gap-3 border-t border-slate-100 pt-4`}>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancelar
+            {viewOnly ? 'Aceptar' : 'Cancelar'}
           </Button>
-          <Button type="submit" variant="secondary" disabled={submitting}>
-            {submitting
-              ? 'Registrando…'
-              : initial
-                ? 'Guardar cambios'
-                : 'Registrar Movimiento'}
-          </Button>
+          {!viewOnly && (
+            <Button type="submit" variant="secondary" disabled={submitting}>
+              {submitting
+                ? 'Registrando…'
+                : initial
+                  ? 'Guardar cambios'
+                  : 'Registrar Movimiento'}
+            </Button>
+          )}
         </div>
       </form>
     </Modal>
