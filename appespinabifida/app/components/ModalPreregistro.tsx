@@ -359,7 +359,7 @@ export default function ModalPreregistro({
                   <div className="space-y-4">
                     <Divider label="Nota de anulación" />
                     <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-4 text-base text-gray-900 whitespace-pre-line leading-relaxed min-h-32">
-                      {p.notaAnulacion || "Sin nota registrada."}
+                      {p.notaanulacion || "Sin nota registrada."}
                     </div>
                   </div>
                 )}
