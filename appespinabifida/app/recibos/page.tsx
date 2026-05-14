@@ -28,6 +28,7 @@ import type { InventoryItem } from "../lib/types/inventory";
 
 type Estatus = "Pagado" | "Pagado parcialmente" | "Pendiente";
 type MetodoPago = "efectivo" | "tarjeta" | "deposito" | "transferencia";
+type TipoPaciente = "A" | "B";
 
 interface ReciboProducto {
 	itemId: number | null;
@@ -42,6 +43,8 @@ interface Recibo {
 	fechaEmision: string;
 	montoTotal: number;
 	montoPagado: number;
+	tipoPaciente: TipoPaciente;
+	descuentoPct: number;
 	productos: ReciboProducto[];
 }
 
@@ -51,6 +54,11 @@ interface Pago {
 	monto: number;
 	metodoPago: MetodoPago;
 	fechaPago: string;
+}
+
+interface AsociadoMini {
+	id: string;
+	nombre: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,6 +79,33 @@ function formatDate(iso: string) {
 		month: "short",
 		year: "numeric",
 	});
+}
+
+// ─── Discount ─────────────────────────────────────────────────────────────────
+
+const DESCUENTO_DEFAULT: Record<TipoPaciente, number> = { A: 0, B: 50 };
+
+function aplicarDescuento(bruto: number, pct: number): number {
+	return Math.round(bruto * (1 - pct / 100) * 100) / 100;
+}
+
+// ─── Data layer ───────────────────────────────────────────────────────────────
+
+async function fetchRecibos(): Promise<Recibo[]> {
+	// TODO: replace with real API call once endpoint is live
+	// const res = await fetch("/api/recibos/obtener");
+	// if (!res.ok) throw new Error("Error al cargar recibos");
+	// return res.json();
+	return RECIBOS_INICIALES;
+}
+
+async function fetchAsociados(): Promise<AsociadoMini[]> {
+	// TODO: replace with real API call once endpoint is live
+	// const res = await fetch("/api/asociados/lista_asociados");
+	// if (!res.ok) throw new Error("Error al cargar asociados");
+	// const data: Array<{ id: string; nombre: string }> = await res.json();
+	// return data.map((a) => ({ id: String(a.id), nombre: a.nombre }));
+	return ASOCIADOS_INICIALES;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -95,6 +130,17 @@ const METODOS_PAGO: { id: MetodoPago; nombre: string; icon: React.ReactNode }[] 
 	{ id: "transferencia", nombre: "Transferencia", icon: <ArrowRightLeft className="h-4 w-4" /> },
 ];
 
+const ASOCIADOS_INICIALES: AsociadoMini[] = [
+	{ id: "1", nombre: "María Guadalupe Hernández Torres" },
+	{ id: "2", nombre: "Carlos Eduardo Ramírez López" },
+	{ id: "3", nombre: "Ana Sofía Martínez Pérez" },
+	{ id: "4", nombre: "Roberto Jiménez Vega" },
+	{ id: "5", nombre: "Lucía Fernández Castro" },
+	{ id: "6", nombre: "Diego Morales Ríos" },
+	{ id: "7", nombre: "Valentina Cruz Mendoza" },
+	{ id: "8", nombre: "Andrés Torres Guzmán" },
+];
+
 const RECIBOS_INICIALES: Recibo[] = [
 	{
 		id: "REC-2026-0001",
@@ -102,6 +148,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-03-13",
 		montoTotal: 3540.0,
 		montoPagado: 3540.0,
+		tipoPaciente: "A",
+		descuentoPct: 0,
 		productos: [
 			{ itemId: null, itemName: "Silla de ruedas manual", cantidad: 1, precioUnitario: 2500.0 },
 			{ itemId: null, itemName: "Cojín antiescaras", cantidad: 2, precioUnitario: 520.0 },
@@ -113,6 +161,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-03-15",
 		montoTotal: 1800.0,
 		montoPagado: 0,
+		tipoPaciente: "B",
+		descuentoPct: 50,
 		productos: [
 			{ itemId: null, itemName: "Andadera estándar", cantidad: 1, precioUnitario: 1200.0 },
 			{ itemId: null, itemName: "Plantillas ortopédicas", cantidad: 2, precioUnitario: 300.0 },
@@ -124,6 +174,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-03-20",
 		montoTotal: 2250.0,
 		montoPagado: 1000.0,
+		tipoPaciente: "A",
+		descuentoPct: 0,
 		productos: [
 			{ itemId: null, itemName: "Silla de ruedas pediátrica", cantidad: 1, precioUnitario: 2250.0 },
 		],
@@ -134,6 +186,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-03-22",
 		montoTotal: 950.0,
 		montoPagado: 950.0,
+		tipoPaciente: "B",
+		descuentoPct: 50,
 		productos: [
 			{ itemId: null, itemName: "Colchón antiescaras", cantidad: 1, precioUnitario: 950.0 },
 		],
@@ -144,6 +198,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-03-25",
 		montoTotal: 3100.0,
 		montoPagado: 0,
+		tipoPaciente: "A",
+		descuentoPct: 0,
 		productos: [],
 	},
 	{
@@ -152,6 +208,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-03-28",
 		montoTotal: 1650.0,
 		montoPagado: 800.0,
+		tipoPaciente: "B",
+		descuentoPct: 50,
 		productos: [],
 	},
 	{
@@ -160,6 +218,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-04-01",
 		montoTotal: 850.0,
 		montoPagado: 850.0,
+		tipoPaciente: "A",
+		descuentoPct: 0,
 		productos: [],
 	},
 	{
@@ -168,6 +228,8 @@ const RECIBOS_INICIALES: Recibo[] = [
 		fechaEmision: "2026-04-05",
 		montoTotal: 2400.0,
 		montoPagado: 0,
+		tipoPaciente: "B",
+		descuentoPct: 50,
 		productos: [],
 	},
 ];
@@ -392,7 +454,8 @@ function DesgloseModal({
 	onClose: () => void;
 }) {
 	const productos = recibo?.productos ?? [];
-	const subtotal = productos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+	const subtotoBruto = productos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+	const tieneDescuento = (recibo?.descuentoPct ?? 0) > 0;
 
 	return (
 		<Modal
@@ -412,6 +475,26 @@ function DesgloseModal({
 						<div>
 							<span className="font-medium text-slate-600">Fecha: </span>
 							<span className="text-slate-800">{formatDate(recibo.fechaEmision)}</span>
+						</div>
+						<div>
+							<span className="font-medium text-slate-600">Tipo de paciente: </span>
+							<span className="text-slate-800">Tipo {recibo.tipoPaciente}</span>
+							{tieneDescuento && (
+								<span className="ml-1.5 text-xs text-amber-600">
+									({recibo.descuentoPct}% desc.)
+								</span>
+							)}
+						</div>
+						<div>
+							<span className="font-medium text-slate-600">Total: </span>
+							<span
+								className={cn(
+									"font-semibold",
+									recibo.montoTotal === 0 ? "text-red-600" : "text-slate-800",
+								)}
+							>
+								{formatCurrency(recibo.montoTotal)}
+							</span>
 						</div>
 					</div>
 
@@ -449,6 +532,32 @@ function DesgloseModal({
 									))}
 								</tbody>
 								<tfoot>
+									{tieneDescuento && (
+										<>
+											<tr className="border-t border-slate-200">
+												<td
+													colSpan={3}
+													className="px-5 py-2 text-right text-sm text-slate-500"
+												>
+													Subtotal
+												</td>
+												<td className="px-5 py-2 text-right text-sm text-slate-500">
+													{formatCurrency(subtotoBruto)}
+												</td>
+											</tr>
+											<tr>
+												<td
+													colSpan={3}
+													className="px-5 py-2 text-right text-sm text-amber-600"
+												>
+													Descuento Tipo {recibo.tipoPaciente} ({recibo.descuentoPct}%)
+												</td>
+												<td className="px-5 py-2 text-right text-sm text-amber-600">
+													-{formatCurrency(subtotoBruto * recibo.descuentoPct / 100)}
+												</td>
+											</tr>
+										</>
+									)}
 									<tr className="border-t-2 border-slate-300">
 										<td
 											colSpan={3}
@@ -457,7 +566,7 @@ function DesgloseModal({
 											Total
 										</td>
 										<td className="px-5 py-3 text-right text-sm font-bold text-slate-900">
-											{formatCurrency(subtotal)}
+											{formatCurrency(recibo.montoTotal)}
 										</td>
 									</tr>
 								</tfoot>
@@ -488,9 +597,16 @@ function NuevoReciboModal({
 	onCrear: (r: Recibo) => void;
 }) {
 	const [asociado, setAsociado] = useState("");
+	const [asociadoSearch, setAsociadoSearch] = useState("");
+	const [showAsociadoDropdown, setShowAsociadoDropdown] = useState(false);
+	const [asociados, setAsociados] = useState<AsociadoMini[]>([]);
+	const [asociadosLoading, setAsociadosLoading] = useState(false);
+
 	const [fecha, setFecha] = useState("");
 	const [montoManual, setMontoManual] = useState("");
 	const [productos, setProductos] = useState<ReciboProducto[]>([]);
+	const [tipoPaciente, setTipoPaciente] = useState<TipoPaciente>("A");
+	const [descuentoPct, setDescuentoPct] = useState(0);
 
 	const [productSearch, setProductSearch] = useState("");
 	const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
@@ -499,13 +615,31 @@ function NuevoReciboModal({
 	const [creating, setCreating] = useState(false);
 
 	const searchRef = useRef<HTMLDivElement>(null);
+	const asociadoRef = useRef<HTMLDivElement>(null);
 
 	const computedTotal = productos.reduce(
 		(s, p) => s + p.cantidad * p.precioUnitario,
 		0,
 	);
 	const hasProductos = productos.length > 0;
-	const montoFinal = hasProductos ? computedTotal : parseFloat(montoManual) || 0;
+	const montoBruto = hasProductos ? computedTotal : parseFloat(montoManual) || 0;
+	const montoConDescuento = aplicarDescuento(montoBruto, descuentoPct);
+
+	// Load associates when modal opens
+	useEffect(() => {
+		if (!open) return;
+		let alive = true;
+		setAsociadosLoading(true);
+		fetchAsociados()
+			.then((data) => { if (alive) { setAsociados(data); setAsociadosLoading(false); } })
+			.catch(() => { if (alive) setAsociadosLoading(false); });
+		return () => { alive = false; };
+	}, [open]);
+
+	// Reset descuentoPct to default when patient type changes
+	useEffect(() => {
+		setDescuentoPct(DESCUENTO_DEFAULT[tipoPaciente]);
+	}, [tipoPaciente]);
 
 	// Auto-populate montoManual when products change
 	useEffect(() => {
@@ -537,7 +671,7 @@ function NuevoReciboModal({
 		return () => window.clearTimeout(t);
 	}, [productSearch]);
 
-	// Close dropdown on outside click
+	// Close inventory dropdown on outside click
 	useEffect(() => {
 		function handler(e: MouseEvent) {
 			if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -548,11 +682,32 @@ function NuevoReciboModal({
 		return () => document.removeEventListener("mousedown", handler);
 	}, []);
 
+	// Close associate dropdown on outside click
+	useEffect(() => {
+		function handler(e: MouseEvent) {
+			if (asociadoRef.current && !asociadoRef.current.contains(e.target as Node)) {
+				setShowAsociadoDropdown(false);
+			}
+		}
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, []);
+
+	// Filter associates client-side
+	const filteredAsociados = useMemo(() => {
+		const q = asociadoSearch.trim().toLowerCase();
+		if (!q) return asociados.slice(0, 8);
+		return asociados.filter((a) => a.nombre.toLowerCase().includes(q)).slice(0, 8);
+	}, [asociados, asociadoSearch]);
+
 	function handleClose() {
 		setAsociado("");
+		setAsociadoSearch("");
+		setShowAsociadoDropdown(false);
 		setFecha("");
 		setMontoManual("");
 		setProductos([]);
+		setTipoPaciente("A");
 		setProductSearch("");
 		setSearchResults([]);
 		setShowDropdown(false);
@@ -592,8 +747,8 @@ function NuevoReciboModal({
 		field: "cantidad" | "precioUnitario",
 		raw: string,
 	) {
-		const value = field === "cantidad" ? parseInt(raw, 10) : parseFloat(raw);
-		if (isNaN(value) || value < 0) return;
+		const parsed = field === "cantidad" ? parseInt(raw, 10) : parseFloat(raw);
+		const value = isNaN(parsed) || parsed < 0 ? 0 : parsed;
 		setProductos((prev) =>
 			prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
 		);
@@ -610,8 +765,10 @@ function NuevoReciboModal({
 			id,
 			asociado: asociado.trim(),
 			fechaEmision: fecha,
-			montoTotal: montoFinal,
+			montoTotal: montoConDescuento,
 			montoPagado: 0,
+			tipoPaciente,
+			descuentoPct,
 			productos,
 		});
 
@@ -650,16 +807,49 @@ function NuevoReciboModal({
 		>
 			<div className="space-y-4 px-5 py-4">
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					{/* Associate dropdown */}
 					<div>
 						<label className="mb-1 block text-xs font-medium text-slate-600">
 							Asociado
 						</label>
-						<Input
-							placeholder="Nombre del asociado"
-							value={asociado}
-							onChange={(e) => setAsociado(e.target.value)}
-						/>
+						<div ref={asociadoRef} className="relative">
+							<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+							{asociadosLoading && (
+								<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+							)}
+							<Input
+								className="pl-9 pr-9"
+								placeholder="Buscar asociado…"
+								value={asociadoSearch}
+								onChange={(e) => {
+									setAsociadoSearch(e.target.value);
+									setAsociado("");
+									setShowAsociadoDropdown(true);
+								}}
+								onFocus={() => setShowAsociadoDropdown(true)}
+							/>
+							{showAsociadoDropdown && filteredAsociados.length > 0 && (
+								<ul className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+									{filteredAsociados.map((a) => (
+										<li key={a.id}>
+											<button
+												type="button"
+												className="flex w-full items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
+												onClick={() => {
+													setAsociado(a.nombre);
+													setAsociadoSearch(a.nombre);
+													setShowAsociadoDropdown(false);
+												}}
+											>
+												<span className="font-medium text-slate-800">{a.nombre}</span>
+											</button>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
 					</div>
+
 					<div>
 						<label className="mb-1 block text-xs font-medium text-slate-600">
 							Fecha de emisión
@@ -669,6 +859,33 @@ function NuevoReciboModal({
 							value={fecha}
 							onChange={(e) => setFecha(e.target.value)}
 						/>
+					</div>
+				</div>
+
+				{/* Patient type */}
+				<div>
+					<p className="mb-2 text-xs font-medium text-slate-600">Tipo de paciente</p>
+					<div className="flex gap-2">
+						{(["A", "B"] as TipoPaciente[]).map((tipo) => (
+							<button
+								key={tipo}
+								type="button"
+								onClick={() => setTipoPaciente(tipo)}
+								className={cn(
+									"flex-1 rounded-lg border-2 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70",
+									tipoPaciente === tipo
+										? "border-slate-600 bg-slate-100 text-slate-800"
+										: "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100",
+								)}
+							>
+								Tipo {tipo}
+								{tipo === "B" && (
+									<span className="ml-1.5 text-xs font-normal text-amber-600">
+										(desc. aplicable)
+									</span>
+								)}
+							</button>
+						))}
 					</div>
 				</div>
 
@@ -736,7 +953,7 @@ function NuevoReciboModal({
 												type="number"
 												min="1"
 												step="1"
-												value={String(p.cantidad)}
+												value={p.cantidad === 0 ? "" : String(p.cantidad)}
 												onChange={(e) => updateProducto(i, "cantidad", e.target.value)}
 												className="w-20 text-right"
 											/>
@@ -745,8 +962,8 @@ function NuevoReciboModal({
 											<Input
 												type="number"
 												min="0"
-												step="0.01"
-												value={String(p.precioUnitario)}
+												step="10"
+												value={p.precioUnitario === 0 ? "" : String(p.precioUnitario)}
 												onChange={(e) =>
 													updateProducto(i, "precioUnitario", e.target.value)
 												}
@@ -787,10 +1004,10 @@ function NuevoReciboModal({
 					</div>
 				)}
 
-				{/* Monto total */}
+				{/* Monto base */}
 				<div>
 					<label className="mb-1 block text-xs font-medium text-slate-600">
-						Monto total
+						{descuentoPct > 0 ? "Monto base (antes del descuento)" : "Monto total"}
 						{hasProductos && (
 							<span className="ml-1.5 font-normal text-slate-400">
 								(calculado de los productos)
@@ -799,13 +1016,49 @@ function NuevoReciboModal({
 					</label>
 					<Input
 						type="number"
-						min="0.01"
-						step="0.01"
-						placeholder="0.00"
+						min="0"
+						step="10"
+						placeholder="0"
 						value={montoManual}
 						onChange={(e) => setMontoManual(e.target.value)}
 					/>
 				</div>
+
+				{/* Discount breakdown — shown for Tipo B when there's an amount */}
+				{tipoPaciente === "B" && montoBruto > 0 && (
+					<div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+						<div className="flex justify-between text-slate-600">
+							<span>Subtotal</span>
+							<span>{formatCurrency(montoBruto)}</span>
+						</div>
+						<div className="flex items-center justify-between text-amber-700">
+							<span className="flex items-center gap-1">
+								Descuento Tipo B
+								<span className="ml-1 flex items-center gap-0.5">
+									(
+									<Input
+										type="number"
+										min="0"
+										max="100"
+										step="10"
+										value={String(descuentoPct)}
+										onChange={(e) => {
+											const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
+											setDescuentoPct(v);
+										}}
+										className="h-6 w-14 px-1.5 text-center text-xs"
+									/>
+									%)
+								</span>
+							</span>
+							<span>-{formatCurrency(montoBruto * descuentoPct / 100)}</span>
+						</div>
+						<div className="mt-1 flex justify-between font-semibold text-slate-800">
+							<span>Total a cobrar</span>
+							<span>{formatCurrency(montoConDescuento)}</span>
+						</div>
+					</div>
+				)}
 			</div>
 
 			<div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
@@ -831,7 +1084,8 @@ export default function RecibosPage() {
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	const [recibos, setRecibos] = useState<Recibo[]>(RECIBOS_INICIALES);
+	const [recibos, setRecibos] = useState<Recibo[]>([]);
+	const [recibosError, setRecibosError] = useState<string | null>(null);
 	const [pagos, setPagos] = useState<Pago[]>(PAGOS_INICIALES);
 
 	const [nuevoOpen, setNuevoOpen] = useState(false);
@@ -851,6 +1105,14 @@ export default function RecibosPage() {
 			setSessionLoaded(session);
 			setLoading(false);
 		});
+	}, []);
+
+	useEffect(() => {
+		let alive = true;
+		fetchRecibos()
+			.then((data) => { if (alive) setRecibos(data); })
+			.catch(() => { if (alive) setRecibosError("Error al cargar recibos."); });
+		return () => { alive = false; };
 	}, []);
 
 	function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
@@ -1020,7 +1282,16 @@ export default function RecibosPage() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
-								{recibosFiltrados.length === 0 ? (
+								{recibosError ? (
+									<tr>
+										<td
+											colSpan={5}
+											className="px-5 py-10 text-center text-sm text-red-500"
+										>
+											{recibosError}
+										</td>
+									</tr>
+								) : recibosFiltrados.length === 0 ? (
 									<tr>
 										<td
 											colSpan={5}
@@ -1032,6 +1303,7 @@ export default function RecibosPage() {
 								) : (
 									recibosFiltrados.map((r) => {
 										const estatus = derivarEstatus(r);
+										const totalEsCero = r.montoTotal === 0;
 										return (
 											<tr
 												key={r.id}
@@ -1053,7 +1325,11 @@ export default function RecibosPage() {
 													>
 														{formatCurrency(r.montoPagado)}
 													</span>
-													<span className="text-slate-400">
+													<span
+														className={cn(
+															totalEsCero ? "font-semibold text-red-600" : "text-slate-400",
+														)}
+													>
 														{" "}
 														/ {formatCurrency(r.montoTotal)}
 													</span>
