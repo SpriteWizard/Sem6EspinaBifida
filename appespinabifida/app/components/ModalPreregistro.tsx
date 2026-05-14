@@ -21,6 +21,37 @@ interface ModalPreregistroProps {
   onNext?: () => void;
 }
 
+function calcularEdad(fechaNacimiento: string | undefined): number | null {
+  if (!fechaNacimiento) return null;
+  let birthDate: Date;
+  if (fechaNacimiento.includes("-")) {
+    // YYYY-MM-DD (input type="date")
+    birthDate = new Date(fechaNacimiento + "T00:00:00");
+  } else if (fechaNacimiento.includes("/")) {
+    // DD/MM/YYYY (legacy / dummy data)
+    const [d, m, y] = fechaNacimiento.split("/");
+    birthDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  } else {
+    return null;
+  }
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const dm = today.getMonth() - birthDate.getMonth();
+  if (dm < 0 || (dm === 0 && today.getDate() < birthDate.getDate())) age--;
+  return age;
+}
+
+function etapaVidaDesdeEdad(edad: number | null): string {
+  if (edad === null) return "—";
+  if (edad <= 2)  return "Primera infancia";
+  if (edad <= 5)  return "Preescolar";
+  if (edad <= 11) return "Edad escolar";
+  if (edad <= 17) return "Adolescencia";
+  if (edad <= 29) return "Adulto joven";
+  if (edad <= 59) return "Adulto";
+  return "Adulto mayor";
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
@@ -59,14 +90,17 @@ export default function ModalPreregistro({
 }: ModalPreregistroProps) {
   const isAnulado = preregistro.estatus === "Anulado";
   const TABS = isAnulado
-    ? ["Datos generales", "Historial", "Historial padres", "Notas"]
-    : ["Datos generales", "Historial", "Historial padres"];
+    ? ["Datos generales", "Historial", "Notas"]
+    : ["Datos generales", "Historial"];
 
   const [activeTab, setActiveTab] = useState("Datos generales");
   const [vista, setVista] = useState<Vista>("modal");
   const [nota, setNota] = useState("");
   const [confirmConfig, setConfirmConfig] = useState<ConfirmConfig | null>(null);
   const p = preregistro;
+
+  const edad = calcularEdad(p.fechaNacimiento);
+  const etapaVida = etapaVidaDesdeEdad(edad);
 
   useEffect(() => {
     setActiveTab("Datos generales");
@@ -131,7 +165,7 @@ export default function ModalPreregistro({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-        <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl xl:max-w-6xl">
+        <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
           {/* ── Vista: nota de anulación ── */}
           {vista === "nota" && (
@@ -251,10 +285,13 @@ export default function ModalPreregistro({
                     </Field>
                     <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                       <Field label="Fecha de nacimiento">{p.fechaNacimiento}</Field>
-                      <Field label="Edad">{p.edad}</Field>
+                      <Field label="Edad">{edad !== null ? `${edad} años` : "—"}</Field>
                     </div>
                     <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                       <Field label="Sexo">{p.sexo}</Field>
+                      <Field label="Etapa de vida">{etapaVida}</Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Estatus</span>
                         <span className={`self-start rounded-full px-4 py-1 text-sm font-semibold ${badgeColors[p.estatus]}`}>
@@ -263,27 +300,20 @@ export default function ModalPreregistro({
                       </div>
                     </div>
 
-                    <Divider label="Datos personales" />
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-                      <Field label="Nombre padre / madre">{p.nombrePadreMadre}</Field>
-                      <Field label="Etapa de vida">{p.etapaVida}</Field>
-                    </div>
+                    <Divider label="Padre / Madre o tutor" />
+                    <Field label="Nombre">{p.nombrePadreMadre}</Field>
 
                     <Divider label="Dirección" />
-                    <div className="space-y-5">
-                      <Field label="Calle y número">{p.direccion}</Field>
-                      <div className="grid grid-cols-3 gap-x-8 gap-y-5">
-                        <Field label="Ciudad">{p.ciudad}</Field>
-                        <Field label="Estado">{p.estado}</Field>
-                        <Field label="CP">{p.cp}</Field>
-                      </div>
+                    <Field label="Calle y número">{p.direccion}</Field>
+                    <div className="grid grid-cols-3 gap-x-8 gap-y-5">
+                      <Field label="Ciudad">{p.ciudad}</Field>
+                      <Field label="Estado">{p.estado}</Field>
+                      <Field label="CP">{p.cp}</Field>
                     </div>
 
                     <Divider label="Contacto" />
                     <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-                      <Field label="Teléfono casa">{p.telCasa}</Field>
-                      <Field label="Teléfono trabajo">{p.telTrabajo}</Field>
-                      <Field label="Teléfono celular">{p.telCel}</Field>
+                      <Field label="Teléfono de casa">{p.telefono}</Field>
                       <Field label="Correo electrónico">{p.correo}</Field>
                     </div>
 
@@ -303,9 +333,9 @@ export default function ModalPreregistro({
                 {/* HISTORIAL */}
                 {activeTab === "Historial" && (
                   <div className="space-y-8">
-                    <Divider label="Historial" />
+                    <Divider label="Historial médico" />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-                      <Field label="Lugar nac.">{p.lugarNacimiento}</Field>
+                      <Field label="Lugar de nacimiento">{p.lugarNacimiento}</Field>
                       <Field label="Hospital">{p.hospital}</Field>
                     </div>
                     <div className="space-y-1">
@@ -319,96 +349,6 @@ export default function ModalPreregistro({
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">¿Válvula?</span>
                         <SiNo value={p.valvula} />
-                      </div>
-                    </div>
-
-                    <Divider label="Fecha de últimos estudios" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Control urológico</span>
-                        <SiNo value={p.controlUrologico} />
-                      </div>
-                      <Field label="Lugar control urológico">{p.lugarControlUrologico}</Field>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-                      <div className="space-y-5">
-                        <Field label="Gral. orina">{p.fechaGralOrina}</Field>
-                        <Field label="Eco renal">{p.fechaEcoRenal}</Field>
-                        <Field label="Est. urodinámico">{p.fechaEstUrodinamico}</Field>
-                        <Field label="TAC cerebro">{p.fechaTacCerebro}</Field>
-                      </div>
-                      <div className="space-y-5">
-                        <Field label="Urocultivo">{p.fechaUrocultivo}</Field>
-                        <Field label="UroTAC">{p.fechaUroTac}</Field>
-                        <Field label="Últ. est. uro.">{p.fechaUltEstUro}</Field>
-                        <Field label="Otros">{p.fechaOtrosEstudios}</Field>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* HISTORIAL PADRES */}
-                {activeTab === "Historial padres" && (
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 gap-x-8 gap-y-10 xl:grid-cols-3">
-                      <div className="min-w-0 space-y-5">
-                        <Divider label="Historial madre" />
-                        <Field label="Lugar nac.">{p.madreLugarNacimiento}</Field>
-                        <Field label="Escolaridad">{p.madreEscolaridad}</Field>
-                        <Field label="Edad">{p.madreEdad}</Field>
-                        <Field label="Ocupación">{p.madreOcupacion}</Field>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Parentesco con pareja</span>
-                          <SiNo value={p.madreParentescoConPareja} />
-                        </div>
-                        <Field label="Cd. inicio embarazo">{p.madreCdInicioEmbarazo}</Field>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Ácido fólico antes o durante embarazo</span>
-                          <SiNo value={p.madreAcidoFolicoAntesDuranteEmbarazo} />
-                        </div>
-                        <Field label="Cant. citas ctrl. prenatal">{p.madreCantidadCitasControlPrenatal}</Field>
-                        <Field label="Seguro">{p.madreSeguro}</Field>
-                      </div>
-
-                      <div className="min-w-0 space-y-5">
-                        <Divider label="Historial padre" />
-                        <Field label="Lugar nacimiento">{p.padreLugarNacimiento}</Field>
-                        <Field label="Escolaridad">{p.padreEscolaridad}</Field>
-                        <Field label="Edad">{p.padreEdad}</Field>
-                        <Field label="Ocupación">{p.padreOcupacion}</Field>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Parentesco con pareja</span>
-                          <SiNo value={p.padreParentescoConPareja} />
-                        </div>
-                        <Field label="Seguro">{p.padreSeguro}</Field>
-                      </div>
-
-                      <div className="min-w-0 space-y-5">
-                        <Divider label="Historial ambos" />
-                        <div className="space-y-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Adicciones</span>
-                          <div className="rounded-md border border-gray-200 bg-white px-3 py-3 text-base text-gray-900 whitespace-pre-line min-h-[4.5rem] leading-relaxed">
-                            {p.adiccionesAmbos || "—"}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Ha tenido otro hijo con DTN</span>
-                          <SiNo value={p.otroHijoConDTN} />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Tiene algún familiar con DTN</span>
-                          <SiNo value={p.familiarConDTN} />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Exposición a tóxicos antes o durante embarazo</span>
-                          <SiNo value={p.exposicionToxicosEmbarazo} />
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Descripción toxinas</span>
-                          <div className="rounded-md border border-gray-200 bg-white px-3 py-3 text-base text-gray-900 whitespace-pre-line min-h-[4.5rem] leading-relaxed">
-                            {p.descripcionToxinas || "—"}
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>

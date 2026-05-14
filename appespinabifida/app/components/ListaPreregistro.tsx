@@ -6,6 +6,22 @@ import ModalPreregistro from "./ModalPreregistro";
 
 import { type FiltrosPreregistroValues } from "./FiltrosPreregistro";
 
+// ─── INTEGRACIÓN BACKEND ─────────────────────────────────────────────────────
+// Tres endpoints necesarios. Cuando estén listos, reemplaza las secciones
+// marcadas con "TODO:" en el código:
+//
+//   GET  /api/preregistros/lista
+//        Response: PreregistroDetalle[]
+//
+//   POST /api/preregistros/aceptar    Body: { id: string }
+//        Response: { ok: boolean }
+//
+//   POST /api/preregistros/anular     Body: { id: string; nota: string }
+//        Response: { ok: boolean }
+//
+// Mientras no haya backend, las acciones se imprimen en consola.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export type EstatusPreregistro = "Pendiente" | "Anulado";
 
 const badgeColors: Record<EstatusPreregistro, string> = {
@@ -21,135 +37,174 @@ export interface PreregistroDetalle {
   estatus: EstatusPreregistro;
   notaAnulacion?: string;
 
-  // ── Datos generales ───────────────────────────────────────────────────────
-  fechaNacimiento?: string;
-  sexo?: string;
-  curp?: string;
-  edad?: string;
-  nombrePadreMadre?: string;
-  etapaVida?: string;
-  direccion?: string;
-  ciudad?: string;
-  estado?: string;
-  cp?: string;
-  telCasa?: string;
-  telTrabajo?: string;
-  telCel?: string;
-  correo?: string;
-  contactoEmergencia?: {
+  // ── Datos generales (obligatorio) ─────────────────────────────────────────
+  fechaNacimiento: string;
+  sexo: string;
+  curp: string;
+  correo: string;
+  telefono: string;
+  nombrePadreMadre: string;
+  contactoEmergencia: {
     nombre: string;
     telefono: string;
     relacion: string;
   };
 
-  // ── Historial clínico ─────────────────────────────────────────────────────
+  // ── Dirección (opcional) ──────────────────────────────────────────────────
+  direccion?: string;
+  ciudad?: string;
+  estado?: string;
+  cp?: string;
+
+  // ── Historial médico (opcional) ───────────────────────────────────────────
   lugarNacimiento?: string;
   hospital?: string;
   padecimiento?: string;
   tipoSangre?: string;
   valvula?: boolean;
-  controlUrologico?: boolean;
-  lugarControlUrologico?: string;
-  fechaGralOrina?: string;
-  fechaEcoRenal?: string;
-  fechaEstUrodinamico?: string;
-  fechaTacCerebro?: string;
-  fechaUrocultivo?: string;
-  fechaUroTac?: string;
-  fechaUltEstUro?: string;
-  fechaOtrosEstudios?: string;
-
-  // ── Historial padres ──────────────────────────────────────────────────────
-  madreLugarNacimiento?: string;
-  madreEscolaridad?: string;
-  madreEdad?: string;
-  madreOcupacion?: string;
-  madreParentescoConPareja?: boolean;
-  madreCdInicioEmbarazo?: string;
-  madreAcidoFolicoAntesDuranteEmbarazo?: boolean;
-  madreCantidadCitasControlPrenatal?: string;
-  madreSeguro?: string;
-  padreLugarNacimiento?: string;
-  padreEscolaridad?: string;
-  padreEdad?: string;
-  padreOcupacion?: string;
-  padreParentescoConPareja?: boolean;
-  padreSeguro?: string;
-  adiccionesAmbos?: string;
-  otroHijoConDTN?: boolean;
-  familiarConDTN?: boolean;
-  exposicionToxicosEmbarazo?: boolean;
-  descripcionToxinas?: string;
 }
 
-// TODO: Eliminar datos dummy cuando el endpoint de backend esté listo
+// TODO: Eliminar datos dummy cuando el endpoint GET /api/preregistros/lista esté listo.
+// Cada caso cubre una etapa de vida distinta y refleja qué campos opcionales
+// puede o no haber llenado el solicitante.
 const DUMMY_PREREGISTROS: PreregistroDetalle[] = [
   {
-    id: "PR-001", nombre: "Ana Martínez López", fechaSolicitud: "10/04/2024", estatus: "Pendiente",
-    fechaNacimiento: "05/03/2018", sexo: "Femenino", curp: "MALA180305MDFRRNA5", edad: "6",
-    nombrePadreMadre: "Rosa López Vega", etapaVida: "Infancia",
-    direccion: "Calle Pino 12, Col. Jardines", ciudad: "Monterrey", estado: "N.L.", cp: "64000",
-    telCasa: "81 1234 5678", telCel: "81 9876 5432", correo: "rosa.lopez@email.com",
+    // Edad escolar (8 años) — todos los campos completos
+    id: "PR-001",
+    nombre: "Ana Martínez López",
+    fechaSolicitud: "10/04/2025",
+    estatus: "Pendiente",
+    fechaNacimiento: "05/03/2018",
+    sexo: "Femenino",
+    curp: "MALA180305MNLRTNA8",
+    correo: "rosa.lopez@correo.com",
+    telefono: "81 9876 5432",
+    nombrePadreMadre: "Rosa López Vega",
     contactoEmergencia: { nombre: "Rosa López Vega", telefono: "81 9876 5432", relacion: "Madre" },
-    lugarNacimiento: "MONTERREY, N.L.", hospital: "IMSS",
-    padecimiento: "MIELOMENINGOCELE\nHIDROCEFALIA",
-    tipoSangre: "O+", valvula: true, controlUrologico: true, lugarControlUrologico: "Hospital Universitario",
-    madreLugarNacimiento: "SALTILLO, COAH.", madreEscolaridad: "PREPARATORIA", madreEdad: "32",
-    madreOcupacion: "HOGAR", madreParentescoConPareja: false, madreCdInicioEmbarazo: "MONTERREY, N.L.",
-    madreAcidoFolicoAntesDuranteEmbarazo: true, madreCantidadCitasControlPrenatal: "8", madreSeguro: "IMSS",
-    padreLugarNacimiento: "MONTERREY, N.L.", padreEscolaridad: "UNIVERSIDAD", padreEdad: "35",
-    padreOcupacion: "EMPLEADO", padreParentescoConPareja: false, padreSeguro: "IMSS",
-    otroHijoConDTN: false, familiarConDTN: false, exposicionToxicosEmbarazo: false,
+    direccion: "Calle Pino 12, Col. Jardines",
+    ciudad: "Monterrey",
+    estado: "Nuevo León",
+    cp: "64000",
+    lugarNacimiento: "Monterrey, N.L.",
+    hospital: "IMSS",
+    padecimiento: "Mielomeningocele\nHidrocefalia",
+    tipoSangre: "O+",
+    valvula: true,
   },
   {
-    id: "PR-002", nombre: "Luis Torres García", fechaSolicitud: "12/04/2024", estatus: "Pendiente",
-    fechaNacimiento: "20/11/2020", sexo: "Masculino", curp: "TOGL201120HDFRRS02", edad: "3",
-    nombrePadreMadre: "Carmen García Reyes", etapaVida: "Primera infancia",
-    direccion: "Av. Roble 45, Col. San Pedro", ciudad: "San Pedro Garza García", estado: "N.L.", cp: "66220",
-    telCel: "81 5555 1234", correo: "carmen.garcia@email.com",
+    // Preescolar (5 años) — sin dirección; historial parcial
+    id: "PR-002",
+    nombre: "Luis Torres García",
+    fechaSolicitud: "12/04/2025",
+    estatus: "Pendiente",
+    fechaNacimiento: "20/11/2020",
+    sexo: "Masculino",
+    curp: "TOGL201120HNLRRSA2",
+    correo: "carmen.garcia@correo.com",
+    telefono: "81 5555 1234",
+    nombrePadreMadre: "Carmen García Reyes",
     contactoEmergencia: { nombre: "Carmen García Reyes", telefono: "81 5555 1234", relacion: "Madre" },
-    lugarNacimiento: "SAN PEDRO GARZA GARCÍA, N.L.", hospital: "TEC SALUD",
-    padecimiento: "ESPINA BÍFIDA OCULTA",
-    tipoSangre: "A+", valvula: false, controlUrologico: false,
-    madreEscolaridad: "UNIVERSIDAD", madreEdad: "28", madreOcupacion: "DOCENTE",
-    madreParentescoConPareja: false, madreAcidoFolicoAntesDuranteEmbarazo: false,
-    madreCantidadCitasControlPrenatal: "10", madreSeguro: "SEGURO POPULAR",
-    padreEscolaridad: "UNIVERSIDAD", padreEdad: "30", padreOcupacion: "INGENIERO",
-    padreParentescoConPareja: false, padreSeguro: "SEGURO POPULAR",
-    otroHijoConDTN: false, familiarConDTN: true, exposicionToxicosEmbarazo: false,
+    // Dirección: no proporcionada
+    padecimiento: "Espina bífida oculta",
+    tipoSangre: "A+",
+    valvula: false,
+    // Hospital y lugar de nac: no proporcionados
   },
   {
-    id: "PR-003", nombre: "Sofía Ramírez Cruz", fechaSolicitud: "15/04/2024", estatus: "Anulado",
+    // Edad escolar (9 años) — Anulado; sin dirección ni historial médico
+    id: "PR-003",
+    nombre: "Sofía Ramírez Cruz",
+    fechaSolicitud: "15/04/2025",
+    estatus: "Anulado",
     notaAnulacion: "Documentación incompleta. El padre no presentó acta de nacimiento del menor. Se le indicó que puede volver a registrarse una vez que cuente con los documentos requeridos.",
-    fechaNacimiento: "14/07/2016", sexo: "Femenino", curp: "RACS160714MDFMRS08", edad: "7",
-    direccion: "Calle Cedro 88, Col. Las Flores", ciudad: "CDMX", estado: "CDMX", cp: "07500",
-    telCel: "55 6677 8899",
-    contactoEmergencia: { nombre: "Marco Ramírez", telefono: "55 6677 8899", relacion: "Padre" },
-    lugarNacimiento: "CDMX", padecimiento: "MIELOMENINGOCELE", tipoSangre: "B+", valvula: false,
+    fechaNacimiento: "14/07/2016",
+    sexo: "Femenino",
+    curp: "RACS160714MDFRMZA8",
+    correo: "marco.ramirez@correo.com",
+    telefono: "55 6677 8899",
+    nombrePadreMadre: "Marco Ramírez Díaz",
+    contactoEmergencia: { nombre: "Marco Ramírez Díaz", telefono: "55 6677 8899", relacion: "Padre" },
+    // Dirección e historial: no proporcionados
   },
   {
-    id: "PR-004", nombre: "Javier Mendoza Ríos", fechaSolicitud: "18/04/2024", estatus: "Anulado",
-    notaAnulacion: "El paciente ya está registrado con folio EB-1007 bajo el nombre Francisco López Garrido. Doble registro detectado.",
-    fechaNacimiento: "02/09/2019", sexo: "Masculino", curp: "MERJ190902HDFNSR01", edad: "4",
-    direccion: "Av. Palmas 200, Col. Polanco", ciudad: "CDMX", estado: "CDMX", cp: "11560",
-    telCel: "55 3344 5566",
-    contactoEmergencia: { nombre: "Irene Ríos", telefono: "55 3344 5566", relacion: "Madre" },
-    lugarNacimiento: "CDMX", padecimiento: "MIELOMENINGOCELE\nVÁLVULA DE DERIVACIÓN", tipoSangre: "O-",
-    valvula: true, controlUrologico: true,
+    // Primera infancia (1 año) — con dirección; sin historial médico (poco historial aún)
+    id: "PR-004",
+    nombre: "Valentina Ruiz Domínguez",
+    fechaSolicitud: "18/04/2025",
+    estatus: "Pendiente",
+    fechaNacimiento: "10/02/2025",
+    sexo: "Femenino",
+    curp: "RUDV250210MNLZNDA4",
+    correo: "elena.dominguez@correo.com",
+    telefono: "81 3344 5566",
+    nombrePadreMadre: "Elena Domínguez Vela",
+    contactoEmergencia: { nombre: "Elena Domínguez Vela", telefono: "81 3344 5566", relacion: "Madre" },
+    direccion: "Av. Constitución 780, Col. Centro",
+    ciudad: "Monterrey",
+    estado: "Nuevo León",
+    cp: "64000",
+    // Historial médico: no proporcionado
   },
   {
-    id: "PR-005", nombre: "Claudia Vega Mora", fechaSolicitud: "20/04/2024", estatus: "Pendiente",
-    fechaNacimiento: "30/06/2022", sexo: "Femenino", curp: "VEMC220630MDFGRL06", edad: "1",
+    // Adolescencia (16 años) — sin dirección; historial médico completo
+    id: "PR-005",
+    nombre: "Carlos Hernández Salinas",
+    fechaSolicitud: "20/04/2025",
+    estatus: "Pendiente",
+    fechaNacimiento: "15/08/2009",
+    sexo: "Masculino",
+    curp: "HESC090815HNLRNDA3",
+    correo: "carlos.hernandez@correo.com",
+    telefono: "81 7788 9900",
+    nombrePadreMadre: "Patricia Salinas Mora",
+    contactoEmergencia: { nombre: "Patricia Salinas Mora", telefono: "81 7788 9900", relacion: "Madre" },
+    // Dirección: no proporcionada
+    lugarNacimiento: "Monterrey, N.L.",
+    hospital: "Hospital Universitario UANL",
+    padecimiento: "Mielomeningocele\nMédula anclada",
+    tipoSangre: "B+",
+    valvula: false,
+  },
+  {
+    // Adulto joven (25 años) — Anulado; todos los campos completos
+    id: "PR-006",
+    nombre: "María García Flores",
+    fechaSolicitud: "22/04/2025",
+    estatus: "Anulado",
+    notaAnulacion: "La solicitante ya se encuentra registrada con folio EB-0342 bajo el mismo nombre y CURP. Doble registro detectado.",
+    fechaNacimiento: "22/03/2001",
+    sexo: "Femenino",
+    curp: "GAFM010322MNLRCLA5",
+    correo: "maria.garcia@correo.com",
+    telefono: "81 2233 4455",
+    nombrePadreMadre: "Jorge García Reyes",
+    contactoEmergencia: { nombre: "Jorge García Reyes", telefono: "81 2233 4455", relacion: "Padre" },
+    direccion: "Calle Roble 55, Col. Del Valle",
+    ciudad: "San Pedro Garza García",
+    estado: "Nuevo León",
+    cp: "66220",
+    lugarNacimiento: "Monterrey, N.L.",
+    hospital: "TEC Salud",
+    padecimiento: "Espina bífida oculta",
+    tipoSangre: "A-",
+    valvula: false,
+  },
+  {
+    // Preescolar (3 años) — sin historial médico; dirección parcial (sin CP)
+    id: "PR-007",
+    nombre: "Diego Vega Mora",
+    fechaSolicitud: "25/04/2025",
+    estatus: "Pendiente",
+    fechaNacimiento: "08/09/2022",
+    sexo: "Masculino",
+    curp: "VEMD220908HJAGMRA7",
+    correo: "isabel.mora@correo.com",
+    telefono: "33 1122 3344",
     nombrePadreMadre: "Isabel Mora Castillo",
-    direccion: "Calle Magnolia 3, Col. Residencial", ciudad: "Guadalajara", estado: "Jal.", cp: "44100",
-    telCasa: "33 9988 7766", telCel: "33 1122 3344",
     contactoEmergencia: { nombre: "Isabel Mora Castillo", telefono: "33 1122 3344", relacion: "Madre" },
-    lugarNacimiento: "GUADALAJARA, JAL.", hospital: "HOSPITAL CIVIL",
-    padecimiento: "ESPINA BÍFIDA OCULTA", tipoSangre: "AB+", valvula: false, controlUrologico: false,
-    madreEscolaridad: "SECUNDARIA", madreEdad: "25", madreOcupacion: "HOGAR",
-    madreParentescoConPareja: false, madreAcidoFolicoAntesDuranteEmbarazo: false,
-    madreCantidadCitasControlPrenatal: "6", madreSeguro: "SEGURO POPULAR",
-    otroHijoConDTN: false, familiarConDTN: false, exposicionToxicosEmbarazo: false,
+    ciudad: "Guadalajara",
+    estado: "Jalisco",
+    // Dirección, CP e historial médico: no proporcionados
   },
 ];
 
@@ -165,7 +220,7 @@ export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    // TODO: Reemplazar con la llamada real al API cuando el backend esté listo:
+    // TODO: Reemplazar con la llamada real cuando el backend esté listo:
     // const res = await fetch("/api/preregistros/lista");
     // if (res.ok) { const json = await res.json(); setRawData(json); }
     setRawData(DUMMY_PREREGISTROS);
@@ -216,12 +271,16 @@ export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
           onPrev={selectedIndex > 0 ? () => setSelectedIndex(selectedIndex - 1) : undefined}
           onNext={selectedIndex < data.length - 1 ? () => setSelectedIndex(selectedIndex + 1) : undefined}
           onAceptar={(id) => {
-            // TODO: POST /api/preregistros/aceptar cuando el backend esté listo
+            // TODO: conectar al backend:
+            // await fetch("/api/preregistros/aceptar", { method: "POST", body: JSON.stringify({ id }) });
+            console.log("[preregistro] Aceptar →", JSON.stringify({ id }, null, 2));
             setRawData((prev) => prev.filter((p) => p.id !== id));
             setSelectedIndex(null);
           }}
           onAnular={(id, nota) => {
-            // TODO: POST /api/preregistros/anular cuando el backend esté listo
+            // TODO: conectar al backend:
+            // await fetch("/api/preregistros/anular", { method: "POST", body: JSON.stringify({ id, nota }) });
+            console.log("[preregistro] Anular →", JSON.stringify({ id, nota }, null, 2));
             setRawData((prev) =>
               prev.map((p) =>
                 p.id === id ? { ...p, estatus: "Anulado" as const, notaAnulacion: nota } : p

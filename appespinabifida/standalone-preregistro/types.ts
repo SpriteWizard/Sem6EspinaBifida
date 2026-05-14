@@ -1,5 +1,6 @@
 /** Datos que envía el formulario de preregistro (futuro asociado). */
 export type PreregistroRegistroPayload = {
+  correo: string;
   nombre: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
@@ -11,18 +12,21 @@ export type PreregistroRegistroPayload = {
   direccionCiudad: string;
   direccionEstado: string;
   direccionCp: string;
-  contactoEmergenciaRelacion: string;
+  contactoEmergenciaNombre: string;
   contactoEmergenciaTelefono: string;
-  madreNombre: string;
-  madreApellidoPaterno: string;
-  madreApellidoMaterno: string;
-  padreNombre: string;
-  padreApellidoPaterno: string;
-  padreApellidoMaterno: string;
+  contactoEmergenciaRelacion: string;
+  padresMadresNombre: string;
+  padresMadresApellidoPaterno: string;
+  padresMadresApellidoMaterno: string;
+  lugarNacimiento: string;
+  hospital: string;
+  valvula: string;
+  tipoSangre: string;
   antecedentesMedicos: string;
 };
 
 export const emptyPreregistroPayload = (): PreregistroRegistroPayload => ({
+  correo: "",
   nombre: "",
   apellidoPaterno: "",
   apellidoMaterno: "",
@@ -34,13 +38,15 @@ export const emptyPreregistroPayload = (): PreregistroRegistroPayload => ({
   direccionCiudad: "",
   direccionEstado: "",
   direccionCp: "",
-  contactoEmergenciaRelacion: "",
+  contactoEmergenciaNombre: "",
   contactoEmergenciaTelefono: "",
-  madreNombre: "",
-  madreApellidoPaterno: "",
-  madreApellidoMaterno: "",
-  padreNombre: "",
-  padreApellidoPaterno: "",
-  padreApellidoMaterno: "",
+  contactoEmergenciaRelacion: "",
+  padresMadresNombre: "",
+  padresMadresApellidoPaterno: "",
+  padresMadresApellidoMaterno: "",
+  lugarNacimiento: "",
+  hospital: "",
+  valvula: "",
+  tipoSangre: "",
   antecedentesMedicos: "",
 });
