@@ -6,15 +6,22 @@ import { Search } from "lucide-react";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
 
-type FilterProps = {
-  sendFilters: Function;
+export interface FiltrosPreregistroValues {
+  id: number | null;
+  nombre: string;
+  fecha: string;
+  estatus: string;
 }
 
-export default function Filtros({ sendFilters }: FilterProps) {
+type FilterProps = {
+  sendFilters: (f: FiltrosPreregistroValues) => void;
+}
+
+export default function FiltrosPreregistro({ sendFilters }: FilterProps) {
   const [id, setId] = useState<number | null>(null);
   const [nombre, setNombre] = useState<string>("");
   const [fecha, setFecha] = useState<string>("");
-  const [estatus, setEstatus] = useState<string>("");
+  const [estatus, setEstatus] = useState<string>("Pendiente");
 
   useEffect(() => {
     sendFilters({ id, nombre, fecha, estatus });
@@ -47,26 +54,26 @@ export default function Filtros({ sendFilters }: FilterProps) {
           />
         </div>
 
-        {/* Fecha de alta */}
+        {/* Fecha de solicitud */}
         <div>
           <Input
             type="date"
             onChange={(e) => setFecha(e.target.value)}
-            aria-label="Filtrar por fecha de alta"
+            aria-label="Filtrar por fecha de solicitud"
           />
-          <span className="mt-1 block text-xs text-slate-500">Fecha de alta</span>
+          <span className="mt-1 block text-xs text-slate-500">Fecha de solicitud</span>
         </div>
 
         {/* Estatus */}
         <div className="relative">
           <Select
+            defaultValue="Pendiente"
             onChange={(e) => setEstatus(e.target.value)}
             aria-label="Filtrar por estatus"
           >
             <option value="">Todos los estatus</option>
-            <option value="Activo">Activo</option>
-            <option value="Inactivo">Inactivo</option>
             <option value="Pendiente">Pendiente</option>
+            <option value="Anulado">Anulado</option>
           </Select>
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">▼</span>
         </div>
