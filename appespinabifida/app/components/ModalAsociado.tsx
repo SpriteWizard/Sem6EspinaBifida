@@ -7,6 +7,7 @@ import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
 import { Textarea } from "./ui/Textarea";
 import { useRouter } from "next/navigation";
+import { Session } from "inspector/promises";
 
 
 type Estatus = "Activo" | "Inactivo" | "Pendiente";
@@ -193,6 +194,7 @@ function mergeDetalle(a: AsociadoDetalle) {
     fotoUrl: ""
   };
 } 
+import { useSession } from "next-auth/react";
 
 export default function ModalAsociado({
   asociado,
@@ -203,7 +205,7 @@ export default function ModalAsociado({
 }: ModalAsociadoProps) {
 
   const router = useRouter();
-
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("Datos generales");
   const base = useMemo(() => mergeDetalle(asociado), [asociado]);
   const [draft, setDraft] = useState(() => mergeDetalle(asociado));
@@ -351,7 +353,8 @@ export default function ModalAsociado({
             {isEditMode ? "Modo edición activado" : "Modo vista"}
           </p>
           <div className="flex gap-2">
-            {isEditMode ? (
+            { ((session as any).user as any).role === "admin" || ((session as any).user as any).role === "superadmin" &&
+            (isEditMode ? (
               <>
                 <button
                   type="button"
@@ -376,7 +379,7 @@ export default function ModalAsociado({
               >
                 Editar
               </button>
-            )}
+            ))}
           </div>
         </div>
 

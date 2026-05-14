@@ -52,8 +52,22 @@ export const authOptions: NextAuthOptions = {
 
 			callbacks: {
 				async signIn({user, account}: any){
+
+					const existingUser = await getUserByEmail(user.email!);
+
+					if (existingUser.activo == 0){
+						return false;
+					}
+
+					const res = await fetch(`${process.env.NEXTAUTH_URL}/api/login/log_acceso`,{
+						method: "PUT",
+						headers: {
+						"Content-Type": "application/json",
+						},
+						body : JSON.stringify({email: user.email})
+					})
+
 					if (account?.provider === "google"){
-						const existingUser = await getUserByEmail(user.email!);
 
 						if (!existingUser){
 							await createUser({
@@ -74,6 +88,8 @@ export const authOptions: NextAuthOptions = {
 						if (dbUser) {
 						token.id = String(dbUser.id_usuario);
 						token.role = dbUser.role;
+						token.name = dbUser.nombre ?? dbUser.correo ?? user.name ?? user.email;
+						token.email = dbUser.correo ?? user.email;
 						}
 					}
 
@@ -84,6 +100,8 @@ export const authOptions: NextAuthOptions = {
 					if (token) {
 						session.user.id = token.id as string;
 						session.user.role = token.role as string;
+						session.user.name = token.name as string;
+						session.user.email = token.email as string;
 					}
 					return session;
 				},

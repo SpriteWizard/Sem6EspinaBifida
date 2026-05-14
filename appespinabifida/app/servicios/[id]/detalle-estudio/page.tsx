@@ -1,6 +1,9 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-options";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ImprimirOrdenButton from "../../../components/ImprimirOrdenButton";
+import { useSession } from "next-auth/react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,6 +40,7 @@ export default async function DetalleEstudioPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await getServerSession(authOptions);
   const { id } = await params;
 
   const res = await fetch(
@@ -78,12 +82,14 @@ export default async function DetalleEstudioPage({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            { ((session as any).user as any).role === "admin" || ((session as any).user as any).role === "superadmin" ? (
             <Link
               href={`/servicios/${id}/editar-estudio`}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-10"
             >
               Editar estudio
-            </Link>
+            </Link>) : null
+            }
             <ImprimirOrdenButton
               estudioId={data.id_estudio}
               nombreAsociado={data.nombre_asociado ?? ""}
