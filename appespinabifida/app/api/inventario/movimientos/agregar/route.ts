@@ -31,6 +31,10 @@ type CreateMovementBody = {
   movementType?: 'in' | 'out'
   quantity?: number
   notes?: string
+  esComodato?: boolean
+  comodatoAQuien?: string
+  comodatoTiempo?: string
+  comodatoCondiciones?: string
 }
 
 function asPositiveInteger(value: unknown) {
@@ -151,6 +155,27 @@ export async function POST(request: Request) {
 
     const date = toApiDate(body.date)
     const notes = typeof body.notes === 'string' ? body.notes.trim() : ''
+    const esComodatoFlag =
+      movementType === 'out' && Boolean(body.esComodato) ? 1 : 0
+
+    const comodatoAQuien =
+      typeof body.comodatoAQuien === 'string' ? body.comodatoAQuien.trim() : ''
+    const comodatoTiempo =
+      typeof body.comodatoTiempo === 'string' ? body.comodatoTiempo.trim() : ''
+    const comodatoCondiciones =
+      typeof body.comodatoCondiciones === 'string' ? body.comodatoCondiciones.trim() : ''
+
+    if (esComodatoFlag === 1) {
+      if (!comodatoAQuien || !comodatoTiempo || !comodatoCondiciones) {
+        return Response.json(
+          {
+            error:
+              'Para salida en comodato debes completar: a quien se lo prestaste, cuanto tiempo y condiciones acordadas.',
+          },
+          { status: 400 },
+        )
+      }
+    }
 
     const payload = {
       id_articulo: itemId,
@@ -160,6 +185,10 @@ export async function POST(request: Request) {
       tipo: toMovementDbType(movementType),
       cantidad: quantity,
       notas: notes || null,
+      es_comodato: esComodatoFlag,
+      comodato_a_quien: esComodatoFlag ? comodatoAQuien : null,
+      comodato_tiempo: esComodatoFlag ? comodatoTiempo : null,
+      comodato_condiciones: esComodatoFlag ? comodatoCondiciones : null,
     }
 
     const createPaths = getCandidatePaths(

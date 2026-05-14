@@ -85,12 +85,30 @@ function formatSimilarList(names: string[]) {
   return names.join(', ')
 }
 
+function mapMovementEsComodato(raw: Record<string, unknown>): boolean {
+  const v =
+    raw.esComodato ?? raw.es_comodato ?? raw.ES_COMODATO ?? raw.escomodato
+  if (v === true) return true
+  if (v === false || v === null || v === undefined) return false
+  if (typeof v === 'number' && !Number.isNaN(v)) return v === 1
+  const s = String(v).trim().toLowerCase()
+  return s === '1' || s === 'true' || s === 'y' || s === 's' || s === 'si' || s === 'sí'
+}
+
 function mapMovementItemType(value: unknown): MovementItemType {
   const normalized = normalize(String(value ?? ''))
   if (normalized === 'material medico') return 'Material Médico'
   if (normalized === 'equipo medico') return 'Equipo Médico'
   if (normalized === 'medicamento') return 'Medicamento'
   return 'Consumible'
+}
+
+function mapMovementString(raw: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const v = raw[key]
+    if (v !== undefined && v !== null) return String(v).trim()
+  }
+  return ''
 }
 
 function mapMovement(raw: Partial<InventoryMovement> & Record<string, unknown>): InventoryMovement {
@@ -114,6 +132,10 @@ function mapMovement(raw: Partial<InventoryMovement> & Record<string, unknown>):
     movementType: raw.movementType === 'in' ? 'in' : 'out',
     quantity: Math.max(0, Math.floor(Number(raw.quantity ?? 0))),
     notes: String(raw.notes ?? '').trim(),
+    esComodato: mapMovementEsComodato(raw),
+    comodatoAQuien: mapMovementString(raw, 'comodatoAQuien', 'comodato_a_quien'),
+    comodatoTiempo: mapMovementString(raw, 'comodatoTiempo', 'comodato_tiempo'),
+    comodatoCondiciones: mapMovementString(raw, 'comodatoCondiciones', 'comodato_condiciones'),
     userId:
       raw.userId === null || raw.userId === undefined
         ? null
@@ -274,6 +296,19 @@ export async function createMovement(
       date: input.date,
       quantity: qty,
       notes: input.notes.trim(),
+      esComodato: Boolean(input.esComodato && input.movementType === 'out'),
+      comodatoAQuien:
+        input.movementType === 'out' && input.esComodato
+          ? (input.comodatoAQuien ?? '').trim()
+          : '',
+      comodatoTiempo:
+        input.movementType === 'out' && input.esComodato
+          ? (input.comodatoTiempo ?? '').trim()
+          : '',
+      comodatoCondiciones:
+        input.movementType === 'out' && input.esComodato
+          ? (input.comodatoCondiciones ?? '').trim()
+          : '',
     }),
   })
 
@@ -290,6 +325,20 @@ export async function createMovement(
       movementItemTypeFromCategoryId(resolvedItem.categoryId),
     notes: createdMovement.notes || input.notes.trim(),
     date: createdMovement.date || input.date,
+    esComodato:
+      createdMovement.esComodato ??
+      Boolean(input.esComodato && input.movementType === 'out'),
+    comodatoAQuien:
+      createdMovement.comodatoAQuien ??
+      (input.movementType === 'out' && input.esComodato ? (input.comodatoAQuien ?? '').trim() : ''),
+    comodatoTiempo:
+      createdMovement.comodatoTiempo ??
+      (input.movementType === 'out' && input.esComodato ? (input.comodatoTiempo ?? '').trim() : ''),
+    comodatoCondiciones:
+      createdMovement.comodatoCondiciones ??
+      (input.movementType === 'out' && input.esComodato
+        ? (input.comodatoCondiciones ?? '').trim()
+        : ''),
   }
 }
 

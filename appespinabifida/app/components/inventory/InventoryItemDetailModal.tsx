@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
 import { listMovements } from '../../lib/api/movements'
 import { updateInventoryItemSettings } from '../../lib/api/inventory'
 import type { InventoryItem } from '../../lib/types/inventory'
@@ -22,6 +24,7 @@ type Props = {
 }
 
 const TITLE_ID = 'inventory-item-detail-modal-title'
+const MOVEMENTS_PAGE_SIZE = 3
 
 function statusLabel(status: InventoryItem['status']) {
   if (status === 'in_stock') return 'En stock'
@@ -49,9 +52,30 @@ export function InventoryItemDetailModal({
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
 
-  const [movements, setMovements] = useState<InventoryMovement[]>([])
+  const [movementPages, setMovementPages] = useState<InventoryMovement[][]>([])
+  const [movementPageIndex, setMovementPageIndex] = useState(0)
   const [movementsLoading, setMovementsLoading] = useState(false)
+  const [movementsLoadingNext, setMovementsLoadingNext] = useState(false)
   const [movementsError, setMovementsError] = useState<string | null>(null)
+  const [movementsNextCursor, setMovementsNextCursor] = useState<string | null>(null)
+
+  const visibleMovements = movementPages[movementPageIndex] ?? []
+  const showMovementsError = movementPages.length === 0 ? movementsError : null
+  const canGoPrevious = movementPageIndex > 0
+  const canGoNext = movementPageIndex < movementPages.length - 1 || movementsNextCursor !== null
+
+  async function fetchMovementsPage(targetItem: InventoryItem, cursor: string | null) {
+    return listMovements({
+      movementType: 'all',
+      itemType: 'all',
+      itemId: targetItem.id,
+      itemName: targetItem.name,
+      date: '',
+      search: '',
+      cursor,
+      limit: MOVEMENTS_PAGE_SIZE,
+    })
+  }
 
   useEffect(() => {
     if (!open || !item) return
@@ -60,6 +84,12 @@ export function InventoryItemDetailModal({
     setCuotaError(null)
     setStockMinimoError(null)
     setSettingsSaved(false)
+    setMovementPages([])
+    setMovementPageIndex(0)
+    setMovementsLoading(false)
+    setMovementsLoadingNext(false)
+    setMovementsError(null)
+    setMovementsNextCursor(null)
     setCuotaValue(
       item.cuotaRecuperacion === null ? '' : String(item.cuotaRecuperacion),
     )
@@ -67,25 +97,18 @@ export function InventoryItemDetailModal({
   }, [open, item])
 
   useEffect(() => {
-    if (!open || !item || activeTab !== 'movements') return
+    if (!open || !item || activeTab !== 'movements' || movementPages.length > 0) return
 
     let alive = true
     setMovementsLoading(true)
     setMovementsError(null)
 
-    listMovements({
-      movementType: 'all',
-      itemType: 'all',
-      itemId: item.id,
-      itemName: item.name,
-      date: '',
-      search: '',
-      cursor: null,
-      limit: 50,
-    })
+    void fetchMovementsPage(item, null)
       .then((res) => {
         if (!alive) return
-        setMovements(res.items)
+        setMovementPages([res.items])
+        setMovementPageIndex(0)
+        setMovementsNextCursor(res.nextCursor)
       })
       .catch((error) => {
         if (!alive) return
@@ -103,7 +126,40 @@ export function InventoryItemDetailModal({
     return () => {
       alive = false
     }
-  }, [open, item, activeTab])
+  }, [open, item, activeTab, movementPages.length])
+
+  async function handlePreviousMovementsPage() {
+    if (movementPageIndex <= 0 || movementsLoading || movementsLoadingNext) return
+    setMovementPageIndex((prev) => Math.max(0, prev - 1))
+  }
+
+  async function handleNextMovementsPage() {
+    if (!item || movementsLoading || movementsLoadingNext) return
+
+    if (movementPageIndex < movementPages.length - 1) {
+      setMovementPageIndex((prev) => prev + 1)
+      return
+    }
+
+    if (!movementsNextCursor) return
+
+    setMovementsLoadingNext(true)
+    setMovementsError(null)
+    try {
+      const res = await fetchMovementsPage(item, movementsNextCursor)
+      setMovementPages((prev) => [...prev, res.items])
+      setMovementPageIndex((prev) => prev + 1)
+      setMovementsNextCursor(res.nextCursor)
+    } catch (error) {
+      setMovementsError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudieron cargar más movimientos de este artículo.',
+      )
+    } finally {
+      setMovementsLoadingNext(false)
+    }
+  }
 
   if (!item) return null
   const currentItem = item
@@ -267,10 +323,44 @@ export function InventoryItemDetailModal({
         ) : (
           <div className="rounded-xl bg-white ring-1 ring-slate-200/70">
             <MovementHistoryList
-              items={movements}
+              items={visibleMovements}
               loading={movementsLoading}
-              error={movementsError}
+              error={showMovementsError}
             />
+            {movementPages.length > 0 ? (
+              <div className="border-t border-slate-100 px-5 py-4">
+                <div className="flex items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 rounded-full p-0"
+                    aria-label="Página anterior"
+                    onClick={() => void handlePreviousMovementsPage()}
+                    disabled={!canGoPrevious || movementsLoading || movementsLoadingNext}
+                    leftIcon={<ChevronLeft className="h-4 w-4" aria-hidden />}
+                  />
+                  <div className="min-w-24 text-center text-sm font-medium text-slate-600">
+                    Página {movementPageIndex + 1}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 rounded-full p-0"
+                    aria-label="Página siguiente"
+                    onClick={() => void handleNextMovementsPage()}
+                    disabled={!canGoNext || movementsLoading || movementsLoadingNext}
+                    leftIcon={<ChevronRight className="h-4 w-4" aria-hidden />}
+                  />
+                </div>
+                {movementsError && movementPages.length > 0 ? (
+                  <p className="mt-3 text-center text-sm text-rose-700" role="alert">
+                    {movementsError}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

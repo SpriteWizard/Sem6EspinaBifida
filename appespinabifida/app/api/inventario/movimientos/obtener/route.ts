@@ -169,9 +169,11 @@ export async function GET(request: Request) {
         normalizeText(movement.notes).includes(normalizedSearch)
 
       const matchesMovementType =
-        !normalizedMovementType ||
-        normalizedMovementType === 'all' ||
-        normalizeText(movement.movementType) === normalizedMovementType
+        !normalizedMovementType || normalizedMovementType === 'all'
+          ? true
+          : normalizedMovementType === 'out_comodato'
+            ? movement.movementType === 'out' && movement.esComodato === true
+            : normalizeText(movement.movementType) === normalizedMovementType
 
       const matchesItemType =
         !normalizedItemType ||

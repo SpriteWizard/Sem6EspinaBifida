@@ -1,5 +1,8 @@
 export type MovementType = 'in' | 'out'
 
+/** Query filter for list endpoints: salidas flagged comodato in DB. */
+export type MovementListFilter = MovementType | 'all' | 'out_comodato'
+
 export type MovementItemType = 'Material Médico' | 'Equipo Médico' | 'Medicamento' | 'Consumible'
 
 export type InventoryMovement = {
@@ -11,6 +14,10 @@ export type InventoryMovement = {
   movementType: MovementType
   quantity: number
   notes: string
+  esComodato?: boolean
+  comodatoAQuien?: string
+  comodatoTiempo?: string
+  comodatoCondiciones?: string
   userId?: number | null
   userName?: string | null
   userEmail?: string | null
@@ -21,7 +28,7 @@ export type InventoryMovement = {
 
 export type ListMovementsParams = {
   search?: string
-  movementType?: MovementType | 'all'
+  movementType?: MovementListFilter
   itemType?: MovementItemType | 'all'
   itemId?: number
   itemName?: string
@@ -50,6 +57,10 @@ export type CreateMovementInput = {
   movementType: MovementType
   quantity: number
   notes: string
+  esComodato?: boolean
+  comodatoAQuien?: string
+  comodatoTiempo?: string
+  comodatoCondiciones?: string
   allowSimilarCreate?: boolean
 }
 
