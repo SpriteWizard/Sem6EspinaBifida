@@ -169,7 +169,10 @@ export default function ListaAsociados({
     const data = async () =>{
       const res = await fetch("/api/asociados/lista_asociados");
       if (res.ok){
-        const data = await res.json();
+        let data = await res.json();
+        data = data.filter((element : AsociadoDetalle) => {
+          return element.estatus != "Pendiente";
+        });
         setRawData(data);
         setData(data);
       }

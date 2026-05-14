@@ -8,20 +8,19 @@ import type { PreregistroRegistroPayload } from "../../standalone-preregistro";
 //   1. Descomenta el fetch de abajo.
 //   2. Elimina el console.log.
 //
-//   POST /api/preregistros/crear    Body: PreregistroRegistroPayload
-//        Response: { ok: boolean; id: string }
+//   POST /api/asociados/preRegistro/crear    Body: PreregistroRegistroPayload
+//        Response: { ok: boolean; result: string }
 //
 // Si el fetch lanza un error, el formulario lo captura y lo muestra al usuario.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function enviarPreregistro(data: PreregistroRegistroPayload): Promise<void> {
-  // TODO: descomentar cuando el backend esté listo:
-  // const res = await fetch("/api/preregistros/crear", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify(data),
-  // });
-  // if (!res.ok) throw new Error("No se pudo enviar el preregistro. Intenta de nuevo.");
+  const res = await fetch("/api/asociados/preRegistro/crear", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("No se pudo enviar el preregistro. Intenta de nuevo.");
 
   console.log("[preregistro] Crear →", JSON.stringify(data, null, 2));
 }
