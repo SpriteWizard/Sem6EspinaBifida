@@ -8,7 +8,7 @@ export default async function EditarConsultaPage({
 }) {
   const { id } = await params;
 
-  const res = await fetch(`${process.env.BASE_URL}/api/servicios/obtener/consultas/porId?id=${id}`)
+  const res = await fetch(`/api/servicios/obtener/consultas/porId?id=${id}`)
   const data = await res.json();
 
   return <EditarConsultaForm id ={id} data={data} />;
