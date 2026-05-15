@@ -1,3 +1,4 @@
+"use client";
 import EditarEstudioForm from "@/components/EditarEstudioForm";
 
 export default async function EditarEstudioPage({

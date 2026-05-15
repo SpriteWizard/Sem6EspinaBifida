@@ -1,3 +1,4 @@
+"use client";
 import EditarConsultaForm from "@/components/EditarConsultaForm";
 
 export default async function EditarConsultaPage({
