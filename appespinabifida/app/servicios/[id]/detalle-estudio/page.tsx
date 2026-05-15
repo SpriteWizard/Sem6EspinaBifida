@@ -159,6 +159,7 @@ export default async function DetalleEstudioPage({
               {LABORATORIOS[data.laboratorio] ?? data.laboratorio ?? "—"}
             </span>
           </div>
+          {/* Ya aportó - comentado temporalmente
           <div>
             <span className="mb-0.5 block text-xs text-slate-500">
               Ya aportó
@@ -167,6 +168,7 @@ export default async function DetalleEstudioPage({
               {data.ya_aporto ? "Sí" : "No"}
             </span>
           </div>
+          */}
         </div>
       </div>
 
@@ -234,9 +236,11 @@ export default async function DetalleEstudioPage({
           <span className="text-sm italic text-slate-400">
             Sin recibo vinculado aún.
           </span>
+          {/* Vincular recibo - comentado temporalmente
           <button className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-9">
             Vincular recibo
           </button>
+          */}
         </div>
       </div>
 

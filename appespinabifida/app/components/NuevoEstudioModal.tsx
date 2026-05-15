@@ -40,9 +40,13 @@ function normalizar(s: string) {
 export function NuevoEstudioModal({
   open,
   onClose,
+  defaultFolioConsulta,
+  defaultAsociadoId,
 }: {
   open: boolean
   onClose: () => void
+  defaultFolioConsulta?: string
+  defaultAsociadoId?: number
 }) {
   const router = useRouter()
 
@@ -76,13 +80,28 @@ export function NuevoEstudioModal({
   const [TIPOESTUDIO, setTIPOESTUDIO] = useState<TipoEstudio[]>([])
 
   useEffect(() => {
+    if (open && defaultFolioConsulta) {
+      setFolioConsulta(defaultFolioConsulta)
+      setFolioQuery(defaultFolioConsulta)
+    }
+  }, [open, defaultFolioConsulta])
+
+  useEffect(() => {
     if (!open) return
 
     fetch('/api/asociados/lista_asociados/estudio').then(async (res) => {
       if (res.ok) {
         const r = await res.json()
-        if (r.status === 'ok') setASOCIADOS(r.data)
-        else { alert('Error al conectarse a la base de datos'); setASOCIADOS([]) }
+        if (r.status === 'ok') {
+          setASOCIADOS(r.data)
+          if (defaultAsociadoId) {
+            const found = r.data.find((a: any) => a.id === defaultAsociadoId)
+            if (found) {
+              setSeleccionado(found)
+              setQuery(`${found.nombre} · #${found.id}`)
+            }
+          }
+        } else { alert('Error al conectarse a la base de datos'); setASOCIADOS([]) }
       } else {
         alert('Error al intentar cargar a los asociados, intentelo de nuevo más adelante')
         setASOCIADOS([])
@@ -346,6 +365,7 @@ export function NuevoEstudioModal({
               </div>
             </div>
 
+            {/* Ya aportó - comentado temporalmente
             <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
               <div>
                 <div className="text-sm text-slate-800">Ya aportó</div>
@@ -367,6 +387,7 @@ export function NuevoEstudioModal({
                 />
               </button>
             </div>
+            */}
 
           </div>
         </section>

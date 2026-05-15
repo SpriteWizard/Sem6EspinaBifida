@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth-options";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ListItemEstudio from "@/components/ListItemEstudio";
+import SolicitarEstudioButton from "@/components/SolicitarEstudioButton";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,9 +84,7 @@ export default async function DetalleConsultaPage({
             >
               Editar consulta
             </Link>) : null}
-            <button className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-10">
-              Solicitar estudio
-            </button>
+            <SolicitarEstudioButton folioConsulta={`CON-${data.id_consulta}`} defaultAsociadoId={data.id_asociado} />
           </div>
         </div>
       </div>
@@ -196,9 +195,11 @@ export default async function DetalleConsultaPage({
           <span className="text-sm italic text-slate-400">
             Sin recibo vinculado aún.
           </span>
+          {/* Vincular recibo - comentado temporalmente
           <button className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-9">
             Vincular recibo
           </button>
+          */}
         </div>
       </div>
 

@@ -225,7 +225,7 @@ export default function EditarEstudioForm({ data }: { data: any }) {
 
         </div>
 
-        {/* Ya aportó */}
+        {/* Ya aportó - comentado temporalmente
         <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
           <div>
             <div className="text-sm text-slate-800">Ya aportó</div>
@@ -247,6 +247,7 @@ export default function EditarEstudioForm({ data }: { data: any }) {
             />
           </button>
         </div>
+        */}
       </div>
 
       {/* Notas */}
