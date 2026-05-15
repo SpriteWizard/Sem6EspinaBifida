@@ -7,9 +7,7 @@ export default async function EditarEstudioPage({
 }) {
   const { id } = await params;
 
-  console.log(`${process.env.BASE_URL}/api/servicios/obtener/estudios/porId?id=${id}`)
-
-  const res = await fetch(`${process.env.BASE_URL}/api/servicios/obtener/estudios/porId?id=${id}`);
+  const res = await fetch(`${process.env.NEXTAUTH_URL}/api/servicios/obtener/estudios/porId?id=${id}`);
 
   console.log(res);
   const data = await res.json();

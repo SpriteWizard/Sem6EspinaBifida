@@ -23,6 +23,12 @@ commit;
 
 alter table asociado add constraint CHK_ACT_ASC check (activo in ('Activo', 'Inactivo', 'Anulado', 'Pendiente'));
 
+alter table asociado add fecha_solicitud date;
+alter table asociado add telefono_casa varchar2(20);
+alter table asociado add correo varchar2(255);
+select * from padres;
+select * from historial_medico;
+
 -- Procedure to delete a user and all related records sequentially
 CREATE OR REPLACE PROCEDURE delete_user(p_id_usuario IN NUMBER) IS
 BEGIN
