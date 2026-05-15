@@ -1206,10 +1206,6 @@ export default function RecibosPage() {
 						<h1 className="text-4xl font-semibold tracking-tight text-slate-800">
 							Recibos
 						</h1>
-						<p className="mt-1 text-sm text-slate-500">
-							{recibosFiltrados.length} recibo
-							{recibosFiltrados.length !== 1 ? "s" : ""}
-						</p>
 					</div>
 					<Button
 						variant="secondary"
