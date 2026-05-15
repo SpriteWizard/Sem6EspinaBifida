@@ -12,7 +12,7 @@ const badgeColors: Record<Estatus, string> = {
   Pendiente: "bg-yellow-600/10 text-yellow-600",
 };
 
-const HEADERS = ["ID", "Nombre", "Correo", "Estatus", "Último acceso"];
+const HEADERS = ["ID", "Nombre", "Correo", "Estatus", "Fecha de alta", "Último acceso"];
 
 type Filters = {
   id: number | null;
@@ -86,6 +86,7 @@ export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProp
       <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[getStatusLabel(row.estatus) as Estatus]}`}>
         {getStatusLabel(row.estatus)}
       </span>,
+      row.fechaalta ?? "",
       row.ultimoacceso ?? "",
     ],
   }));
