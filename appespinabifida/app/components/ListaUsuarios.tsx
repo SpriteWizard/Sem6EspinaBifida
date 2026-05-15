@@ -51,32 +51,46 @@ export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProp
   }, [refreshKey]);
 
   useEffect(() => {
+    const getStatusLabel = (estatus: any) => {
+      if (estatus == 1) return "Activo";
+      if (estatus == 0) return "Inactivo";
+      return String(estatus);
+    };
+
     setData(
       rawData.filter((element) => {
-        const idFilter = !filtros.id || String(element.id).includes(String(filtros.id));
+        const idFilter = filtros.id == null || filtros.id === 0
+          ? true
+          : String(element.id).includes(String(filtros.id));
         const nombreFilter =
-          filtros.nombre === "" || element.nombre.toLowerCase().includes(filtros.nombre.toLowerCase());
-        const fechaFilter = filtros.fecha === "" || element.fechaalta === filtros.fecha;
-        const statusFilter = filtros.estatus === "" || element.estatus === filtros.estatus;
+          filtros.nombre === "" || String(element.nombre ?? "").toLowerCase().includes(filtros.nombre.toLowerCase());
+        const fechaFilter = filtros.fecha === "" || String(element.fechaalta ?? "") === filtros.fecha;
+        const statusFilter = filtros.estatus === "" || getStatusLabel(element.estatus) === filtros.estatus;
         return idFilter && nombreFilter && fechaFilter && statusFilter;
       }),
     );
   }, [filtros, rawData]);
 
+  const getStatusLabel = (estatus: any) => {
+    if (estatus == 1) return "Activo";
+    if (estatus == 0) return "Inactivo";
+    return String(estatus);
+  };
+
   const rows = data.map((row) => ({
     key: String(row.id),
     cells: [
       row.id,
-      row.nombre + " " + row.apellidos,
-      row.email,
-      <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[(row.estatus) ? "Activo" : "Inactivo"]}`}>
-        {(row.estatus) ? "Activo" : "Inactivo"}
+      `${row.nombre ?? ""}${row.apellidos ? ` ${row.apellidos}` : ""}`,
+      row.email ?? "",
+      <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[getStatusLabel(row.estatus) as Estatus]}`}>
+        {getStatusLabel(row.estatus)}
       </span>,
-      row.ultimoacceso,
+      row.ultimoacceso ?? "",
     ],
   }));
 
-  const selectedUsuario = selectedIndex !== null ? data[selectedIndex] : null;
+  const selectedUsuario = selectedIndex !== null && selectedIndex < data.length ? data[selectedIndex] : null;
 
   return (
     <>

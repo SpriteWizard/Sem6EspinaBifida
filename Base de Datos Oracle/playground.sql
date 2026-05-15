@@ -17,4 +17,8 @@ select * from asociado;
 
 alter table asociado drop constraint CHK_ACT_ASC;
 
+alter table usuarios add fecha_desactivado date;
+
+commit;
+
 alter table asociado add constraint CHK_ACT_ASC check (activo in ('Activo', 'Inactivo', 'Anulado', 'Pendiente'));

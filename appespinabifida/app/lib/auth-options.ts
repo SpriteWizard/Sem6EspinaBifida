@@ -70,11 +70,7 @@ export const authOptions: NextAuthOptions = {
 					if (account?.provider === "google"){
 
 						if (!existingUser){
-							await createUser({
-								email: user.email,
-								password: null,
-								provider: "google",
-							});
+							return false;
 						}
 					}
 					
