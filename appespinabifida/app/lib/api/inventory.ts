@@ -180,6 +180,49 @@ function levenshteinDistance(a: string, b: string) {
   return matrix[a.length][b.length]
 }
 
+function compact(value: string) {
+  return value.replace(/[^a-z0-9]/g, '')
+}
+
+function commonPrefixLength(a: string, b: string) {
+  const max = Math.min(a.length, b.length)
+  let count = 0
+  for (let i = 0; i < max; i += 1) {
+    if (a[i] !== b[i]) break
+    count += 1
+  }
+  return count
+}
+
+function buildBigrams(value: string) {
+  const grams: Record<string, number> = {}
+  if (value.length < 2) {
+    if (value) grams[value] = 1
+    return grams
+  }
+  for (let i = 0; i < value.length - 1; i += 1) {
+    const gram = value.slice(i, i + 2)
+    grams[gram] = (grams[gram] ?? 0) + 1
+  }
+  return grams
+}
+
+function diceCoefficient(a: string, b: string) {
+  if (!a || !b) return 0
+  const aGrams = buildBigrams(a)
+  const bGrams = buildBigrams(b)
+  let intersection = 0
+  let aCount = 0
+  let bCount = 0
+  for (const count of Object.values(aGrams)) aCount += count
+  for (const count of Object.values(bGrams)) bCount += count
+  for (const [gram, countA] of Object.entries(aGrams)) {
+    const countB = bGrams[gram] ?? 0
+    intersection += Math.min(countA, countB)
+  }
+  return (2 * intersection) / (aCount + bCount)
+}
+
 export async function listCategories(): Promise<Category[]> {
   try {
     const categories = await requestJson<Category[]>('/api/inventario/obtener/categorias')
@@ -246,12 +289,30 @@ export async function findSimilarInventoryItemsByName(
 
   const matches = snapshot.map((item) => {
     const normalizedItemName = normalize(item.name)
+    const compactName = compact(normalizedName)
+    const compactItemName = compact(normalizedItemName)
     const distance = levenshteinDistance(normalizedName, normalizedItemName)
     const maxLength = Math.max(normalizedName.length, normalizedItemName.length)
-    const similarityThreshold = Math.max(1, Math.floor(maxLength * 0.25))
+    const similarityThreshold = Math.max(2, Math.floor(maxLength * 0.5))
+    const prefixTarget = Math.max(
+      3,
+      Math.floor(Math.min(compactName.length, compactItemName.length) * 0.5),
+    )
+    const sharesPrefix =
+      compactName.length >= 3 &&
+      compactItemName.length >= 3 &&
+      commonPrefixLength(compactName, compactItemName) >= prefixTarget
+    const tokenPrefixMatch = normalizedItemName
+      .split(/\s+/)
+      .some((token) => token.startsWith(normalizedName) || normalizedName.startsWith(token))
+    const overlapScore = diceCoefficient(compactName, compactItemName)
+    const highOverlap = overlapScore >= 0.55
     const appearsSimilar =
       normalizedItemName.includes(normalizedName) ||
       normalizedName.includes(normalizedItemName) ||
+      sharesPrefix ||
+      tokenPrefixMatch ||
+      highOverlap ||
       distance <= similarityThreshold
 
     return {
