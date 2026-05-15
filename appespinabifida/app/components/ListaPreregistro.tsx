@@ -6,22 +6,6 @@ import ModalPreregistro from "./ModalPreregistro";
 
 import { type FiltrosPreregistroValues } from "./FiltrosPreregistro";
 
-// ─── INTEGRACIÓN BACKEND ─────────────────────────────────────────────────────
-// Tres endpoints necesarios. Cuando estén listos, reemplaza las secciones
-// marcadas con "TODO:" en el código:
-//
-//   GET  /api/preregistros/lista
-//        Response: PreregistroDetalle[]
-//
-//   POST /api/preregistros/aceptar    Body: { id: string }
-//        Response: { ok: boolean }
-//
-//   POST /api/preregistros/anular     Body: { id: string; nota: string }
-//        Response: { ok: boolean }
-//
-// Mientras no haya backend, las acciones se imprimen en consola.
-// ─────────────────────────────────────────────────────────────────────────────
-
 export type EstatusPreregistro = "Pendiente" | "Anulado";
 
 const badgeColors: Record<EstatusPreregistro, string> = {
