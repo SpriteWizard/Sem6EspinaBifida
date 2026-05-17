@@ -11,9 +11,25 @@ export default function ReciboWorkflowPage(){
     const [listaNuevoEstudio, setListaNuevoEstudio] = useState<any[]>([]);
     const [nuevaConsultaModalAbierto, setNuevaConsultaModalAbierto] = useState(false);
     const [nuevoEstudioModalAbierto, setNuevoEstudioModalAbierto] = useState(false);
+    const [idRecibo, setIDRecibo] = useState(51);
 
     async function sendData(){
-        const res = await fetch('/api/recibos/agregarServicios', {
+
+        const resRecibo = await fetch('/api/recibos/crear',{
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                aquiponerDatosRecibo: 'DatosRecibo'
+            })
+        })
+
+        const id_recibo = (await resRecibo.json()).id_recibo
+
+        setIDRecibo(id_recibo)
+
+        const resServicios = await fetch('/api/recibos/agregarServicios', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'            },
@@ -22,8 +38,15 @@ export default function ReciboWorkflowPage(){
                 estudios: listaNuevoEstudio
             })
         })
-        if (res.ok){
-            alert(JSON.stringify(await res.json()))
+
+        if (resServicios.ok){
+            if ((await resServicios.json()).message === "Success"){
+                alert("Servicios agregados exitosamente");
+                setListaNuevaConsulta([]);
+                setListaNuevoEstudio([]);
+            } else {
+                alert("Error al agregar servicios");
+            }
         }
     }
 
@@ -38,6 +61,7 @@ export default function ReciboWorkflowPage(){
                 listaNuevaConsulta={listaNuevaConsulta}
                 setListaNuevaConsulta={setListaNuevaConsulta}
                 setModalAbiertoNuevaConsulta={setNuevaConsultaModalAbierto}
+                id_recibo={idRecibo}
             />
             <NuevoEstudioModal
                 open={nuevoEstudioModalAbierto}

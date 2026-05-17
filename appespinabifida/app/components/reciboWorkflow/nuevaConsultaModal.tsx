@@ -35,13 +35,15 @@ export function NuevaConsultaModal({
   onClose,
   listaNuevaConsulta,
   setListaNuevaConsulta,
-  setModalAbiertoNuevaConsulta
+  setModalAbiertoNuevaConsulta,
+  id_recibo
 }: {
   open: boolean
   onClose: () => void
   listaNuevaConsulta: any[]
   setListaNuevaConsulta: React.Dispatch<React.SetStateAction<any[]>>
   setModalAbiertoNuevaConsulta: React.Dispatch<React.SetStateAction<boolean>>
+  id_recibo: number
 }) {
   const router = useRouter()
 
@@ -97,21 +99,18 @@ export function NuevaConsultaModal({
 
   async function guardarConsulta() {
     const nuevo = {
-      tipo: 0,
-      data: {
-        id_consulta_local: 'CON-' + String(listaNuevaConsulta.length),
-        id_asociado: Number(seleccionado?.id),
-        id_medico: medicoSeleccionado,
-        id_recibo: null,
-        tipo_consulta: tipoConsulta,
-        motivo: null,
-        diagnostico: null,
-        tratamiento: null,
-        aportacion: monto,
-        ya_aporto: 0,
-        estatus: false,
-        fecha_cita: String(fecha + ' ' + to24Hour(hora, periodo)),
-      },
+      id_consulta_local: 'CON-' + String(listaNuevaConsulta.length),
+      id_asociado: Number(seleccionado?.id),
+      id_medico: medicoSeleccionado,
+      id_recibo: id_recibo,
+      tipo_consulta: tipoConsulta,
+      motivo: null,
+      diagnostico: null,
+      tratamiento: null,
+      aportacion: monto,
+      ya_aporto: 0,
+      estatus: false,
+      fecha_cita: String(fecha + ' ' + to24Hour(hora, periodo)),
     }
     setListaNuevaConsulta((prev) => [...prev, nuevo])
     setModalAbiertoNuevaConsulta(false)

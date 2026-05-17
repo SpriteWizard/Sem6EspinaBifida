@@ -171,19 +171,16 @@ export function NuevoEstudioModal({
     if (folioConsulta === '') { alert('Debes seleccionar una consulta'); return }
 
     const nuevo = {
-      tipo: 1,
-      data: {
-        id_asociado: seleccionado.id,
-        id_medico: null,
-        id_tipo_estudio: Number(estudio),
-        id_consulta: Number(String(folioConsulta).replace('CON-', '')),
-        laboratorio: laboratorioId,
-        aportacion: monto,
-        ya_aporto: yaAporto ? 1 : 0,
-        fecha_cita: fecha,
-        estatus,
-        resultados,
-      },
+      id_asociado: seleccionado.id,
+      id_medico: null,
+      id_tipo_estudio: Number(estudio),
+      id_consulta: String(folioConsulta),
+      laboratorio: laboratorioId,
+      aportacion: monto,
+      ya_aporto: yaAporto ? 1 : 0,
+      fecha_cita: fecha,
+      estatus,
+      resultados,
     }
     setListaNuevoEstudio((prev) => [...prev, nuevo])
     setModalAbiertoNuevoEstudio(false)
