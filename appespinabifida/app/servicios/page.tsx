@@ -10,6 +10,7 @@ import { Select } from '../components/ui/Select'
 import { Modal } from '../components/ui/Modal'
 import { NuevaConsultaModal } from '../components/NuevaConsultaModal'
 import { NuevoEstudioModal } from '../components/NuevoEstudioModal'
+import { LABORATORIOS } from '@/lib/servicios-utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,32 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   return debounced
 }
 
+function mapServicioFromApi(raw: any): Servicio {
+  const [date, timeWithZ] = String(raw.fecha).split("T");
+  const time = String(timeWithZ).replace("Z", "");
+
+  return {
+    id:
+      raw.tipo_servicio === "Consulta"
+        ? raw.id_consulta
+        : raw.id_estudio,
+    tipo: raw.tipo_servicio,
+    folio:
+      raw.tipo_servicio === "Consulta"
+        ? "CON-" + String(raw.id_consulta)
+        : "EST-" + String(raw.id_estudio),
+    idAsociado: raw.asociado,
+    asociado:
+      raw.nombre_asociado +
+      " " +
+      raw.apellidos_asociado,
+    medico: raw.medico,
+    laboratorio: raw.tipo_servicio !== 'Consulta' ? raw.laboratorio : undefined,
+    fecha: date,
+    estatus: raw.estatus,
+  };
+}
+
 function useServicios() {
   const [allServicios, setAllServicios] = useState<Servicio[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,34 +79,10 @@ function useServicios() {
         if (!res.ok) throw new Error();
 
         const data = (await res.json()).servicios;
-        const ListaServicios = data.map((servicio: any) => {
-          const [date, timeWithZ] = String(servicio.fecha).split("T");
-          const time = String(timeWithZ).replace("Z", "");
-
-          return {
-            id:
-              servicio.tipo_servicio === "Consulta"
-                ? servicio.id_consulta
-                : servicio.id_estudio,
-            tipo: servicio.tipo_servicio,
-            folio:
-              servicio.tipo_servicio === "Consulta"
-                ? "CON-" + String(servicio.id_consulta)
-                : "EST-" + String(servicio.id_estudio),
-            idAsociado: servicio.asociado,
-            asociado:
-              servicio.nombre_asociado +
-              " " +
-              servicio.apellidos_asociado,
-            medico: servicio.medico,
-            laboratorio: servicio.tipo_servicio !== 'Consulta' ? servicio.laboratorio : undefined,
-            fecha: date,
-            estatus: servicio.estatus,
-          };
-        });
+        const listaServicios = data.map(mapServicioFromApi);
 
         if (!alive) return;
-        setAllServicios(ListaServicios);
+        setAllServicios(listaServicios);
       } catch (error) {
         if (!alive) return;
         setError("No se pudo cargar los servicios.");
@@ -136,14 +139,6 @@ function filterServicios(
 }
 
 // ─── Badge class helpers ──────────────────────────────────────────────────────
-
-const LABORATORIOS: Record<string, string> = {
-  L01: 'Lab. Médico Cerrus',
-  L02: 'Centro de Imagen UDEM',
-  L03: 'Hospital San José TEC',
-  L04: 'Laboratorio Clínico Lomas',
-  L05: 'Diagnóstica del Norte',
-}
 
 const TIPO_CLASSES: Record<Servicio['tipo'], string> = {
   Consulta: 'bg-sky-100 text-sky-800',
