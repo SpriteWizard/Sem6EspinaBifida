@@ -9,8 +9,6 @@ export async function POST(req: Request){
         },
         body: JSON.stringify(body)
     })
-    console.log(body);
-    console.log(res);
 
     if (res.ok){
         return Response.json({message: "Success"})

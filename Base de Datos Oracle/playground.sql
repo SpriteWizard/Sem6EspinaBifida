@@ -197,7 +197,7 @@ BEGIN
   LOOP 
     INSERT INTO CONSULTA (ID_ASOCIADO, ID_MEDICO, TIPO_CONSULTA, ID_RECIBO, FECHA, APORTACION, ESTATUS)
     VALUES (r.id_asociado, r.id_medico, r.tipo_consulta, r.id_recibo, r.fecha_cita, r.aportacion, 'Pendiente')
-    returning ID_CONSULTA INTO v_real_id);
+    returning ID_CONSULTA INTO v_real_id;
 
     consulta_map(r.local_id) := v_real_id;
   END LOOP;
@@ -214,7 +214,7 @@ BEGIN
         aportacion NUMBER PATH '$.aportacion',
         ya_aporto VARCHAR2(5) PATH '$.ya_aporto',
         fecha_cita VARCHAR2(50) PATH '$.fecha_cita',
-        estatus VARCHAR2(50) PATH '$.estatus'
+        estatus VARCHAR2(50) PATH '$.estatus',
         resultados VARCHAR2(255) PATH '$.resultados'
       )
     )
@@ -225,3 +225,54 @@ BEGIN
   END LOOP;
 
 END;
+
+declare
+
+  v_body CLOB := TO_CLOB(:body);
+
+  v_id_asociado Number;
+  v_id_usuario Number;
+  v_fecha_limite Date;
+  v_tipo_zona Varchar(10);
+  v_tipo_cuota Varchar2(10);
+  v_total Number;
+  v_total_pagado Number;
+  v_saldo_pendiente Number;
+  v_estatus Varchar(20);
+  v_nota CLOB;
+  
+  v_id_recibo_retornado Number;
+
+begin
+
+  v_id_asociado := JSON_VALUE(v_body, '$.id_asociado');
+  v_id_usuario := JSON_VALUE(v_body, '$.id_usuario');
+  v_fecha_limite := TO_DATE(JSON_VALUE(v_body, '$.fecha_limite'), 'YYYY-MM-DD');
+  v_tipo_zona := JSON_VALUE(v_body, '$.tipo_zona');
+  v_tipo_cuota := JSON_VALUE(v_body, '$.tipo_cuota');
+  v_total := JSON_VALUE(v_body, '$.total');
+  v_total_pagado := JSON_VALUE(v_body, '$.total_pagado');
+  v_saldo_pendiente := JSON_VALUE(v_body, '$.saldo_pendiente');
+  v_estatus := JSON_VALUE(v_body, '$.estatus');
+  v_nota := JSON_VALUE(v_body, '$.nota');
+
+  insert into recibo(ID_ASOCIADO, ID_USUARIO, FECHA, FECHA_LIMITE, TIPO_ZONA, TIPO_CUOTA, TOTAL, TOTAL_PAGADO, SALDO_PENDIENTE, ESTATUS, NOTA) values
+  (v_id_asociado, v_id_usuario, SYSDATE, v_fecha_limite, v_tipo_zona, v_tipo_cuota, v_total, v_total_pagado, v_saldo_pendiente, v_estatus, v_nota)
+  returning id_recibo into v_id_recibo_retornado;
+
+  commit;
+
+  update recibo set folio = 'REC-' || v_id_recibo_retornado where id_recibo = v_id_recibo_retornado;
+
+  commit;
+
+  HTP.P('{
+    "status": "' || CASE WHEN v_id_recibo_retornado is not null then 'Success' else 'Failed'  end || '",
+    "id_recibo":' || v_id_recibo_retornado || '
+  }');
+
+end;
+
+commit;
+
+select * from recibo;
