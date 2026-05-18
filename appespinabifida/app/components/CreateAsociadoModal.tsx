@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Modal } from "./ui/Modal";
+import { PadecimientoSelector } from "./PadecimientoSelector";
 import { Select } from "./ui/Select";
 import { Textarea } from "./ui/Textarea";
 import type { AsociadoDetalle } from "./ModalAsociado";
@@ -613,11 +614,9 @@ export default function CreateAsociadoModal({ open, onClose}: Props) {
 
               <div>
                 <FieldLabel>Padecimiento</FieldLabel>
-                <Textarea
-                  rows={4}
+                <PadecimientoSelector
                   value={form.padecimiento}
-                  onChange={(e) => update("padecimiento", e.target.value)}
-                  placeholder="Descripción clínica"
+                  onChange={(v) => update("padecimiento", v)}
                 />
               </div>
 
