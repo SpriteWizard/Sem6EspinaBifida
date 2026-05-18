@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import HalfLogoSrc from "../assets/HalfLogo.png";
 import type { AsociadoDetalle } from "./ModalAsociado";
+import CredencialPreview from "./CredencialPreview";
 
 interface ImprimirCredencialButtonProps {
   asociado: AsociadoDetalle;
@@ -53,34 +54,26 @@ export default function ImprimirCredencialButton({
     try {
       const logoData = await loadImageAsBase64(HalfLogoSrc.src);
 
-      // A4 landscape: 297 × 210 mm
       const doc = new jsPDF({ format: "a4", unit: "mm", orientation: "landscape" });
 
-      // ── Layout ────────────────────────────────────────────────────────────────
       const HALF_W = 128;
       const GAP = 3;
       const CARD_H = 82;
-      const LEFT_X = (297 - 2 * HALF_W - GAP) / 2; // 19
-      const RIGHT_X = LEFT_X + HALF_W + GAP;         // 150
-      const TOP_Y = (210 - CARD_H) / 2;              // 64
-      const BOT_Y = TOP_Y + CARD_H;                  // 146
+      const LEFT_X = (297 - 2 * HALF_W - GAP) / 2;
+      const RIGHT_X = LEFT_X + HALF_W + GAP;
+      const TOP_Y = (210 - CARD_H) / 2;
       const PAD = 3;
 
-      // Content bounds
-      const FL = LEFT_X + PAD;            // 22  (front left)
-      const FR = LEFT_X + HALF_W - PAD;   // 144 (front right)
-      const BL = RIGHT_X + PAD;           // 153 (back left)
-      const BR = RIGHT_X + HALF_W - PAD;  // 275 (back right)
+      const FL = LEFT_X + PAD;
+      const FR = LEFT_X + HALF_W - PAD;
+      const BL = RIGHT_X + PAD;
+      const BR = RIGHT_X + HALF_W - PAD;
 
-      // ── Card borders ──────────────────────────────────────────────────────────
       doc.setDrawColor(120, 120, 120);
       doc.setLineWidth(0.4);
       doc.rect(LEFT_X, TOP_Y, HALF_W, CARD_H);
       doc.rect(RIGHT_X, TOP_Y, HALF_W, CARD_H);
 
-      // ── Shared helper: label + value sitting on a thin underline ─────────────
-      // The underline runs from `x` to `endX` just below the baseline, like a
-      // fill-in-the-blank form field.  The value is truncated to fit.
       const drawField = (
         label: string,
         value: string,
@@ -92,14 +85,11 @@ export default function ImprimirCredencialButton({
         doc.setFontSize(fontSize);
         doc.setTextColor(0, 0, 0);
         doc.setLineWidth(0.2);
-
         doc.setFont("helvetica", "bold");
         doc.text(label, x, y);
         const lw = doc.getTextWidth(label);
-
         doc.setDrawColor(80, 80, 80);
         doc.line(x, y + 1.2, endX, y + 1.2);
-
         doc.setFont("helvetica", "normal");
         const available = endX - x - lw - 1;
         if (available > 0) {
@@ -108,12 +98,10 @@ export default function ImprimirCredencialButton({
         }
       };
 
-      // ══════════════════════════════ FRONT ════════════════════════════════════
-
-      // Logo (top-left, nearly square 648×606 → render at 26×24)
+      // ── FRENTE ──────────────────────────────────────────────────────────────
       const LOGO_W = 26;
       const LOGO_H = 24;
-      const LOGO_RIGHT = FL + LOGO_W + 2; // 50
+      const LOGO_RIGHT = FL + LOGO_W + 2;
       if (logoData) {
         doc.addImage(logoData, "PNG", FL, TOP_Y + PAD, LOGO_W, LOGO_H);
       } else {
@@ -122,33 +110,16 @@ export default function ImprimirCredencialButton({
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(5.5);
-        doc.text("ESPINA\nBÍFIDA", FL + LOGO_W / 2, TOP_Y + PAD + LOGO_H / 2 - 1, {
-          align: "center",
-        });
+        doc.text("ESPINA\nBÍFIDA", FL + LOGO_W / 2, TOP_Y + PAD + LOGO_H / 2 - 1, { align: "center" });
       }
 
-      // Folio (top-right corner)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(0, 0, 0);
-      doc.text(
-        `Folio:  ${asociado.folio || "—"}`,
-        FR,
-        TOP_Y + PAD + 5,
-        { align: "right" }
-      );
+      doc.text(`Folio:  ${asociado.folio || "—"}`, FR, TOP_Y + PAD + 5, { align: "right" });
 
-      // Nombre
       drawField("Nombre:", asociado.nombre, LOGO_RIGHT, TOP_Y + PAD + 12, FR);
-
-      // Dirección
-      drawField(
-        "Dirección:",
-        asociado.direccion || "—",
-        LOGO_RIGHT,
-        TOP_Y + PAD + 21,
-        FR
-      );
+      drawField("Dirección:", asociado.direccion || "—", LOGO_RIGHT, TOP_Y + PAD + 21, FR);
 
       const PHOTO_X = FL;
       const PHOTO_Y = TOP_Y + PAD + LOGO_H + 3;
@@ -158,127 +129,55 @@ export default function ImprimirCredencialButton({
       if (foto) {
         doc.addImage(foto, "JPEG", PHOTO_X, PHOTO_Y, PHOTO_W, PHOTO_H);
       } else {
-        // fallback (optional)
         doc.setDrawColor(150, 150, 150);
         doc.setFillColor(235, 235, 235);
         doc.rect(PHOTO_X, PHOTO_Y, PHOTO_W, PHOTO_H, "FD");
         doc.setTextColor(160, 160, 160);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6);
-        doc.text("Foto", PHOTO_X + PHOTO_W / 2, PHOTO_Y + PHOTO_H / 2, {
-          align: "center",
-        });
+        doc.text("Foto", PHOTO_X + PHOTO_W / 2, PHOTO_Y + PHOTO_H / 2, { align: "center" });
       }
 
-      const PHOTO_RIGHT = PHOTO_X + PHOTO_W + 2; // 49
+      const PHOTO_RIGHT = PHOTO_X + PHOTO_W + 2;
+      drawField("Tel. Casa:", asociado.telCasa || "—", PHOTO_RIGHT, PHOTO_Y + 9, LEFT_X + 98);
+      drawField("Nombre de padres:", asociado.nombrePadreMadre || "—", PHOTO_RIGHT, PHOTO_Y + 20, FR);
 
-      // Tel. Casa (beside photo, upper half)
-      drawField(
-        "Tel. Casa:",
-        asociado.telCasa || "—",
-        PHOTO_RIGHT,
-        PHOTO_Y + 9,
-        LEFT_X + 98
-      );
-
-      // Nombre de padres (beside photo, lower half)
-      drawField(
-        "Nombre de padres:",
-        asociado.nombrePadreMadre || "—",
-        PHOTO_RIGHT,
-        PHOTO_Y + 20,
-        FR
-      );
-
-      // Fecha de Expedición (below photo)
-      const expY = PHOTO_Y + PHOTO_H + 5; // 129
+      const expY = PHOTO_Y + PHOTO_H + 5;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(0, 0, 0);
       doc.text("Fecha de Expedición:", FL, expY);
       doc.setFont("helvetica", "normal");
-      const expLW = doc.getTextWidth("Fecha de Expedición:");
-      doc.text(asociado.fechaAlta || "—", FL + expLW + 2, expY);
+      doc.text(asociado.fechaAlta || "—", FL + doc.getTextWidth("Fecha de Expedición:") + 2, expY);
 
-      // ══════════════════════════════ BACK ═════════════════════════════════════
+      // ── REVERSO ─────────────────────────────────────────────────────────────
+      drawField("Padecimiento:", asociado.padecimiento || "—", BL, TOP_Y + PAD + 8, BR);
 
-      // Padecimiento
-      drawField(
-        "Padecimiento:",
-        asociado.padecimiento || "—",
-        BL,
-        TOP_Y + PAD + 8,
-        BR
-      );
-
-      // Tipo de Sangre  ·  Tiene Válvula?  (same row)
-      const midBackX = BL + 63; // ~216 — divides the row in two
-      drawField(
-        "Tipo de Sangre:",
-        asociado.tipoSangre || "—",
-        BL,
-        TOP_Y + PAD + 18,
-        midBackX - 2
-      );
+      const midBackX = BL + 63;
+      drawField("Tipo de Sangre:", asociado.tipoSangre || "—", BL, TOP_Y + PAD + 18, midBackX - 2);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(0, 0, 0);
       doc.text("Tiene Válvula?", midBackX, TOP_Y + PAD + 18);
       doc.setFont("helvetica", "normal");
-      const valvStr =
-        asociado.valvula === true
-          ? "Sí"
-          : asociado.valvula === false
-          ? "No"
-          : "—";
-      doc.text(
-        valvStr,
-        midBackX + doc.getTextWidth("Tiene Válvula?") + 2,
-        TOP_Y + PAD + 18
-      );
+      const valvStr = asociado.valvula === true ? "Sí" : asociado.valvula === false ? "No" : "—";
+      doc.text(valvStr, midBackX + doc.getTextWidth("Tiene Válvula?") + 2, TOP_Y + PAD + 18);
 
-      // En caso de accidente avisar a
-      drawField(
-        "En caso de accidente avisar a:",
-        asociado.contactoEmergencia?.nombre || "—",
-        BL,
-        TOP_Y + PAD + 28,
-        BR,
-        6.5
-      );
+      drawField("En caso de accidente avisar a:", asociado.contactoEmergencia?.nombre || "—", BL, TOP_Y + PAD + 28, BR, 6.5);
+      drawField("Teléfono:", asociado.contactoEmergencia?.telefono || "—", BL, TOP_Y + PAD + 37, BR);
+      drawField("Correo Electrónico:", asociado.correo || "—", BL, TOP_Y + PAD + 46, BR);
 
-      // Teléfono (emergency contact)
-      drawField(
-        "Teléfono:",
-        asociado.contactoEmergencia?.telefono || "—",
-        BL,
-        TOP_Y + PAD + 37,
-        BR
-      );
-
-      // Correo Electrónico
-      drawField(
-        "Correo Electrónico:",
-        asociado.correo || "—",
-        BL,
-        TOP_Y + PAD + 46,
-        BR
-      );
-
-      // Separator line
-      const SEP_Y = TOP_Y + PAD + 53; // 120
+      const SEP_Y = TOP_Y + PAD + 53;
       doc.setDrawColor(160, 160, 160);
       doc.setLineWidth(0.3);
       doc.line(BL, SEP_Y, BR, SEP_Y);
 
-      // Bottom-left: org identity
-      const ORG_Y = SEP_Y + 3; // 123
+      const ORG_Y = SEP_Y + 3;
       const ORG_LOGO_W = 13;
       const ORG_LOGO_H = 12;
-      if (logoData) {
-        doc.addImage(logoData, "PNG", BL, ORG_Y, ORG_LOGO_W, ORG_LOGO_H);
-      }
-      const orgTX = BL + ORG_LOGO_W + 2; // 168
+      if (logoData) doc.addImage(logoData, "PNG", BL, ORG_Y, ORG_LOGO_W, ORG_LOGO_H);
+
+      const orgTX = BL + ORG_LOGO_W + 2;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(5.5);
       doc.setTextColor(0, 0, 0);
@@ -289,8 +188,7 @@ export default function ImprimirCredencialButton({
       doc.text("Monterrey, N.L.", orgTX, ORG_Y + 13);
       doc.text("www.espinabifida.org.mx", orgTX, ORG_Y + 17);
 
-      // Bottom-right: Datos de Nacimiento
-      const BIRTH_X = BL + 74; // 227
+      const BIRTH_X = BL + 74;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6);
       doc.setTextColor(0, 0, 0);
@@ -308,7 +206,6 @@ export default function ImprimirCredencialButton({
       birthRow("Lugar Nac.", asociado.lugarNacimiento || "—", ORG_Y + 14.5);
       birthRow("Hospital", asociado.hospital || "—", ORG_Y + 20);
 
-      // ── Generate blob & open preview ─────────────────────────────────────────
       const blob = doc.output("blob");
       const blobUrl = URL.createObjectURL(blob);
       setPreviewUrl(blobUrl);
@@ -320,29 +217,22 @@ export default function ImprimirCredencialButton({
     }
   }
 
-  // State for the image
   const [foto, setFoto] = useState("");
 
-  // Function to fetch and build image source
-  async function buildImageSrc() {
-    const obj = await (
-      await fetch(`/api/asociados/fotoAsociado/obtener?id=${asociado.id}`)
-    ).json();
-
-    if (!obj || !obj.image || !obj.mime) {
-      throw new Error("Invalid image object");
-    }
-
-    setFoto(`data:${obj.mime};base64,${obj.image}`);
-  }
-
-  // Load image on mount
   useEffect(() => {
-    buildImageSrc();
-  }, []);
+    async function loadFoto() {
+      const res = await fetch(`/api/asociados/fotoAsociado/obtener?id=${asociado.id}`);
+      if (!res.ok) return;
+      const obj = await res.json();
+      if (obj?.image && obj?.mime) setFoto(`data:${obj.mime};base64,${obj.image}`);
+    }
+    loadFoto();
+  }, [asociado.id]);
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col gap-4">
+      <CredencialPreview asociado={asociado} foto={foto} />
+      <div className="flex flex-col items-end gap-2">
       <button
         type="button"
         onClick={handleGeneratePdf}
@@ -352,11 +242,11 @@ export default function ImprimirCredencialButton({
         {isLoading ? "Generando..." : "Imprimir Credencial"}
       </button>
 
-      {errorMessage ? (
+      {errorMessage && (
         <p className="max-w-xs text-right text-xs text-red-600">{errorMessage}</p>
-      ) : null}
+      )}
 
-      {hasPreview ? (
+      {hasPreview && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
           <div className="flex h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-200 bg-[#003C64] px-4 py-3 text-white">
@@ -392,7 +282,8 @@ export default function ImprimirCredencialButton({
             </div>
           </div>
         </div>
-      ) : null}
+      )}
+      </div>
     </div>
   );
 }

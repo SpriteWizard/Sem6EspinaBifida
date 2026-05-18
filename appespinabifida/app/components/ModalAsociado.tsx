@@ -4,6 +4,7 @@
 import ImprimirCredencialButton from "./ImprimirCredencialButton";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "./ui/Input";
+import { PadecimientoSelector } from "./PadecimientoSelector";
 import { Select } from "./ui/Select";
 import { Textarea } from "./ui/Textarea";
 import { useRouter } from "next/navigation";
@@ -215,6 +216,7 @@ export default function ModalAsociado({
     setDraft(base);
     setIsEditMode(false);
     setActiveTab("Datos generales");
+    setNewFoto("");
   }, [base]);
 
   const hasChanges = useMemo(
@@ -243,6 +245,14 @@ export default function ModalAsociado({
       contactoEmergencia: draft.contactoEmergencia,
     };
 
+    // TODO backend — actualizar foto al editar:
+    // La variable `newFoto` contiene el base64 (JPEG 200×200) de la nueva foto si el
+    // usuario seleccionó una. Para persistirla se recomienda una de estas dos opciones:
+    //   A) Si `editarAsociado` de Oracle acepta el campo `foto`, agregar `foto` al
+    //      FormState en editar/route.ts y pasar `{ ...draft, foto: newFoto }` aquí.
+    //   B) Si Oracle necesita un endpoint separado, crear `/api/asociados/fotoAsociado/actualizar`
+    //      que reciba `{ id, foto }` y haga POST a un endpoint Oracle dedicado,
+    //      luego llamarlo aquí después de guardar los datos generales.
     const res = await fetch("/api/asociados/editar", {
       method: "POST",
       headers: {
@@ -264,15 +274,35 @@ export default function ModalAsociado({
   }
 
   const [foto, setFoto] = useState("");
+  const [newFoto, setNewFoto] = useState<string>("");
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const img = new Image();
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => { img.src = reader.result as string; };
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const SIZE = 200;
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const x = (SIZE - img.width * scale) / 2;
+      const y = (SIZE - img.height * scale) / 2;
+      ctx?.drawImage(img, 0, 0, img.width, img.height, x, y, img.width * scale, img.height * scale);
+      setNewFoto(canvas.toDataURL("image/jpeg"));
+    };
+  }
 
   async function buildImageSrc() {
-    const obj = await (await fetch(`/api/asociados/fotoAsociado/obtener?id=${asociado.id}`)).json()
-    if (!obj || !obj.image || !obj.mime) {
-      throw new Error("Invalid image object");
-    }
-    
+    const res = await fetch(`/api/asociados/fotoAsociado/obtener?id=${asociado.id}`);
+    if (!res.ok) return;
+    const obj = await res.json();
+    if (!obj?.image || !obj?.mime) return;
     setFoto(`data:${obj.mime};base64,${obj.image}`);
-    return;
   }
 
   useEffect(()=>{
@@ -493,16 +523,22 @@ export default function ModalAsociado({
                 {/* Foto */}
                 <div className="shrink-0 flex flex-col items-center gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Foto</span>
-                  {foto != "" ? (
+                  {(newFoto || foto) ? (
                     <img
-                      src={foto}
+                      src={newFoto || foto}
                       alt={`Foto de ${d.nombre}`}
                       className="h-28 w-28 rounded-xl border border-gray-200 object-cover"
                     />
                   ) : (
-                    <div className="w-28 h-28 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400 text-center">
-                      {}
-                    </div>
+                    <div className="w-28 h-28 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400 text-center" />
+                  )}
+                  {isEditMode && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="w-28 text-xs text-gray-500 file:mr-2 file:rounded file:border-0 file:bg-[#003c64]/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-[#003c64] cursor-pointer"
+                    />
                   )}
                 </div>
               </div>
@@ -724,7 +760,10 @@ export default function ModalAsociado({
                   Padecimiento
                 </span>
                 {isEditMode ? (
-                  <Textarea value={d.padecimiento} onChange={(e) => updateDraft("padecimiento", e.target.value)} rows={4} />
+                  <PadecimientoSelector
+                    value={d.padecimiento ?? ""}
+                    onChange={(v) => updateDraft("padecimiento", v)}
+                  />
                 ) : (
                   <div className="rounded-md border border-gray-200 bg-white px-3 py-3 text-base text-gray-900 whitespace-pre-line min-h-18 leading-relaxed">
                     {d.padecimiento && d.padecimiento !== "—" ? d.padecimiento : "—"}
