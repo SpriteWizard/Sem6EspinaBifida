@@ -935,6 +935,10 @@ function NuevoReciboModal({
 
 							{showServicioSelector ? (
 								<div className="rounded-lg border border-slate-200 bg-white p-3">
+									<div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+										<AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+										El servicio debe liquidarse en el momento en que se agrega, no después.
+									</div>
 									<p className="mb-2 text-xs font-medium text-slate-600">
 										Seleccionar tipo de servicio
 									</p>
@@ -1094,6 +1098,28 @@ function NuevoReciboModal({
 							)}
 						</div>
 					)}
+				</div>
+
+				{/* ── Urbano / Rural ── */}
+				<div className="flex gap-5 px-1">
+					<label className="flex cursor-pointer select-none items-center gap-2">
+						<input
+							type="radio"
+							name="zona"
+							value="urbano"
+							className="h-4 w-4 border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm text-slate-700">Urbano</span>
+					</label>
+					<label className="flex cursor-pointer select-none items-center gap-2">
+						<input
+							type="radio"
+							name="zona"
+							value="rural"
+							className="h-4 w-4 border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm text-slate-700">Rural</span>
+					</label>
 				</div>
 
 				{/* ── Fecha Límite ── */}
