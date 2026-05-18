@@ -21,9 +21,12 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
+import { NewMovementModal } from "../components/inventory/NewMovementModal";
 import { cn } from "../lib/utils/cn";
 import { searchInventoryItemsByName } from "../lib/api/inventory";
+import { createMovement, listMovementItemTypes } from "../lib/api/movements";
 import type { InventoryItem } from "../lib/types/inventory";
+import type { CreateMovementInput, MovementItemType } from "../lib/types/movements";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +60,12 @@ interface Recibo {
 	exento?: boolean;
 }
 
+interface DraftMovement {
+	id: string;
+	input: CreateMovementInput;
+	unitPrice: number;
+}
+
 interface Pago {
 	id: string;
 	idRecibo: string;
@@ -88,6 +97,10 @@ function formatDate(iso: string) {
 		month: "short",
 		year: "numeric",
 	});
+}
+
+function createDraftId() {
+	return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 // ─── Discount ─────────────────────────────────────────────────────────────────
@@ -632,6 +645,12 @@ function NuevoReciboModal({
 	const [showDropdown, setShowDropdown] = useState(false);
 	const searchRef = useRef<HTMLDivElement>(null);
 
+	// Movimientos de inventario
+	const [movementModalOpen, setMovementModalOpen] = useState(false);
+	const [movementItemTypes, setMovementItemTypes] = useState<MovementItemType[]>([]);
+	const [draftMovements, setDraftMovements] = useState<DraftMovement[]>([]);
+	const [movementSubmitError, setMovementSubmitError] = useState<string | null>(null);
+
 	// Other state
 	const [fechaLimite, setFechaLimite] = useState("");
 	const [exento, setExento] = useState(false);
@@ -641,7 +660,11 @@ function NuevoReciboModal({
 	// Computed totals
 	const totalServicios = servicios.reduce((s, sv) => s + sv.precio, 0);
 	const totalInventario = productos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
-	const totalBruto = totalServicios + totalInventario;
+	const totalMovimientos = draftMovements.reduce(
+		(s, d) => s + d.unitPrice * d.input.quantity,
+		0,
+	);
+	const totalBruto = totalServicios + totalInventario + totalMovimientos;
 	const descuentoMonto = Math.round(totalBruto * (descuentoPct / 100) * 100) / 100;
 	const totalFinal = exento ? 0 : Math.round((totalBruto - descuentoMonto) * 100) / 100;
 	const hasEstudio = servicios.some((s) => s.tipo === "Estudio");
@@ -663,6 +686,16 @@ function NuevoReciboModal({
 			.catch(() => { if (alive) setAsociadosLoading(false); });
 		return () => { alive = false; };
 	}, [open]);
+
+	useEffect(() => {
+		if (!open) return;
+		if (movementItemTypes.length > 0) return;
+		let alive = true;
+		listMovementItemTypes()
+			.then((types) => { if (alive) setMovementItemTypes(types); })
+			.catch(() => {});
+		return () => { alive = false; };
+	}, [open, movementItemTypes.length]);
 
 	useEffect(() => {
 		if (!productSearch.trim()) {
@@ -706,7 +739,7 @@ function NuevoReciboModal({
 		return () => document.removeEventListener("mousedown", handler);
 	}, []);
 
-	const handleClose = useCallback(() => {
+	const resetState = useCallback(() => {
 		setAsociadoSearch("");
 		setAsociadoSeleccionado(null);
 		setShowAsociadoDropdown(false);
@@ -722,8 +755,21 @@ function NuevoReciboModal({
 		setExento(false);
 		setDescuentoPct(0);
 		setCreating(false);
+		setMovementModalOpen(false);
+		setDraftMovements([]);
+		setMovementSubmitError(null);
 		onClose();
 	}, [onClose]);
+
+	const handleClose = useCallback(() => {
+		if (draftMovements.length > 0) {
+			const ok = window.confirm(
+				"Tienes movimientos de inventario pendientes. Si cierras este recibo se perderan.",
+			);
+			if (!ok) return;
+		}
+		resetState();
+	}, [draftMovements.length, resetState]);
 
 	function addServicio(tipo: TipoServicio) {
 		setServicios((prev) => [...prev, { tipo, precio: SERVICIO_PRECIOS[tipo] }]);
@@ -767,9 +813,23 @@ function NuevoReciboModal({
 		setProductos((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
 	}
 
+	function removeDraftMovement(id: string) {
+		setDraftMovements((prev) => prev.filter((draft) => draft.id !== id));
+	}
+
+	function handleMovementDraft(payload: { input: CreateMovementInput; unitPrice: number }) {
+		setDraftMovements((prev) => [
+			{ id: createDraftId(), input: payload.input, unitPrice: payload.unitPrice },
+			...prev,
+		]);
+		setMovementSubmitError(null);
+		setMovementModalOpen(false);
+	}
+
 	async function handleCrear() {
 		if (!asociadoSeleccionado || !fechaLimite) return;
 		setCreating(true);
+		setMovementSubmitError(null);
 
 		const id = `REC-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
 		const fechaHoy = new Date().toISOString().split("T")[0];
@@ -780,6 +840,20 @@ function NuevoReciboModal({
 			cantidad: 1,
 			precioUnitario: s.precio,
 		}));
+
+		try {
+			for (const draft of draftMovements) {
+				await createMovement(draft.input);
+			}
+		} catch (error) {
+			setMovementSubmitError(
+				error instanceof Error
+					? error.message
+					: "No se pudieron registrar los movimientos pendientes.",
+			);
+			setCreating(false);
+			return;
+		}
 
 		onCrear({
 			id,
@@ -810,20 +884,21 @@ function NuevoReciboModal({
 			}
 		}
 
-		handleClose();
+		resetState();
 	}
 
 	const canCrear = asociadoSeleccionado !== null && fechaLimite.length > 0;
 
 	return (
-		<Modal
-			open={open}
-			onClose={handleClose}
-			title="Nuevo recibo"
-			titleId="nuevo-recibo-title"
-			className="flex max-h-[90dvh] max-w-2xl flex-col"
-		>
-			<div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-5 py-5">
+		<>
+			<Modal
+				open={open}
+				onClose={handleClose}
+				title="Nuevo recibo"
+				titleId="nuevo-recibo-title"
+				className="flex max-h-[90dvh] max-w-2xl flex-col"
+			>
+				<div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-5 py-5">
 
 				{/* ── Asociado ── */}
 				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
@@ -1061,6 +1136,7 @@ function NuevoReciboModal({
 
 							<button
 								type="button"
+								onClick={() => setMovementModalOpen(true)}
 								className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
 							>
 								<Plus className="h-4 w-4" />
@@ -1069,6 +1145,56 @@ function NuevoReciboModal({
 						</div>
 					)}
 				</div>
+
+				{inventarioChecked && (
+					<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+						<div className="flex items-center justify-between">
+							<p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Movimientos del recibo
+							</p>
+							<span className="text-xs text-slate-400">Pendientes</span>
+						</div>
+						{draftMovements.length === 0 ? (
+							<p className="mt-2 text-sm text-slate-400">
+								No hay movimientos pendientes.
+							</p>
+						) : (
+							<ul className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+								{draftMovements.map((draft) => (
+									<li key={draft.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
+										<div>
+											<p className="font-medium text-slate-800">
+												{draft.input.itemName || "Articulo"}
+											</p>
+											<p className="text-xs text-slate-500">
+												{draft.input.movementType === "in" ? "Entrada" : "Salida"} · {draft.input.quantity} uds · {formatCurrency(draft.unitPrice)} c/u · {formatDate(draft.input.date)}
+											</p>
+											<p className="text-xs font-medium text-slate-700">
+												Total: {formatCurrency(draft.unitPrice * draft.input.quantity)}
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => removeDraftMovement(draft.id)}
+											className="rounded-full p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none"
+											aria-label="Quitar movimiento"
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</button>
+									</li>
+								))}
+							</ul>
+						)}
+						<p className="mt-2 text-xs text-slate-500">
+							Se ejecutaran cuando crees el recibo.
+						</p>
+						{movementSubmitError ? (
+							<p className="mt-2 text-xs text-rose-700" role="alert">
+								{movementSubmitError}
+							</p>
+						) : null}
+					</div>
+				)}
 
 				{/* ── Urbano / Rural ── */}
 				<div className="flex gap-5 px-1">
@@ -1143,6 +1269,12 @@ function NuevoReciboModal({
 							<span>{formatCurrency(totalInventario)}</span>
 						</div>
 					)}
+					{draftMovements.length > 0 && (
+						<div className="flex justify-between py-1 text-sm text-slate-600">
+							<span>Movimientos inventario ({draftMovements.length})</span>
+							<span>{formatCurrency(totalMovimientos)}</span>
+						</div>
+					)}
 					{/* Discount row */}
 					{!exento && (
 						<div className="flex items-center justify-between py-1 text-sm text-slate-500">
@@ -1177,22 +1309,31 @@ function NuevoReciboModal({
 						</span>
 					</div>
 				</div>
-			</div>
+				</div>
 
-			<div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
-				<Button variant="ghost" onClick={handleClose}>
-					Cancelar
-				</Button>
-				<Button
-					variant="primary"
-					onClick={handleCrear}
-					disabled={!canCrear || creating}
-					leftIcon={creating ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
-				>
-					Crear
-				</Button>
-			</div>
-		</Modal>
+				<div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
+					<Button variant="ghost" onClick={handleClose}>
+						Cancelar
+					</Button>
+					<Button
+						variant="primary"
+						onClick={handleCrear}
+						disabled={!canCrear || creating}
+						leftIcon={creating ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+					>
+						Crear
+					</Button>
+				</div>
+			</Modal>
+
+			<NewMovementModal
+				open={open && movementModalOpen}
+				onClose={() => setMovementModalOpen(false)}
+				itemTypes={movementItemTypes}
+				submitMode="draft"
+				onDraft={handleMovementDraft}
+			/>
+		</>
 	);
 }
 
