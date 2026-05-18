@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { Modal } from './ui/Modal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -37,8 +36,6 @@ export function NuevaConsultaModal({
   open: boolean
   onClose: () => void
 }) {
-  const router = useRouter()
-
   const [asociados, setAsociados] = useState<any[]>([])
   const [medicos, setMedicos] = useState<any[]>([])
 
@@ -114,7 +111,7 @@ export function NuevaConsultaModal({
       alert('Servicio creado correctamente')
       resetForm()
       onClose()
-      router.refresh()
+      window.location.reload()
     } else {
       alert('Hubo un error, intente nuevamente')
     }

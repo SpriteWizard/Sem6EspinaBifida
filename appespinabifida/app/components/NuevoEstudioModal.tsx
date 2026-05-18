@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { Modal } from './ui/Modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,8 +47,6 @@ export function NuevoEstudioModal({
   defaultFolioConsulta?: string
   defaultAsociadoId?: number
 }) {
-  const router = useRouter()
-
   // Asociado
   const [query, setQuery] = useState('')
   const [seleccionado, setSeleccionado] = useState<any | null>(null)
@@ -198,7 +195,7 @@ export function NuevoEstudioModal({
         alert('Estudio agregado correctamente')
         resetForm()
         onClose()
-        router.refresh()
+        window.location.reload()
       } else {
         alert('No se pudo agregar el estudio, intente nuevamente')
       }
