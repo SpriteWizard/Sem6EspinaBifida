@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { Session } from "inspector/promises";
 
 
-type Estatus = "Activo" | "Inactivo" | "Pendiente";
+type Estatus = "Activo" | "Inactivo" | "Pendiente" | "Anulado";
 type Sexo = "Masculino" | "Femenino";
 
 export interface ContactoEmergencia {
@@ -99,6 +99,7 @@ const badgeColors: Record<Estatus, string> = {
   Activo: "bg-green-100 text-green-800",
   Inactivo: "bg-red-100 text-red-800",
   Pendiente: "bg-yellow-100 text-yellow-800",
+  Anulado: "bg-red-500/10 text-red-500"
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
