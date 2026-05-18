@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -14,6 +14,7 @@ import {
 	Receipt,
 	Trash2,
 	Loader2,
+	AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "../components/ui/Button";
@@ -29,6 +30,7 @@ import type { InventoryItem } from "../lib/types/inventory";
 type Estatus = "Pagado" | "Pagado parcialmente" | "Pendiente";
 type MetodoPago = "efectivo" | "tarjeta" | "deposito" | "transferencia";
 type TipoPaciente = "A" | "B";
+type TipoServicio = "Consulta" | "Estudio";
 
 interface ReciboProducto {
 	itemId: number | null;
@@ -37,15 +39,22 @@ interface ReciboProducto {
 	precioUnitario: number;
 }
 
+interface ReciboServicio {
+	tipo: TipoServicio;
+	precio: number;
+}
+
 interface Recibo {
 	id: string;
 	asociado: string;
 	fechaEmision: string;
+	fechaLimite?: string;
 	montoTotal: number;
 	montoPagado: number;
 	tipoPaciente: TipoPaciente;
 	descuentoPct: number;
 	productos: ReciboProducto[];
+	exento?: boolean;
 }
 
 interface Pago {
@@ -140,6 +149,11 @@ const ASOCIADOS_INICIALES: AsociadoMini[] = [
 	{ id: "7", nombre: "Valentina Cruz Mendoza" },
 	{ id: "8", nombre: "Andrés Torres Guzmán" },
 ];
+
+const SERVICIO_PRECIOS: Record<TipoServicio, number> = {
+	Consulta: 350,
+	Estudio: 800,
+};
 
 const RECIBOS_INICIALES: Recibo[] = [
 	{
@@ -596,36 +610,50 @@ function NuevoReciboModal({
 	onClose: () => void;
 	onCrear: (r: Recibo) => void;
 }) {
-	const [asociado, setAsociado] = useState("");
+	// Associate state
 	const [asociadoSearch, setAsociadoSearch] = useState("");
+	const [asociadoSeleccionado, setAsociadoSeleccionado] = useState<AsociadoMini | null>(null);
 	const [showAsociadoDropdown, setShowAsociadoDropdown] = useState(false);
 	const [asociados, setAsociados] = useState<AsociadoMini[]>([]);
 	const [asociadosLoading, setAsociadosLoading] = useState(false);
+	const asociadoRef = useRef<HTMLDivElement>(null);
 
-	const [fecha, setFecha] = useState("");
-	const [montoManual, setMontoManual] = useState("");
+	// Servicio state
+	const [servicioChecked, setServicioChecked] = useState(false);
+	const [servicios, setServicios] = useState<ReciboServicio[]>([]);
+	const [showServicioSelector, setShowServicioSelector] = useState(false);
+
+	// Inventario state
+	const [inventarioChecked, setInventarioChecked] = useState(false);
 	const [productos, setProductos] = useState<ReciboProducto[]>([]);
-	const [tipoPaciente, setTipoPaciente] = useState<TipoPaciente>("A");
-	const [descuentoPct, setDescuentoPct] = useState(0);
-
 	const [productSearch, setProductSearch] = useState("");
 	const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
 	const [searchLoading, setSearchLoading] = useState(false);
 	const [showDropdown, setShowDropdown] = useState(false);
+	const searchRef = useRef<HTMLDivElement>(null);
+
+	// Other state
+	const [fechaLimite, setFechaLimite] = useState("");
+	const [exento, setExento] = useState(false);
+	const [descuentoPct, setDescuentoPct] = useState(0);
 	const [creating, setCreating] = useState(false);
 
-	const searchRef = useRef<HTMLDivElement>(null);
-	const asociadoRef = useRef<HTMLDivElement>(null);
+	// Computed totals
+	const totalServicios = servicios.reduce((s, sv) => s + sv.precio, 0);
+	const totalInventario = productos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+	const totalBruto = totalServicios + totalInventario;
+	const descuentoMonto = Math.round(totalBruto * (descuentoPct / 100) * 100) / 100;
+	const totalFinal = exento ? 0 : Math.round((totalBruto - descuentoMonto) * 100) / 100;
+	const hasEstudio = servicios.some((s) => s.tipo === "Estudio");
 
-	const computedTotal = productos.reduce(
-		(s, p) => s + p.cantidad * p.precioUnitario,
-		0,
-	);
-	const hasProductos = productos.length > 0;
-	const montoBruto = hasProductos ? computedTotal : parseFloat(montoManual) || 0;
-	const montoConDescuento = aplicarDescuento(montoBruto, descuentoPct);
+	const filteredAsociados = useMemo(() => {
+		const q = asociadoSearch.trim().toLowerCase();
+		if (!q) return asociados.slice(0, 8);
+		return asociados
+			.filter((a) => a.nombre.toLowerCase().includes(q) || a.id.toLowerCase().includes(q))
+			.slice(0, 8);
+	}, [asociados, asociadoSearch]);
 
-	// Load associates when modal opens
 	useEffect(() => {
 		if (!open) return;
 		let alive = true;
@@ -636,19 +664,6 @@ function NuevoReciboModal({
 		return () => { alive = false; };
 	}, [open]);
 
-	// Reset descuentoPct to default when patient type changes
-	useEffect(() => {
-		setDescuentoPct(DESCUENTO_DEFAULT[tipoPaciente]);
-	}, [tipoPaciente]);
-
-	// Auto-populate montoManual when products change
-	useEffect(() => {
-		if (hasProductos) {
-			setMontoManual(computedTotal.toFixed(2));
-		}
-	}, [computedTotal, hasProductos]);
-
-	// Debounced inventory search
 	useEffect(() => {
 		if (!productSearch.trim()) {
 			setSearchResults([]);
@@ -671,7 +686,6 @@ function NuevoReciboModal({
 		return () => window.clearTimeout(t);
 	}, [productSearch]);
 
-	// Close inventory dropdown on outside click
 	useEffect(() => {
 		function handler(e: MouseEvent) {
 			if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -682,7 +696,6 @@ function NuevoReciboModal({
 		return () => document.removeEventListener("mousedown", handler);
 	}, []);
 
-	// Close associate dropdown on outside click
 	useEffect(() => {
 		function handler(e: MouseEvent) {
 			if (asociadoRef.current && !asociadoRef.current.contains(e.target as Node)) {
@@ -693,26 +706,32 @@ function NuevoReciboModal({
 		return () => document.removeEventListener("mousedown", handler);
 	}, []);
 
-	// Filter associates client-side
-	const filteredAsociados = useMemo(() => {
-		const q = asociadoSearch.trim().toLowerCase();
-		if (!q) return asociados.slice(0, 8);
-		return asociados.filter((a) => a.nombre.toLowerCase().includes(q)).slice(0, 8);
-	}, [asociados, asociadoSearch]);
-
-	function handleClose() {
-		setAsociado("");
+	const handleClose = useCallback(() => {
 		setAsociadoSearch("");
+		setAsociadoSeleccionado(null);
 		setShowAsociadoDropdown(false);
-		setFecha("");
-		setMontoManual("");
+		setServicioChecked(false);
+		setServicios([]);
+		setShowServicioSelector(false);
+		setInventarioChecked(false);
 		setProductos([]);
-		setTipoPaciente("A");
 		setProductSearch("");
 		setSearchResults([]);
 		setShowDropdown(false);
+		setFechaLimite("");
+		setExento(false);
+		setDescuentoPct(0);
 		setCreating(false);
 		onClose();
+	}, [onClose]);
+
+	function addServicio(tipo: TipoServicio) {
+		setServicios((prev) => [...prev, { tipo, precio: SERVICIO_PRECIOS[tipo] }]);
+		setShowServicioSelector(false);
+	}
+
+	function removeServicio(index: number) {
+		setServicios((prev) => prev.filter((_, i) => i !== index));
 	}
 
 	function addProduct(item: InventoryItem) {
@@ -742,37 +761,39 @@ function NuevoReciboModal({
 		setProductos((prev) => prev.filter((_, i) => i !== index));
 	}
 
-	function updateProducto(
-		index: number,
-		field: "cantidad" | "precioUnitario",
-		raw: string,
-	) {
+	function updateProducto(index: number, field: "cantidad" | "precioUnitario", raw: string) {
 		const parsed = field === "cantidad" ? parseInt(raw, 10) : parseFloat(raw);
 		const value = isNaN(parsed) || parsed < 0 ? 0 : parsed;
-		setProductos((prev) =>
-			prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
-		);
+		setProductos((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
 	}
 
-	async function handleGuardar() {
-		if (!asociado.trim() || !fecha) return;
-		if (!hasProductos && (isNaN(parseFloat(montoManual)) || parseFloat(montoManual) <= 0)) return;
-
+	async function handleCrear() {
+		if (!asociadoSeleccionado || !fechaLimite) return;
 		setCreating(true);
+
 		const id = `REC-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+		const fechaHoy = new Date().toISOString().split("T")[0];
+
+		const serviciosComoProductos: ReciboProducto[] = servicios.map((s) => ({
+			itemId: null,
+			itemName: s.tipo,
+			cantidad: 1,
+			precioUnitario: s.precio,
+		}));
 
 		onCrear({
 			id,
-			asociado: asociado.trim(),
-			fechaEmision: fecha,
-			montoTotal: montoConDescuento,
+			asociado: asociadoSeleccionado.nombre,
+			fechaEmision: fechaHoy,
+			fechaLimite,
+			montoTotal: totalFinal,
 			montoPagado: 0,
-			tipoPaciente,
-			descuentoPct,
-			productos,
+			tipoPaciente: "A",
+			descuentoPct: 0,
+			productos: [...serviciosComoProductos, ...productos],
+			exento,
 		});
 
-		// Fire inventory exit movements for linked products (fire and forget)
 		for (const prod of productos) {
 			if (prod.itemId !== null && prod.cantidad > 0) {
 				fetch("/api/inventario/movimientos/agregar", {
@@ -781,7 +802,7 @@ function NuevoReciboModal({
 					body: JSON.stringify({
 						itemId: prod.itemId,
 						movementType: "out",
-						date: fecha,
+						date: fechaHoy,
 						quantity: prod.cantidad,
 						notes: `Salida por recibo ${id}`,
 					}),
@@ -792,10 +813,7 @@ function NuevoReciboModal({
 		handleClose();
 	}
 
-	const canGuardar =
-		asociado.trim().length > 0 &&
-		fecha.length > 0 &&
-		(hasProductos || (parseFloat(montoManual) > 0));
+	const canCrear = asociadoSeleccionado !== null && fechaLimite.length > 0;
 
 	return (
 		<Modal
@@ -803,262 +821,362 @@ function NuevoReciboModal({
 			onClose={handleClose}
 			title="Nuevo recibo"
 			titleId="nuevo-recibo-title"
-			className="max-w-2xl"
+			className="flex max-h-[90dvh] max-w-2xl flex-col"
 		>
-			<div className="space-y-4 px-5 py-4">
-				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					{/* Associate dropdown */}
-					<div>
-						<label className="mb-1 block text-xs font-medium text-slate-600">
-							Asociado
-						</label>
-						<div ref={asociadoRef} className="relative">
-							<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-							{asociadosLoading && (
-								<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
-							)}
-							<Input
-								className="pl-9 pr-9"
-								placeholder="Buscar asociado…"
-								value={asociadoSearch}
-								onChange={(e) => {
-									setAsociadoSearch(e.target.value);
-									setAsociado("");
-									setShowAsociadoDropdown(true);
-								}}
-								onFocus={() => setShowAsociadoDropdown(true)}
-							/>
-							{showAsociadoDropdown && filteredAsociados.length > 0 && (
-								<ul className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-									{filteredAsociados.map((a) => (
-										<li key={a.id}>
-											<button
-												type="button"
-												className="flex w-full items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
-												onClick={() => {
-													setAsociado(a.nombre);
-													setAsociadoSearch(a.nombre);
-													setShowAsociadoDropdown(false);
-												}}
-											>
-												<span className="font-medium text-slate-800">{a.nombre}</span>
-											</button>
-										</li>
-									))}
-								</ul>
-							)}
-						</div>
-					</div>
+			<div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-5 py-5">
 
-					<div>
-						<label className="mb-1 block text-xs font-medium text-slate-600">
-							Fecha de emisión
-						</label>
-						<Input
-							type="date"
-							value={fecha}
-							onChange={(e) => setFecha(e.target.value)}
-						/>
-					</div>
-				</div>
-
-				{/* Patient type */}
-				<div>
-					<p className="mb-2 text-xs font-medium text-slate-600">Tipo de paciente</p>
-					<div className="flex gap-2">
-						{(["A", "B"] as TipoPaciente[]).map((tipo) => (
-							<button
-								key={tipo}
-								type="button"
-								onClick={() => setTipoPaciente(tipo)}
-								className={cn(
-									"flex-1 rounded-lg border-2 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70",
-									tipoPaciente === tipo
-										? "border-slate-600 bg-slate-100 text-slate-800"
-										: "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100",
-								)}
-							>
-								Tipo {tipo}
-								{tipo === "B" && (
-									<span className="ml-1.5 text-xs font-normal text-amber-600">
-										(desc. aplicable)
-									</span>
-								)}
-							</button>
-						))}
-					</div>
-				</div>
-
-				{/* Product search */}
-				<div>
-					<p className="mb-2 text-xs font-medium text-slate-600">
-						Productos del inventario
+				{/* ── Asociado ── */}
+				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+					<p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+						Asociado
 					</p>
-					<div ref={searchRef} className="relative">
+					<div ref={asociadoRef} className="relative">
 						<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-						{searchLoading && (
+						{asociadosLoading && (
 							<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
 						)}
 						<Input
 							className="pl-9 pr-9"
-							placeholder="Buscar artículo en inventario…"
-							value={productSearch}
-							onChange={(e) => setProductSearch(e.target.value)}
-							onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+							placeholder="Buscar por nombre, ID o CURP…"
+							value={asociadoSearch}
+							onChange={(e) => {
+								setAsociadoSearch(e.target.value);
+								setAsociadoSeleccionado(null);
+								setShowAsociadoDropdown(true);
+							}}
+							onFocus={() => setShowAsociadoDropdown(true)}
 						/>
-						{showDropdown && searchResults.length > 0 && (
-							<ul className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-								{searchResults.map((item) => (
-									<li key={item.id}>
+						{showAsociadoDropdown && filteredAsociados.length > 0 && (
+							<ul className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+								{filteredAsociados.map((a) => (
+									<li key={a.id}>
 										<button
 											type="button"
-											className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
-											onClick={() => addProduct(item)}
+											className="flex w-full items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
+											onClick={() => {
+												setAsociadoSeleccionado(a);
+												setAsociadoSearch(a.nombre);
+												setShowAsociadoDropdown(false);
+											}}
 										>
-											<span className="font-medium text-slate-800">{item.name}</span>
-											<span className="ml-3 shrink-0 text-xs text-slate-400">
-												{item.cuotaRecuperacion != null
-													? formatCurrency(item.cuotaRecuperacion)
-													: "Sin precio"}
-											</span>
+											<span className="font-medium text-slate-800">{a.nombre}</span>
 										</button>
 									</li>
 								))}
 							</ul>
 						)}
 					</div>
+					{asociadoSeleccionado && (
+						<div className="mt-3 rounded-lg bg-slate-100 px-4 py-3">
+							<p className="font-medium text-slate-800">{asociadoSeleccionado.nombre}</p>
+							<p className="mt-0.5 text-xs text-slate-500">ID: {asociadoSeleccionado.id}</p>
+						</div>
+					)}
 				</div>
 
-				{/* Product list */}
-				{productos.length > 0 && (
-					<div className="overflow-x-auto rounded-xl border border-slate-200">
-						<table className="w-full border-collapse text-sm">
-							<thead>
-								<tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
-									<th className="px-4 py-2.5 text-left">Producto</th>
-									<th className="px-4 py-2.5 text-right">Cant.</th>
-									<th className="px-4 py-2.5 text-right">Precio unit.</th>
-									<th className="px-4 py-2.5 text-right">Subtotal</th>
-									<th className="px-4 py-2.5" />
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-slate-100">
-								{productos.map((p, i) => (
-									<tr key={i}>
-										<td className="px-4 py-2 font-medium text-slate-800">
-											{p.itemName}
-										</td>
-										<td className="px-4 py-2 text-right">
-											<Input
-												type="number"
-												min="1"
-												step="1"
-												value={p.cantidad === 0 ? "" : String(p.cantidad)}
-												onChange={(e) => updateProducto(i, "cantidad", e.target.value)}
-												className="w-20 text-right"
-											/>
-										</td>
-										<td className="px-4 py-2 text-right">
-											<Input
-												type="number"
-												min="0"
-												step="10"
-												value={p.precioUnitario === 0 ? "" : String(p.precioUnitario)}
-												onChange={(e) =>
-													updateProducto(i, "precioUnitario", e.target.value)
-												}
-												className="w-28 text-right"
-											/>
-										</td>
-										<td className="px-4 py-2 text-right font-semibold text-slate-800">
-											{formatCurrency(p.cantidad * p.precioUnitario)}
-										</td>
-										<td className="px-4 py-2 text-right">
-											<button
-												type="button"
-												onClick={() => removeProduct(i)}
-												className="rounded-full p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-												aria-label="Eliminar producto"
-											>
-												<Trash2 className="h-4 w-4" />
-											</button>
-										</td>
-									</tr>
-								))}
-							</tbody>
-							<tfoot>
-								<tr className="border-t-2 border-slate-200 bg-slate-50">
-									<td
-										colSpan={3}
-										className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500"
-									>
-										Total calculado
-									</td>
-									<td className="px-4 py-2.5 text-right font-bold text-slate-900">
-										{formatCurrency(computedTotal)}
-									</td>
-									<td />
-								</tr>
-							</tfoot>
-						</table>
-					</div>
-				)}
+				{/* ── Servicio ── */}
+				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+					<label className="flex cursor-pointer select-none items-center gap-2.5">
+						<input
+							type="checkbox"
+							checked={servicioChecked}
+							onChange={(e) => {
+								setServicioChecked(e.target.checked);
+								if (!e.target.checked) {
+									setServicios([]);
+									setShowServicioSelector(false);
+								}
+							}}
+							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm font-semibold text-slate-700">Servicio</span>
+					</label>
 
-				{/* Monto base */}
+					{servicioChecked && (
+						<div className="mt-3 space-y-3">
+							{hasEstudio && (
+								<div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+									<AlertTriangle className="h-4 w-4 shrink-0" />
+									Estudio incluido — requiere seguimiento
+								</div>
+							)}
+
+							{servicios.length > 0 && (
+								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+									{servicios.map((s, i) => (
+										<li key={i} className="flex items-center justify-between px-4 py-2.5 text-sm">
+											<span
+												className={cn(
+													"rounded-full px-2.5 py-0.5 text-xs font-medium",
+													s.tipo === "Estudio"
+														? "bg-amber-100 text-amber-700"
+														: "bg-slate-100 text-slate-600",
+												)}
+											>
+												{s.tipo}
+											</span>
+											<div className="flex items-center gap-3">
+												<span className="font-medium text-slate-800">
+													{formatCurrency(s.precio)}
+												</span>
+												<button
+													type="button"
+													onClick={() => removeServicio(i)}
+													className="rounded-full p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none"
+													aria-label="Eliminar servicio"
+												>
+													<Trash2 className="h-3.5 w-3.5" />
+												</button>
+											</div>
+										</li>
+									))}
+								</ul>
+							)}
+
+							{showServicioSelector ? (
+								<div className="rounded-lg border border-slate-200 bg-white p-3">
+									<div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+										<AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+										El servicio debe liquidarse en el momento en que se agrega, no después.
+									</div>
+									<p className="mb-2 text-xs font-medium text-slate-600">
+										Seleccionar tipo de servicio
+									</p>
+									<div className="grid grid-cols-2 gap-2">
+										{(["Consulta", "Estudio"] as TipoServicio[]).map((tipo) => (
+											<button
+												key={tipo}
+												type="button"
+												onClick={() => addServicio(tipo)}
+												className="flex flex-col items-start rounded-lg border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70"
+											>
+												<span className="font-medium text-slate-800">{tipo}</span>
+												<span className="mt-0.5 text-xs text-slate-500">
+													{formatCurrency(SERVICIO_PRECIOS[tipo])} MXN
+												</span>
+											</button>
+										))}
+									</div>
+									<button
+										type="button"
+										onClick={() => setShowServicioSelector(false)}
+										className="mt-2 text-xs text-slate-400 hover:text-slate-600"
+									>
+										Cancelar
+									</button>
+								</div>
+							) : (
+								<button
+									type="button"
+									onClick={() => setShowServicioSelector(true)}
+									className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
+								>
+									<Plus className="h-4 w-4" />
+									Agregar servicio
+								</button>
+							)}
+						</div>
+					)}
+				</div>
+
+				{/* ── Inventario ── */}
+				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+					<label className="flex cursor-pointer select-none items-center gap-2.5">
+						<input
+							type="checkbox"
+							checked={inventarioChecked}
+							onChange={(e) => {
+								setInventarioChecked(e.target.checked);
+								if (!e.target.checked) {
+									setProductos([]);
+									setProductSearch("");
+									setSearchResults([]);
+									setShowDropdown(false);
+								}
+							}}
+							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm font-semibold text-slate-700">Inventario</span>
+					</label>
+
+					{inventarioChecked && (
+						<div className="mt-3 space-y-3">
+							{productos.length > 0 && (
+								<div className="overflow-x-auto rounded-xl border border-slate-200">
+									<table className="w-full border-collapse text-sm">
+										<thead>
+											<tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+												<th className="px-4 py-2.5 text-left">Producto</th>
+												<th className="px-4 py-2.5 text-right">Cant.</th>
+												<th className="px-4 py-2.5 text-right">Precio unit.</th>
+												<th className="px-4 py-2.5 text-right">Subtotal</th>
+												<th className="px-4 py-2.5" />
+											</tr>
+										</thead>
+										<tbody className="divide-y divide-slate-100">
+											{productos.map((p, i) => (
+												<tr key={i}>
+													<td className="px-4 py-2 font-medium text-slate-800">
+														{p.itemName}
+													</td>
+													<td className="px-4 py-2 text-right">
+														<Input
+															type="number"
+															min="1"
+															step="1"
+															value={p.cantidad === 0 ? "" : String(p.cantidad)}
+															onChange={(e) => updateProducto(i, "cantidad", e.target.value)}
+															className="w-20 text-right"
+														/>
+													</td>
+													<td className="px-4 py-2 text-right">
+														<Input
+															type="number"
+															min="0"
+															step="10"
+															value={p.precioUnitario === 0 ? "" : String(p.precioUnitario)}
+															onChange={(e) => updateProducto(i, "precioUnitario", e.target.value)}
+															className="w-28 text-right"
+														/>
+													</td>
+													<td className="px-4 py-2 text-right font-semibold text-slate-800">
+														{formatCurrency(p.cantidad * p.precioUnitario)}
+													</td>
+													<td className="px-4 py-2 text-right">
+														<button
+															type="button"
+															onClick={() => removeProduct(i)}
+															className="rounded-full p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+															aria-label="Eliminar producto"
+														>
+															<Trash2 className="h-4 w-4" />
+														</button>
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							)}
+
+							<button
+								type="button"
+								className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
+							>
+								<Plus className="h-4 w-4" />
+								Agregar inventario
+							</button>
+						</div>
+					)}
+				</div>
+
+				{/* ── Urbano / Rural ── */}
+				<div className="flex gap-5 px-1">
+					<label className="flex cursor-pointer select-none items-center gap-2">
+						<input
+							type="radio"
+							name="zona"
+							value="urbano"
+							className="h-4 w-4 border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm text-slate-700">Urbano</span>
+					</label>
+					<label className="flex cursor-pointer select-none items-center gap-2">
+						<input
+							type="radio"
+							name="zona"
+							value="rural"
+							className="h-4 w-4 border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm text-slate-700">Rural</span>
+					</label>
+				</div>
+
+				{/* ── Fecha Límite ── */}
 				<div>
 					<label className="mb-1 block text-xs font-medium text-slate-600">
-						{descuentoPct > 0 ? "Monto base (antes del descuento)" : "Monto total"}
-						{hasProductos && (
-							<span className="ml-1.5 font-normal text-slate-400">
-								(calculado de los productos)
-							</span>
-						)}
+						Fecha Límite
 					</label>
 					<Input
-						type="number"
-						min="0"
-						step="10"
-						placeholder="0"
-						value={montoManual}
-						onChange={(e) => setMontoManual(e.target.value)}
+						type="date"
+						value={fechaLimite}
+						onChange={(e) => setFechaLimite(e.target.value)}
 					/>
 				</div>
 
-				{/* Discount breakdown — shown for Tipo B when there's an amount */}
-				{tipoPaciente === "B" && montoBruto > 0 && (
-					<div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-						<div className="flex justify-between text-slate-600">
-							<span>Subtotal</span>
-							<span>{formatCurrency(montoBruto)}</span>
+				{/* ── Exento ── */}
+				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+					<label className="flex cursor-pointer select-none items-center gap-2.5">
+						<input
+							type="checkbox"
+							checked={exento}
+							onChange={(e) => setExento(e.target.checked)}
+							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
+						/>
+						<span className="text-sm font-semibold text-slate-700">Exento</span>
+					</label>
+					{exento && (
+						<p className="mt-1.5 text-xs text-slate-500">
+							El precio final será{" "}
+							<span className="font-semibold text-emerald-600">$0.00</span>
+						</p>
+					)}
+				</div>
+
+				{/* ── Resumen de precio ── */}
+				<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+					<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+						Resumen
+					</p>
+					{servicioChecked && servicios.length > 0 && (
+						<div className="flex justify-between py-1 text-sm text-slate-600">
+							<span>Servicios ({servicios.length})</span>
+							<span>{formatCurrency(totalServicios)}</span>
 						</div>
-						<div className="flex items-center justify-between text-amber-700">
-							<span className="flex items-center gap-1">
-								Descuento Tipo B
-								<span className="ml-1 flex items-center gap-0.5">
-									(
-									<Input
+					)}
+					{inventarioChecked && productos.length > 0 && (
+						<div className="flex justify-between py-1 text-sm text-slate-600">
+							<span>
+								Inventario ({productos.length} artículo
+								{productos.length !== 1 ? "s" : ""})
+							</span>
+							<span>{formatCurrency(totalInventario)}</span>
+						</div>
+					)}
+					{/* Discount row */}
+					{!exento && (
+						<div className="flex items-center justify-between py-1 text-sm text-slate-500">
+							<span className="flex items-center gap-1.5">
+								Descuento
+								<span className="flex items-center gap-0.5">
+									<input
 										type="number"
 										min="0"
 										max="100"
-										step="10"
-										value={String(descuentoPct)}
+										step="1"
+										value={descuentoPct === 0 ? "" : String(descuentoPct)}
+										placeholder="0"
 										onChange={(e) => {
-											const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
+											const v = Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0));
 											setDescuentoPct(v);
 										}}
-										className="h-6 w-14 px-1.5 text-center text-xs"
+										className="h-6 w-12 rounded border border-slate-200 bg-white px-1.5 text-center text-xs text-slate-600 focus:border-slate-400 focus:outline-none"
 									/>
-									%)
+									<span className="text-xs">%</span>
 								</span>
 							</span>
-							<span>-{formatCurrency(montoBruto * descuentoPct / 100)}</span>
+							<span className={descuentoPct > 0 ? "text-amber-600" : "text-slate-300"}>
+								{descuentoPct > 0 ? `-${formatCurrency(descuentoMonto)}` : "—"}
+							</span>
 						</div>
-						<div className="mt-1 flex justify-between font-semibold text-slate-800">
-							<span>Total a cobrar</span>
-							<span>{formatCurrency(montoConDescuento)}</span>
-						</div>
+					)}
+					<div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold text-slate-800">
+						<span>Total</span>
+						<span className={exento ? "text-emerald-600" : ""}>
+							{formatCurrency(totalFinal)}
+						</span>
 					</div>
-				)}
+				</div>
 			</div>
 
 			<div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
@@ -1067,11 +1185,11 @@ function NuevoReciboModal({
 				</Button>
 				<Button
 					variant="primary"
-					onClick={handleGuardar}
-					disabled={!canGuardar || creating}
+					onClick={handleCrear}
+					disabled={!canCrear || creating}
 					leftIcon={creating ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
 				>
-					Guardar
+					Crear
 				</Button>
 			</div>
 		</Modal>
