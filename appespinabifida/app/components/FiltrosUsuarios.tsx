@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
-import { Button } from "./ui/Button";
 
 type FilterProps = {
-  sendFilters: Function;
+  sendFilters: (filters: {
+    id: number | null;
+    nombre: string;
+    fecha: string;
+    estatus: string;
+  }) => void;
 };
 
 export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
@@ -17,9 +21,9 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
   const [fecha, setFecha] = useState<string>("");
   const [estatus, setEstatus] = useState<string>("");
 
-  function applyFilters() {
+  useEffect(() => {
     sendFilters({ id, nombre, fecha, estatus });
-  }
+  }, [id, nombre, fecha, estatus, sendFilters]);
 
   return (
     <div className="rounded-2xl bg-white/70 p-4 shadow-sm ring-1 ring-slate-200/70">
@@ -29,7 +33,8 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
           <Input
             type="number"
             placeholder="ID"
-            onChange={(e) => setId(Number(e.target.value))}
+            value={id ?? ""}
+            onChange={(e) => setId(e.target.value ? Number(e.target.value) : null)}
             aria-label="Buscar por ID"
             className="pl-9"
           />
@@ -40,6 +45,7 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
           <Input
             type="text"
             placeholder="Nombre"
+            value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             aria-label="Buscar por nombre"
             className="pl-9"
@@ -49,6 +55,7 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
         <div>
           <Input
             type="date"
+            value={fecha}
             onChange={(e) => setFecha(e.target.value)}
             aria-label="Filtrar por fecha de alta"
           />
@@ -57,6 +64,7 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
 
         <div className="relative">
           <Select
+            value={estatus}
             onChange={(e) => setEstatus(e.target.value)}
             aria-label="Filtrar por estatus"
           >
@@ -67,12 +75,6 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
           </Select>
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">▼</span>
         </div>
-      </div>
-
-      <div className="mt-3 flex justify-end">
-        <Button variant="secondary" onClick={applyFilters}>
-          Buscar
-        </Button>
       </div>
     </div>
   );
