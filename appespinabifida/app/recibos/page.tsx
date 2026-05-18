@@ -21,6 +21,8 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
+import { NuevaConsultaModal } from "../components/reciboWorkflow/nuevaConsultaModal";
+import { NuevoEstudioModal } from "../components/reciboWorkflow/nuevoEstudioModal";
 import { NewMovementModal } from "../components/inventory/NewMovementModal";
 import { cn } from "../lib/utils/cn";
 import { searchInventoryItemsByName } from "../lib/api/inventory";
@@ -612,6 +614,30 @@ function DesgloseModal({
 	);
 }
 
+type nuevoRecibo = {
+  "id_asociado": number,
+  "id_usuario": number,
+  "fecha_limite": string,
+  "tipo_zona": string,
+  "tipo_cuota": string,
+  "total": number,
+  "total_pagado": number,
+  "estatus": string,
+  "nota": string
+}
+
+const nuevoReciboDefault: nuevoRecibo = {
+  "id_asociado": 0,
+  "id_usuario": 0,
+  fecha_limite: "0000-00-00",
+  tipo_zona: "",
+  tipo_cuota: "",
+  total: 0,
+  total_pagado: 0,
+  estatus: "",
+  nota: ""
+};
+
 // ─── Nuevo recibo modal ───────────────────────────────────────────────────────
 
 function NuevoReciboModal({
@@ -623,6 +649,15 @@ function NuevoReciboModal({
 	onClose: () => void;
 	onCrear: (r: Recibo) => void;
 }) {
+
+	// Servicios y recibos
+
+	const  [listaNuevaConsulta, setListaNuevaConsulta] = useState<any[]>([]);
+	const [listaNuevoEstudio, setListaNuevoEstudio] = useState<any[]>([]);
+	const [nuevaConsultaModalAbierto, setNuevaConsultaModalAbierto] = useState(false);
+	const [nuevoEstudioModalAbierto, setNuevoEstudioModalAbierto] = useState(false);
+	const [nuevoRecibo, setNuevoRecibo] = useState(nuevoReciboDefault);
+
 	// Associate state
 	const [asociadoSearch, setAsociadoSearch] = useState("");
 	const [asociadoSeleccionado, setAsociadoSeleccionado] = useState<AsociadoMini | null>(null);
@@ -679,16 +714,6 @@ function NuevoReciboModal({
 
 	useEffect(() => {
 		if (!open) return;
-		let alive = true;
-		setAsociadosLoading(true);
-		fetchAsociados()
-			.then((data) => { if (alive) { setAsociados(data); setAsociadosLoading(false); } })
-			.catch(() => { if (alive) setAsociadosLoading(false); });
-		return () => { alive = false; };
-	}, [open]);
-
-	useEffect(() => {
-		if (!open) return;
 		if (movementItemTypes.length > 0) return;
 		let alive = true;
 		listMovementItemTypes()
@@ -718,6 +743,26 @@ function NuevoReciboModal({
 		}, 350);
 		return () => window.clearTimeout(t);
 	}, [productSearch]);
+
+	useEffect(() => {
+		async function getAsociados(){
+			const res = await fetch("/api/asociados/lista_asociados/mini");
+			console.log(res);
+			if (res.ok){
+				const data = await res.json();
+				
+				const asociadosReducidos = data.map((e: any) => {
+					return ({
+						id: "ASC-" + e.id_asociado,
+						nombre: e.nombre + " " + e.apellidos
+					})
+				})
+
+				setAsociados(asociadosReducidos);
+			}
+		}
+		getAsociados()
+	}, [])
 
 	useEffect(() => {
 		function handler(e: MouseEvent) {
@@ -854,6 +899,57 @@ function NuevoReciboModal({
 			setCreating(false);
 			return;
 		}
+
+		const session = await getSession();
+
+		const reciboActualizado: nuevoRecibo = {
+			id_asociado: Number(asociadoSeleccionado.id.replace("ASC-","")),
+			id_usuario: Number((session?.user as any).id ?? 0),
+			fecha_limite: fechaLimite,
+			tipo_zona: "urbano",
+			tipo_cuota: exento ? "exento" : "cuota",
+			total: totalFinal,
+			total_pagado: 0,
+			estatus: "no_pagado",
+			nota: "",
+		};
+
+		setNuevoRecibo(reciboActualizado);
+
+		const resRecibo = await fetch('/api/recibos/nuevo',{
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reciboActualizado)
+        })
+
+        const id_recibo = (await resRecibo.json()).id_recibo
+        
+        listaNuevaConsulta.forEach((e) => {
+            e.id_recibo = id_recibo
+        })
+
+        const resServicios = await fetch('/api/recibos/agregarServicios', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'            
+            },
+            body: JSON.stringify({
+                consultas: listaNuevaConsulta,
+                estudios: listaNuevoEstudio
+            })
+        })
+
+        if (resServicios.ok){
+            if ((await resServicios.json()).message === "Success"){
+                alert("Servicios agregados exitosamente");
+                setListaNuevaConsulta([]);
+                setListaNuevoEstudio([]);
+            } else {
+                alert("Error al agregar servicios");
+            }
+        }
 
 		onCrear({
 			id,
@@ -1022,7 +1118,14 @@ function NuevoReciboModal({
 											<button
 												key={tipo}
 												type="button"
-												onClick={() => addServicio(tipo)}
+												onClick={() => {
+											setShowServicioSelector(false);
+											if (tipo === "Consulta") {
+												setNuevaConsultaModalAbierto(true);
+											} else {
+												setNuevoEstudioModalAbierto(true);
+											}
+											}}
 												className="flex flex-col items-start rounded-lg border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70"
 											>
 												<span className="font-medium text-slate-800">{tipo}</span>
@@ -1275,6 +1378,44 @@ function NuevoReciboModal({
 							<span>{formatCurrency(totalMovimientos)}</span>
 						</div>
 					)}
+					{listaNuevaConsulta.length > 0 && (
+						<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Consultas añadidas
+							</p>
+							<ul className="space-y-2 text-sm text-slate-700">
+								{listaNuevaConsulta.map((consulta, index) => (
+									<li key={index} className="flex items-center justify-between gap-2">
+										<span>
+											{consulta.tipo_consulta || consulta.id_consulta_local || `Consulta ${index + 1}`}
+										</span>
+										<span className="text-xs text-slate-500">
+											{consulta.fecha_cita ? formatDate(String(consulta.fecha_cita).split(" ")[0]) : ""}
+										</span>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+					{listaNuevoEstudio.length > 0 && (
+						<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Estudios añadidos
+							</p>
+							<ul className="space-y-2 text-sm text-slate-700">
+								{listaNuevoEstudio.map((estudio, index) => (
+									<li key={index} className="flex items-center justify-between gap-2">
+										<span>
+											{estudio.id_tipo_estudio ? `Estudio #${estudio.id_tipo_estudio}` : `Estudio ${index + 1}`}
+										</span>
+										<span className="text-xs text-slate-500">
+											{estudio.fecha_cita ? formatDate(String(estudio.fecha_cita).split(" ")[0]) : ""}
+										</span>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
 					{/* Discount row */}
 					{!exento && (
 						<div className="flex items-center justify-between py-1 text-sm text-slate-500">
@@ -1333,11 +1474,25 @@ function NuevoReciboModal({
 				submitMode="draft"
 				onDraft={handleMovementDraft}
 			/>
-		</>
+		<NuevaConsultaModal
+			open={nuevaConsultaModalAbierto}
+			onClose={() => setNuevaConsultaModalAbierto(false)}
+			listaNuevaConsulta={listaNuevaConsulta}
+			setListaNuevaConsulta={setListaNuevaConsulta}
+			setModalAbiertoNuevaConsulta={setNuevaConsultaModalAbierto}
+			id_recibo={0}
+		/>
+		<NuevoEstudioModal
+			open={nuevoEstudioModalAbierto}
+			onClose={() => setNuevoEstudioModalAbierto(false)}
+			defaultAsociadoId={asociadoSeleccionado ? Number(asociadoSeleccionado.id) : undefined}
+			setListaNuevoEstudio={setListaNuevoEstudio}
+			listaNuevaConsulta={listaNuevaConsulta}
+			setModalAbiertoNuevoEstudio={setNuevoEstudioModalAbierto}
+		/>
+	</>
 	);
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RecibosPage() {
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
