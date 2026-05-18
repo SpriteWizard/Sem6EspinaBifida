@@ -41,11 +41,18 @@ type FieldErrors = {
   comodatoCondiciones?: string
 }
 
+type DraftPayload = {
+  input: CreateMovementInput
+  unitPrice: number
+}
+
 type Props = {
   open: boolean
   onClose: () => void
   itemTypes: MovementItemType[]
-  onCreated: (m: InventoryMovement) => void
+  onCreated?: (m: InventoryMovement) => void
+  onDraft?: (payload: DraftPayload) => void
+  submitMode?: 'create' | 'draft'
   initial?: InventoryMovement | null
   viewOnly?: boolean
 }
@@ -71,12 +78,16 @@ export function NewMovementModal({
   onClose,
   itemTypes,
   onCreated,
+  onDraft,
+  submitMode,
   initial,
   viewOnly,
 }: Props) {
+  const resolvedSubmitMode = submitMode ?? 'create'
   const [movementType, setMovementType] = useState<MovementType>('in')
   const [itemType, setItemType] = useState<MovementItemType | ''>('')
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [itemName, setItemName] = useState('')
   const [newItemDescription, setNewItemDescription] = useState('')
   const [newItemUnidad, setNewItemUnidad] = useState('')
@@ -140,6 +151,7 @@ export function NewMovementModal({
     setMovementType('in')
     setItemType('')
     setSelectedItemId(null)
+    setSelectedItem(null)
     setItemName('')
     setNewItemDescription('')
     setNewItemUnidad('pieza')
@@ -321,6 +333,7 @@ export function NewMovementModal({
 
   function handleSelectSuggestion(item: InventoryItem) {
     setSelectedItemId(item.id)
+    setSelectedItem(item)
     setItemName(item.name)
     setItemType(movementItemTypeFromCategoryId(item.categoryId))
     setNewItemDescription(item.description ?? '')
@@ -360,32 +373,52 @@ export function NewMovementModal({
         ? null
         : Number(newItemCuotaRecuperacion)
 
+    const input: CreateMovementInput = {
+      movementType,
+      itemType: resolvedType,
+      itemId: selectedItemId ?? undefined,
+      itemName: itemName.trim(),
+      newItemDescription: newItemDescription.trim(),
+      newItemUnidad: newItemUnidad.trim(),
+      newItemProveedor: newItemProveedor.trim(),
+      newItemStockMinimo: Number.isNaN(parsedStockMinimo)
+        ? undefined
+        : parsedStockMinimo,
+      newItemCuotaRecuperacion: Number.isNaN(parsedCuotaRecuperacion as number)
+        ? null
+        : parsedCuotaRecuperacion,
+      date,
+      quantity: Math.floor(Number(quantity)),
+      notes: notes.trim(),
+      esComodato: movementType === 'out' && esComodato,
+      comodatoAQuien: movementType === 'out' && esComodato ? comodatoAQuien.trim() : undefined,
+      comodatoTiempo: movementType === 'out' && esComodato ? comodatoTiempo.trim() : undefined,
+      comodatoCondiciones:
+        movementType === 'out' && esComodato ? comodatoCondiciones.trim() : undefined,
+      allowSimilarCreate,
+    }
+
+    const selectedUnitPrice = selectedItem?.cuotaRecuperacion
+    const unitPrice =
+      typeof selectedUnitPrice === 'number' && !Number.isNaN(selectedUnitPrice)
+        ? selectedUnitPrice
+        : parsedCuotaRecuperacion ?? 0
+
     setSubmitting(true)
     try {
-      const input: CreateMovementInput = {
-        movementType,
-        itemType: resolvedType,
-        itemId: selectedItemId ?? undefined,
-        itemName: itemName.trim(),
-        newItemDescription: newItemDescription.trim(),
-        newItemUnidad: newItemUnidad.trim(),
-        newItemProveedor: newItemProveedor.trim(),
-        newItemStockMinimo: Number.isNaN(parsedStockMinimo)
-          ? undefined
-          : parsedStockMinimo,
-        newItemCuotaRecuperacion: Number.isNaN(parsedCuotaRecuperacion as number)
-          ? null
-          : parsedCuotaRecuperacion,
-        date,
-        quantity: Math.floor(Number(quantity)),
-        notes: notes.trim(),
-        esComodato: movementType === 'out' && esComodato,
-        comodatoAQuien: movementType === 'out' && esComodato ? comodatoAQuien.trim() : undefined,
-        comodatoTiempo: movementType === 'out' && esComodato ? comodatoTiempo.trim() : undefined,
-        comodatoCondiciones:
-          movementType === 'out' && esComodato ? comodatoCondiciones.trim() : undefined,
-        allowSimilarCreate,
+      if (resolvedSubmitMode === 'draft') {
+        if (!onDraft) {
+          throw new Error('No hay manejador para guardar el borrador.')
+        }
+        onDraft({ input, unitPrice })
+        onClose()
+        return
       }
+
+      if (!onCreated) {
+        throw new Error('No hay manejador para registrar el movimiento.')
+      }
+
       const m = await createMovement(input)
       onCreated(m)
       onClose()
@@ -434,6 +467,7 @@ export function NewMovementModal({
                     setErrors((prev) => ({ ...prev, itemName: undefined }))
                     if (selectedItemId !== null) {
                       setSelectedItemId(null)
+                      setSelectedItem(null)
                     }
                   }}
                   placeholder="Escribe para buscar y seleccionar"
@@ -863,10 +897,12 @@ export function NewMovementModal({
           {!viewOnly && (
             <Button type="submit" variant="secondary" disabled={submitting}>
               {submitting
-                ? 'Registrando…'
+                ? (resolvedSubmitMode === 'draft' ? 'Agregando…' : 'Registrando…')
                 : initial
                   ? 'Guardar cambios'
-                  : 'Registrar Movimiento'}
+                  : resolvedSubmitMode === 'draft'
+                    ? 'Agregar movimiento'
+                    : 'Registrar movimiento'}
             </Button>
           )}
         </div>
