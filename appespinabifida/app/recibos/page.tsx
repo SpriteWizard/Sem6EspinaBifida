@@ -1001,41 +1001,7 @@ function NuevoReciboModal({
 
 					{inventarioChecked && (
 						<div className="mt-3 space-y-3">
-							<div ref={searchRef} className="relative">
-								<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-								{searchLoading && (
-									<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
-								)}
-								<Input
-									className="pl-9 pr-9"
-									placeholder="Buscar artículo en inventario…"
-									value={productSearch}
-									onChange={(e) => setProductSearch(e.target.value)}
-									onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-								/>
-								{showDropdown && searchResults.length > 0 && (
-									<ul className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-										{searchResults.map((item) => (
-											<li key={item.id}>
-												<button
-													type="button"
-													className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
-													onClick={() => addProduct(item)}
-												>
-													<span className="font-medium text-slate-800">{item.name}</span>
-													<span className="ml-3 shrink-0 text-xs text-slate-400">
-														{item.cuotaRecuperacion != null
-															? formatCurrency(item.cuotaRecuperacion)
-															: "Sin precio"}
-													</span>
-												</button>
-											</li>
-										))}
-									</ul>
-								)}
-							</div>
-
-							{productos.length > 0 ? (
+							{productos.length > 0 && (
 								<div className="overflow-x-auto rounded-xl border border-slate-200">
 									<table className="w-full border-collapse text-sm">
 										<thead>
@@ -1091,11 +1057,15 @@ function NuevoReciboModal({
 										</tbody>
 									</table>
 								</div>
-							) : (
-								<p className="py-2 text-center text-xs text-slate-400">
-									Busca artículos para agregarlos al recibo.
-								</p>
 							)}
+
+							<button
+								type="button"
+								className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
+							>
+								<Plus className="h-4 w-4" />
+								Agregar inventario
+							</button>
 						</div>
 					)}
 				</div>
