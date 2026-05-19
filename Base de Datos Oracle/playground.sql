@@ -273,6 +273,143 @@ begin
 
 end;
 
+select * from RECIBO;
+
 commit;
 
+select * from pago;
+
+declare 
+  v_body CLOB := TO_CLOB(:body);
+
+  v_id_recibo number;
+  v_monto number;
+  v_metodo_pago VARCHAR2;
+  v_fecha_pago date;
+  v_id_asociado number;
+  v_id_usuario number;
+
+begin
+
+  v_id_recibo := JSON_VALUE(v_body, '$.idRecibo');
+  v_metodo_pago := JSON_VALUE(v_body, '$.metodoPago');
+  v_monto := JSON_VALUE(v_body, '$.monto');
+  v_fecha_pago := JSON_VALUE(v_body, '$.fechaPago');
+  
+  select id_asociado into v_id_asociado from recibo where id_recibo = v_id_recibo;
+
+  v_id_usuario := JSON_VALUE(v_body, '.$idUsuario');
+
+  insert into LOG_PAGOS (ID_RECIBO, METODO_PAGO, CANT_PAGADA, FECHA_PAGO, ID_USUARIO, ID_ASOCIADO ) values
+  (v_id_recibo, v_metodo_pago, v_monto, v_fecha_pago, v_id_usuario, v_id_asociado);
+
+  update RECIBO set TOTAL_PAGADO = TOTAL_PAGADO + v_monto where id_recibo = v_id_recibo;
+  update RECIBO set SALDO_PENDIENTE = TOTAL - TOTAL_PAGADO where id_recibo = v_id_recibo;
+
+  commit;
+
+end;
+
+alter table recibo add descuento number
+
 select * from recibo;
+
+select r.id_recibo, a.NOMBRE || ' ' || a.APELLIDOS as ASOCIADO, r.id_asociado, r.FECHA as FECHAEMISION, r.TOTAL as MONTOTOTAL, r.TOTAL_PAGADO as MONTOPAGADO, r.TIPO_ZONA as TIPOPACIENTE, r.descuento as DESCUENTOPCT, '[]' as productos
+from RECIBO r
+inner join asociado a on a.id_asociado = r.id_asociado;
+
+select 
+    c.ID_CONSULTA as itemId,
+    c.TIPO_CONSULTA as itemName,
+    1 as cantidad,
+    0 as precioUnitario
+from CONSULTA c
+where c.ID_RECIBO = 118
+
+union all
+
+select
+    e.ID_ESTUDIO as itemId,
+    te.NOMBRE as itemName,
+    1 as cantidad,
+    0 as precioUnitario
+  from estudio e
+inner join TIPO_ESTUDIO te on e.id_tipo_estudio = te.id_tipo_estudio
+where e.id_consulta = 100
+
+union all
+
+select
+    i.ID_ARTICULO as itemId,
+    i.NOMBRE as itemName,
+    mi.CANTIDAD as cantidad,
+    i.CUOTA_RECUPERACION as precioUnitario
+from MOVIMIENTO_INVENTARIO mi
+join ARTICULO i
+    on i.ID_ARTICULO = mi.ID_ARTICULO
+where mi.ID_RECIBO = 118;
+
+select 
+    r.id_recibo,
+    a.NOMBRE || ' ' || a.APELLIDOS as ASOCIADO,
+    r.id_asociado,
+    r.FECHA as FECHAEMISION,
+    r.TOTAL as MONTOTOTAL,
+    r.TOTAL_PAGADO as MONTOPAGADO,
+    r.TIPO_ZONA as TIPOPACIENTE,
+    r.descuento as DESCUENTOPCT,
+
+    (
+        select json_arrayagg(
+            json_object(
+                'itemId' value itemId,
+                'itemName' value itemName,
+                'cantidad' value cantidad,
+                'precioUnitario' value precioUnitario
+            )
+        )
+        from (
+
+            -- CONSULTAS
+            select 
+                c.ID_CONSULTA as itemId,
+                'Consulta ' || c.TIPO_CONSULTA as itemName,
+                1 as cantidad,
+                0 as precioUnitario
+            from CONSULTA c
+            where c.ID_RECIBO = r.ID_RECIBO
+
+            union all
+
+            -- ESTUDIOS OF EACH CONSULTA
+            select
+                e.ID_ESTUDIO as itemId,
+                te.NOMBRE as itemName,
+                1 as cantidad,
+                0 as precioUnitario
+            from CONSULTA c
+            inner join ESTUDIO e
+                on e.ID_CONSULTA = c.ID_CONSULTA
+            inner join TIPO_ESTUDIO te
+                on te.ID_TIPO_ESTUDIO = e.ID_TIPO_ESTUDIO
+            where c.ID_RECIBO = r.ID_RECIBO
+
+            union all
+
+            -- INVENTARIO
+            select
+                i.ID_ARTICULO as itemId,
+                i.NOMBRE as itemName,
+                mi.CANTIDAD as cantidad,
+                i.CUOTA_RECUPERACION as precioUnitario
+            from MOVIMIENTO_INVENTARIO mi
+            inner join ARTICULO i
+                on i.ID_ARTICULO = mi.ID_ARTICULO
+            where mi.ID_RECIBO = r.ID_RECIBO
+
+        )
+    ) as productos
+
+from RECIBO r
+inner join ASOCIADO a
+    on a.ID_ASOCIADO = r.ID_ASOCIADO;

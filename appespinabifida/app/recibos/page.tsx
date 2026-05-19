@@ -50,7 +50,7 @@ interface ReciboServicio {
 }
 
 interface Recibo {
-	id: string;
+	id: number;
 	asociado: string;
 	fechaEmision: string;
 	fechaLimite?: string;
@@ -94,7 +94,7 @@ function formatCurrency(n: number) {
 }
 
 function formatDate(iso: string) {
-	return new Date(iso + "T00:00:00").toLocaleDateString("es-MX", {
+	return new Date(iso).toLocaleDateString("es-MX", {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
@@ -116,11 +116,12 @@ function aplicarDescuento(bruto: number, pct: number): number {
 // ─── Data layer ───────────────────────────────────────────────────────────────
 
 async function fetchRecibos(): Promise<Recibo[]> {
-	// TODO: replace with real API call once endpoint is live
-	// const res = await fetch("/api/recibos/obtener");
-	// if (!res.ok) throw new Error("Error al cargar recibos");
-	// return res.json();
-	return RECIBOS_INICIALES;
+	const res = await fetch("/api/recibos/obtener");
+	if (res.ok){
+		const data = await res.json();
+		return data;
+	}
+	return [];
 }
 
 async function fetchAsociados(): Promise<AsociadoMini[]> {
@@ -169,99 +170,6 @@ const SERVICIO_PRECIOS: Record<TipoServicio, number> = {
 	Consulta: 350,
 	Estudio: 800,
 };
-
-const RECIBOS_INICIALES: Recibo[] = [
-	{
-		id: "REC-2026-0001",
-		asociado: "María Guadalupe Hernández Torres",
-		fechaEmision: "2026-03-13",
-		montoTotal: 3540.0,
-		montoPagado: 3540.0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [
-			{ itemId: null, itemName: "Silla de ruedas manual", cantidad: 1, precioUnitario: 2500.0 },
-			{ itemId: null, itemName: "Cojín antiescaras", cantidad: 2, precioUnitario: 520.0 },
-		],
-	},
-	{
-		id: "REC-2026-0002",
-		asociado: "Carlos Eduardo Ramírez López",
-		fechaEmision: "2026-03-15",
-		montoTotal: 1800.0,
-		montoPagado: 0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [
-			{ itemId: null, itemName: "Andadera estándar", cantidad: 1, precioUnitario: 1200.0 },
-			{ itemId: null, itemName: "Plantillas ortopédicas", cantidad: 2, precioUnitario: 300.0 },
-		],
-	},
-	{
-		id: "REC-2026-0003",
-		asociado: "Ana Sofía Martínez Pérez",
-		fechaEmision: "2026-03-20",
-		montoTotal: 2250.0,
-		montoPagado: 1000.0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [
-			{ itemId: null, itemName: "Silla de ruedas pediátrica", cantidad: 1, precioUnitario: 2250.0 },
-		],
-	},
-	{
-		id: "REC-2026-0004",
-		asociado: "Roberto Jiménez Vega",
-		fechaEmision: "2026-03-22",
-		montoTotal: 950.0,
-		montoPagado: 950.0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [
-			{ itemId: null, itemName: "Colchón antiescaras", cantidad: 1, precioUnitario: 950.0 },
-		],
-	},
-	{
-		id: "REC-2026-0005",
-		asociado: "Lucía Fernández Castro",
-		fechaEmision: "2026-03-25",
-		montoTotal: 3100.0,
-		montoPagado: 0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [],
-	},
-	{
-		id: "REC-2026-0006",
-		asociado: "Diego Morales Ríos",
-		fechaEmision: "2026-03-28",
-		montoTotal: 1650.0,
-		montoPagado: 800.0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [],
-	},
-	{
-		id: "REC-2026-0007",
-		asociado: "Valentina Cruz Mendoza",
-		fechaEmision: "2026-04-01",
-		montoTotal: 850.0,
-		montoPagado: 850.0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [],
-	},
-	{
-		id: "REC-2026-0008",
-		asociado: "Andrés Torres Guzmán",
-		fechaEmision: "2026-04-05",
-		montoTotal: 2400.0,
-		montoPagado: 0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [],
-	},
-];
 
 const PAGOS_INICIALES: Pago[] = [
 	{ id: "PAG-001", idRecibo: "REC-2026-0001", monto: 2000.0, metodoPago: "transferencia", fechaPago: "2026-03-14" },
@@ -369,7 +277,7 @@ function RegistrarPagoModal({
 	}
 
 	const historial = pagos
-		.filter((p) => p.idRecibo === recibo?.id)
+		.filter((p) => Number(p.idRecibo) === recibo?.id)
 		.slice()
 		.reverse();
 
@@ -952,7 +860,7 @@ function NuevoReciboModal({
         }
 
 		onCrear({
-			id,
+			id: Number(id),
 			asociado: asociadoSeleccionado.nombre,
 			fechaEmision: fechaHoy,
 			fechaLimite,
@@ -1529,16 +1437,24 @@ export default function RecibosPage() {
 		return () => { alive = false; };
 	}, []);
 
-	function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
+	async function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
 		if (!reciboActivo) return;
 
 		const nuevoPago: Pago = {
 			id: `PAG-${Date.now()}`,
-			idRecibo: reciboActivo.id,
-			monto,
-			metodoPago,
+			idRecibo: String(reciboActivo.id),
+			monto: monto,
+			metodoPago: metodoPago,
 			fechaPago: new Date().toISOString().split("T")[0],
 		};
+
+		const paymentHandler = await fetch("/api/recibos/pagar",{
+			method: "POST",
+			headers:{
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify(nuevoPago)
+		});
 
 		setPagos((prev) => [...prev, nuevoPago]);
 
@@ -1564,7 +1480,7 @@ export default function RecibosPage() {
 	const recibosFiltrados = useMemo(
 		() =>
 			recibos.filter((r) => {
-				if (debouncedId && !r.id.toLowerCase().includes(debouncedId.toLowerCase()))
+				if (debouncedId && !String(r.id).toLowerCase().includes(debouncedId.toLowerCase()))
 					return false;
 				if (
 					debouncedNombre &&
