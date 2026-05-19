@@ -268,9 +268,9 @@ export default function ModalAsociado({
   async function buildImageSrc() {
     const obj = await (await fetch(`/api/asociados/fotoAsociado/obtener?id=${asociado.id}`)).json()
     if (!obj || !obj.image || !obj.mime) {
-      throw new Error("Invalid image object");
+      return;
     }
-    
+
     setFoto(`data:${obj.mime};base64,${obj.image}`);
     return;
   }

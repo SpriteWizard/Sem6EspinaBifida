@@ -171,7 +171,7 @@ export default function ListaAsociados({
       if (res.ok){
         let data = await res.json();
         data = data.filter((element : AsociadoDetalle) => {
-          return element.estatus != "Pendiente";
+          return element.estatus != "Pendiente" && element.estatus != "Anulado";
         });
         setRawData(data);
         setData(data);

@@ -66,7 +66,6 @@ export default function Filtros({ sendFilters }: FilterProps) {
             <option value="">Todos los estatus</option>
             <option value="Activo">Activo</option>
             <option value="Inactivo">Inactivo</option>
-            <option value="Pendiente">Pendiente</option>
           </Select>
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">▼</span>
         </div>
