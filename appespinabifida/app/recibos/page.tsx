@@ -26,9 +26,9 @@ import { NuevoEstudioModal } from "../components/reciboWorkflow/nuevoEstudioModa
 import { NewMovementModal } from "../components/inventory/NewMovementModal";
 import { cn } from "../lib/utils/cn";
 import { searchInventoryItemsByName } from "../lib/api/inventory";
-import { createMovement, listMovementItemTypes } from "../lib/api/movements";
+import { createMovement, listMovementItemTypes, listMovements } from "../lib/api/movements";
 import type { InventoryItem } from "../lib/types/inventory";
-import type { CreateMovementInput, MovementItemType } from "../lib/types/movements";
+import type { CreateMovementInput, MovementItemType, InventoryMovement } from "../lib/types/movements";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +50,8 @@ interface ReciboServicio {
 }
 
 interface Recibo {
-	id: number;
+	id: string;
+	reciboId?: number | null;
 	asociado: string;
 	fechaEmision: string;
 	fechaLimite?: string;
@@ -60,6 +61,9 @@ interface Recibo {
 	descuentoPct: number;
 	productos: ReciboProducto[];
 	exento?: boolean;
+	servicios?: ReciboServicio[];
+	consultas?: any[];
+	estudios?: any[];
 }
 
 interface DraftMovement {
@@ -522,6 +526,297 @@ function DesgloseModal({
 	);
 }
 
+// ─── Recibo detail modal ────────────────────────────────────────────────────
+
+function ReciboDetailModal({
+	recibo,
+	pagos,
+	onClose,
+}: {
+	recibo: Recibo | null;
+	pagos: Pago[];
+	onClose: () => void;
+}) {
+	const [movements, setMovements] = useState<InventoryMovement[]>([]);
+	const [movementsLoading, setMovementsLoading] = useState(false);
+	const [movementsError, setMovementsError] = useState<string | null>(null);
+
+	const pagosRecibo = useMemo(() => {
+		if (!recibo) return [];
+		return pagos
+			.filter((p) => p.idRecibo === recibo.id)
+			.slice()
+			.reverse();
+	}, [pagos, recibo]);
+
+	useEffect(() => {
+		if (!recibo?.reciboId) {
+			setMovements([]);
+			setMovementsError(null);
+			setMovementsLoading(false);
+			return;
+		}
+
+		let alive = true;
+		setMovementsLoading(true);
+		setMovementsError(null);
+
+		listMovements({ reciboId: recibo.reciboId, limit: 50 })
+			.then((res) => {
+				if (!alive) return;
+				setMovements(res.items);
+			})
+			.catch((error) => {
+				if (!alive) return;
+				setMovements([]);
+				setMovementsError(
+					error instanceof Error
+						? error.message
+						: "No se pudieron cargar los movimientos.",
+				);
+			})
+			.finally(() => {
+				if (!alive) return;
+				setMovementsLoading(false);
+			});
+
+		return () => {
+			alive = false;
+		};
+	}, [recibo?.id, recibo?.reciboId]);
+
+	const productos = recibo?.productos ?? [];
+	const servicios = recibo?.servicios ?? [];
+	const consultas = recibo?.consultas ?? [];
+	const estudios = recibo?.estudios ?? [];
+	const servicioProductos = productos.filter(
+		(p) => p.itemName === "Consulta" || p.itemName === "Estudio",
+	);
+	const serviciosDetalle = servicios.length > 0
+		? servicios.map((s) => ({ label: s.tipo, cantidad: 1, precio: s.precio }))
+		: servicioProductos.map((p) => ({
+			label: p.itemName,
+			cantidad: p.cantidad,
+			precio: p.precioUnitario,
+		}));
+
+	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
+	const saldoPendiente = recibo
+		? Math.max(0, Math.round((recibo.montoTotal - recibo.montoPagado) * 100) / 100)
+		: 0;
+
+	return (
+		<Modal
+			open={recibo !== null}
+			onClose={onClose}
+			title={recibo ? `Detalle de recibo ${recibo.id}` : "Detalle de recibo"}
+			titleId="recibo-detail-title"
+			className="max-w-5xl"
+		>
+			{recibo && (
+				<div className="space-y-4 px-5 py-4">
+					<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+						<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+							Datos generales
+						</p>
+						<div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+							<div>
+								<p className="text-xs uppercase text-slate-400">Recibo</p>
+								<p className="font-medium text-slate-800">{recibo.id}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Recibo DB</p>
+								<p className="font-medium text-slate-800">
+									{recibo.reciboId ?? "—"}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Asociado</p>
+								<p className="font-medium text-slate-800">{recibo.asociado}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Fecha emision</p>
+								<p className="text-slate-800">{formatDate(recibo.fechaEmision)}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Fecha limite</p>
+								<p className="text-slate-800">
+									{recibo.fechaLimite ? formatDate(recibo.fechaLimite) : "—"}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Estatus</p>
+								<p className={cn("font-medium", ESTATUS_AMOUNT_CLASS[estatus])}>
+									{estatus}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Tipo paciente</p>
+								<p className="text-slate-800">Tipo {recibo.tipoPaciente}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Descuento</p>
+								<p className="text-slate-800">{recibo.descuentoPct}%</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Exento</p>
+								<p className="text-slate-800">{recibo.exento ? "Si" : "No"}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Total</p>
+								<p className="font-medium text-slate-800">
+									{formatCurrency(recibo.montoTotal)}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Pagado</p>
+								<p className="font-medium text-slate-800">
+									{formatCurrency(recibo.montoPagado)}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Saldo</p>
+								<p className="font-medium text-slate-800">
+									{formatCurrency(saldoPendiente)}
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Servicios
+							</p>
+							{serviciosDetalle.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin servicios.</p>
+							) : (
+								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+									{serviciosDetalle.map((s, i) => (
+										<li key={i} className="flex items-center justify-between px-4 py-2 text-sm">
+											<div>
+												<p className="font-medium text-slate-800">{s.label}</p>
+												<p className="text-xs text-slate-500">Cantidad {s.cantidad}</p>
+											</div>
+											<span className="font-medium text-slate-800">
+												{formatCurrency(s.precio)}
+											</span>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+
+						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Pagos
+							</p>
+							{pagosRecibo.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin pagos registrados.</p>
+							) : (
+								<ul className="space-y-2 text-sm">
+									{pagosRecibo.map((p) => (
+										<li key={p.id} className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<span className="font-medium text-slate-800">
+													{formatCurrency(p.monto)}
+												</span>
+												<span className="text-slate-500">
+													{METODO_LABELS[p.metodoPago]}
+												</span>
+											</div>
+											<span className="text-slate-400">{formatDate(p.fechaPago)}</span>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Consultas y estudios
+							</p>
+							{consultas.length === 0 && estudios.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin consultas o estudios.</p>
+							) : (
+								<div className="space-y-3">
+									{consultas.length > 0 && (
+										<div>
+											<p className="mb-1 text-xs font-medium text-slate-500">Consultas</p>
+											<ul className="space-y-1 text-sm">
+												{consultas.map((c, i) => (
+													<li key={i} className="text-slate-700">
+														{c?.tipo_consulta || c?.id_consulta_local || `Consulta ${i + 1}`}
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+									{estudios.length > 0 && (
+										<div>
+											<p className="mb-1 text-xs font-medium text-slate-500">Estudios</p>
+											<ul className="space-y-1 text-sm">
+												{estudios.map((e, i) => (
+													<li key={i} className="text-slate-700">
+														{e?.id_tipo_estudio ? `Estudio #${e.id_tipo_estudio}` : `Estudio ${i + 1}`}
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+								</div>
+							)}
+						</div>
+					</div>
+
+					<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+						<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+							Movimientos asociados
+						</p>
+						{!recibo.reciboId ? (
+							<p className="text-sm text-slate-400">
+								Este recibo no tiene id_recibo asociado.
+							</p>
+						) : movementsLoading ? (
+							<p className="text-sm text-slate-400">Cargando movimientos...</p>
+						) : movementsError ? (
+							<p className="text-sm text-rose-700">{movementsError}</p>
+						) : movements.length === 0 ? (
+							<p className="text-sm text-slate-400">Sin movimientos asociados.</p>
+						) : (
+							<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+								{movements.map((m) => (
+									<li key={m.id} className="flex items-center justify-between px-4 py-2 text-sm">
+										<div>
+											<p className="font-medium text-slate-800">
+												{m.itemName}
+											</p>
+											<p className="text-xs text-slate-500">
+												{m.movementType === "in" ? "Entrada" : "Salida"} · {m.quantity} uds · {formatDate(m.date)}
+											</p>
+											{m.notes ? (
+												<p className="text-xs text-slate-400">{m.notes}</p>
+											) : null}
+										</div>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+
+					<div className="flex justify-end border-t border-slate-100 pt-3">
+						<Button variant="ghost" onClick={onClose}>
+							Cerrar
+						</Button>
+					</div>
+				</div>
+			)}
+		</Modal>
+	);
+}
+
 type nuevoRecibo = {
   "id_asociado": number,
   "id_usuario": number,
@@ -794,20 +1089,6 @@ function NuevoReciboModal({
 			precioUnitario: s.precio,
 		}));
 
-		try {
-			for (const draft of draftMovements) {
-				await createMovement(draft.input);
-			}
-		} catch (error) {
-			setMovementSubmitError(
-				error instanceof Error
-					? error.message
-					: "No se pudieron registrar los movimientos pendientes.",
-			);
-			setCreating(false);
-			return;
-		}
-
 		const session = await getSession();
 
 		const reciboActualizado: nuevoRecibo = {
@@ -824,53 +1105,92 @@ function NuevoReciboModal({
 
 		setNuevoRecibo(reciboActualizado);
 
-		const resRecibo = await fetch('/api/recibos/nuevo',{
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(reciboActualizado)
-        })
+		let id_recibo: number | null = null;
+		try {
+			const resRecibo = await fetch('/api/recibos/nuevo',{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(reciboActualizado)
+			});
 
-        const id_recibo = (await resRecibo.json()).id_recibo
-        
-        listaNuevaConsulta.forEach((e) => {
-            e.id_recibo = id_recibo
-        })
+			const reciboData = await resRecibo.json();
+			const parsedId = Number(reciboData?.id_recibo ?? 0);
+			if (!resRecibo.ok || reciboData?.status !== "Success" || !parsedId) {
+				throw new Error(reciboData?.message ?? "No se pudo crear el recibo.");
+			}
+			id_recibo = Math.floor(parsedId);
+		} catch (error) {
+			setMovementSubmitError(
+				error instanceof Error
+					? error.message
+					: "No se pudo crear el recibo.",
+			);
+			setCreating(false);
+			return;
+		}
 
-        const resServicios = await fetch('/api/recibos/agregarServicios', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'            
-            },
-            body: JSON.stringify({
-                consultas: listaNuevaConsulta,
-                estudios: listaNuevoEstudio
-            })
-        })
+		const consultasConRecibo = listaNuevaConsulta.map((c) => ({
+			...c,
+			id_recibo,
+		}));
+		const estudiosConRecibo = listaNuevoEstudio.map((e) => ({
+			...e,
+			id_recibo,
+		}));
 
-        if (resServicios.ok){
-            if ((await resServicios.json()).message === "Success"){
-                alert("Servicios agregados exitosamente");
-                setListaNuevaConsulta([]);
-                setListaNuevoEstudio([]);
-            } else {
-                alert("Error al agregar servicios");
-            }
-        }
+		const resServicios = await fetch('/api/recibos/agregarServicios', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'            
+			},
+			body: JSON.stringify({
+				consultas: consultasConRecibo,
+				estudios: estudiosConRecibo
+			})
+		});
+
+		if (resServicios.ok){
+			if ((await resServicios.json()).message === "Success"){
+				alert("Servicios agregados exitosamente");
+				setListaNuevaConsulta([]);
+				setListaNuevoEstudio([]);
+			} else {
+				alert("Error al agregar servicios");
+			}
+		}
 
 		onCrear({
 			id: Number(id),
+			reciboId: id_recibo,
 			asociado: asociadoSeleccionado.nombre,
 			fechaEmision: fechaHoy,
 			fechaLimite,
 			montoTotal: totalFinal,
 			montoPagado: 0,
 			tipoPaciente: "A",
-			descuentoPct: 0,
+			descuentoPct,
 			productos: [...serviciosComoProductos, ...productos],
 			exento,
+			servicios,
+			consultas: consultasConRecibo,
+			estudios: estudiosConRecibo,
 		});
+
+		if (draftMovements.length > 0) {
+			try {
+				for (const draft of draftMovements) {
+					await createMovement({ ...draft.input, reciboId: id_recibo });
+				}
+			} catch (error) {
+				setMovementSubmitError(
+					error instanceof Error
+						? error.message
+						: "No se pudieron registrar los movimientos pendientes.",
+				);
+			}
+		}
 
 		for (const prod of productos) {
 			if (prod.itemId !== null && prod.cantidad > 0) {
@@ -883,6 +1203,7 @@ function NuevoReciboModal({
 						date: fechaHoy,
 						quantity: prod.cantidad,
 						notes: `Salida por recibo ${id}`,
+						reciboId: id_recibo,
 					}),
 				}).catch(console.error);
 			}
@@ -1413,6 +1734,7 @@ export default function RecibosPage() {
 	const [nuevoOpen, setNuevoOpen] = useState(false);
 	const [reciboActivo, setReciboActivo] = useState<Recibo | null>(null);
 	const [desgloseRecibo, setDesgloseRecibo] = useState<Recibo | null>(null);
+	const [reciboDetalle, setReciboDetalle] = useState<Recibo | null>(null);
 
 	const [filterId, setFilterId] = useState("");
 	const [filterNombre, setFilterNombre] = useState("");
@@ -1524,6 +1846,11 @@ export default function RecibosPage() {
 				onRegistrar={handleRegistrarPago}
 				onClose={() => setReciboActivo(null)}
 			/>
+			<ReciboDetailModal
+				recibo={reciboDetalle}
+				pagos={pagos}
+				onClose={() => setReciboDetalle(null)}
+			/>
 			<DesgloseModal
 				recibo={desgloseRecibo}
 				onClose={() => setDesgloseRecibo(null)}
@@ -1634,7 +1961,7 @@ export default function RecibosPage() {
 											<tr
 												key={r.id}
 												className="cursor-pointer transition hover:bg-slate-50"
-												onClick={() => setReciboActivo(r)}
+												onClick={() => setReciboDetalle(r)}
 											>
 												<td className="px-5 py-4 text-sm font-medium text-slate-800">
 													{r.id}

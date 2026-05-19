@@ -80,6 +80,13 @@ function asPositiveQuantity(rawQuantity: number) {
   return quantity
 }
 
+function asNullablePositiveInteger(value: unknown) {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  if (Number.isNaN(parsed) || parsed <= 0) return null
+  return Math.floor(parsed)
+}
+
 function formatSimilarList(names: string[]) {
   if (names.length === 0) return ''
   return names.join(', ')
@@ -126,6 +133,9 @@ function mapMovement(raw: Partial<InventoryMovement> & Record<string, unknown>):
       raw.itemId === null || raw.itemId === undefined
         ? null
         : Math.max(0, Math.floor(Number(raw.itemId))),
+    reciboId: asNullablePositiveInteger(
+      raw.reciboId ?? raw.idRecibo ?? raw.id_recibo ?? raw.ID_RECIBO,
+    ),
     itemName: String(raw.itemName ?? 'Articulo sin nombre').trim(),
     itemType: mapMovementItemType(raw.itemType),
     date: String(raw.date ?? '').slice(0, 10),
@@ -192,6 +202,7 @@ export async function listMovements(
     movementType = 'all',
     itemType = 'all',
     itemId,
+    reciboId,
     itemName = '',
     date = '',
     dateFrom = '',
@@ -205,6 +216,7 @@ export async function listMovements(
     movementType,
     itemType,
     itemId,
+    reciboId,
     itemName,
     date,
     dateFrom,
@@ -296,6 +308,7 @@ export async function createMovement(
       date: input.date,
       quantity: qty,
       notes: input.notes.trim(),
+      reciboId: input.reciboId ?? null,
       esComodato: Boolean(input.esComodato && input.movementType === 'out'),
       comodatoAQuien:
         input.movementType === 'out' && input.esComodato
@@ -325,6 +338,7 @@ export async function createMovement(
       movementItemTypeFromCategoryId(resolvedItem.categoryId),
     notes: createdMovement.notes || input.notes.trim(),
     date: createdMovement.date || input.date,
+    reciboId: createdMovement.reciboId ?? input.reciboId ?? null,
     esComodato:
       createdMovement.esComodato ??
       Boolean(input.esComodato && input.movementType === 'out'),
