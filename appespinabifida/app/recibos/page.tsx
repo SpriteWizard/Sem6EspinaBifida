@@ -50,7 +50,7 @@ interface ReciboServicio {
 }
 
 interface Recibo {
-	id: string;
+	id: number;
 	reciboId?: number | null;
 	asociado: string;
 	fechaEmision: string;
@@ -281,7 +281,7 @@ function RegistrarPagoModal({
 	}
 
 	const historial = pagos
-		.filter((p) => Number(p.idRecibo) === recibo?.id)
+		.filter((p) => Number(p.idRecibo) === Number(recibo?.id))
 		.slice()
 		.reverse();
 
@@ -544,7 +544,7 @@ function ReciboDetailModal({
 	const pagosRecibo = useMemo(() => {
 		if (!recibo) return [];
 		return pagos
-			.filter((p) => p.idRecibo === recibo.id)
+			.filter((p) => Number(p.idRecibo) === recibo.id)
 			.slice()
 			.reverse();
 	}, [pagos, recibo]);
