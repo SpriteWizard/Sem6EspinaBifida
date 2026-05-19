@@ -43,6 +43,13 @@ export async function GET(request: Request) {
     const movementType = searchParams.get('movementType') ?? 'all'
     const itemType = searchParams.get('itemType') ?? 'all'
     const itemId = parsePositiveInteger(searchParams.get('itemId'), 0, Number.MAX_SAFE_INTEGER)
+    const reciboId = parsePositiveInteger(
+      searchParams.get('reciboId') ??
+        searchParams.get('idRecibo') ??
+        searchParams.get('id_recibo'),
+      0,
+      Number.MAX_SAFE_INTEGER,
+    )
     const itemName = searchParams.get('itemName') ?? ''
     const date = searchParams.get('date') ?? ''
     const dateFrom = searchParams.get('dateFrom') ?? ''
@@ -181,6 +188,7 @@ export async function GET(request: Request) {
         normalizeText(movement.itemType) === normalizedItemType
 
       const matchesItemId = itemId <= 0 || movement.itemId === itemId
+      const matchesReciboId = reciboId <= 0 || movement.reciboId === reciboId
 
       const matchesItemName =
         !normalizedItemName || normalizeText(movement.itemName) === normalizedItemName
@@ -197,6 +205,7 @@ export async function GET(request: Request) {
         matchesMovementType &&
         matchesItemType &&
         matchesItemId &&
+        matchesReciboId &&
         matchesItemName &&
         matchesDate
       )

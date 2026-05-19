@@ -27,6 +27,7 @@ const DEFAULT_INVENTORY_LIST_PATHS = ['inventario/obtenerInventario']
 
 type CreateMovementBody = {
   itemId?: number
+  reciboId?: number | null
   date?: string
   movementType?: 'in' | 'out'
   quantity?: number
@@ -131,6 +132,11 @@ export async function POST(request: Request) {
     const itemId = asPositiveInteger(body.itemId)
     const quantity = asPositiveInteger(body.quantity)
     const movementType = body.movementType
+    const reciboId = asPositiveInteger(
+      (body as Record<string, unknown>).reciboId ??
+        (body as Record<string, unknown>).idRecibo ??
+        (body as Record<string, unknown>).id_recibo,
+    )
 
     if (!itemId) {
       return Response.json(
@@ -180,7 +186,7 @@ export async function POST(request: Request) {
     const payload = {
       id_articulo: itemId,
       id_usuario: userId,
-      id_recibo: null,
+      id_recibo: reciboId ?? null,
       fecha: `${date}T00:00:00`,
       tipo: toMovementDbType(movementType),
       cantidad: quantity,
