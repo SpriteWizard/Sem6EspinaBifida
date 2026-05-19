@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Modal } from './ui/Modal'
+import { useRouter } from 'next/navigation'
+import { Modal } from '../ui/Modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,12 +42,20 @@ export function NuevoEstudioModal({
   onClose,
   defaultFolioConsulta,
   defaultAsociadoId,
+  setListaNuevoEstudio,
+  listaNuevaConsulta,
+  setModalAbiertoNuevoEstudio
 }: {
   open: boolean
   onClose: () => void
   defaultFolioConsulta?: string
   defaultAsociadoId?: number
+  setListaNuevoEstudio: React.Dispatch<React.SetStateAction<any[]>>
+  listaNuevaConsulta: any[],
+  setModalAbiertoNuevoEstudio: React.Dispatch<React.SetStateAction<boolean>>
 }) {
+  const router = useRouter()
+
   // Asociado
   const [query, setQuery] = useState('')
   const [seleccionado, setSeleccionado] = useState<any | null>(null)
@@ -104,24 +113,15 @@ export function NuevoEstudioModal({
         setASOCIADOS([])
       }
     })
-
-    fetch('/api/servicios/obtener/consultas/mini').then(async (res) => {
-      if (res.ok) {
-        const d = await res.json()
-        if (d.status === 'ok') setCONSULTAS(d.data)
-        else { alert('Error al conectar con la base de datos'); setCONSULTAS([]) }
-      } else {
-        alert('No se pudo obtener las consultas, intente nuevamente más tarde')
-        setCONSULTAS([])
-      }
-    })
+    
+    setCONSULTAS(listaNuevaConsulta.map((c: any) => c.data || c))
 
     fetch('/api/servicios/obtener/estudios/tipos').then(async (res) => {
       if (res.ok) {
         const d = await res.json()
         if (d.status === 'ok') setTIPOESTUDIO(d.data)
         else { alert('Error al conectar con la base de datos'); setTIPOESTUDIO([]) }
-      } else {
+      } else { 
         alert('No se pudo obtener los tipos de estudio, intente nuevamente más tarde')
         setTIPOESTUDIO([])
       }
@@ -134,7 +134,7 @@ export function NuevoEstudioModal({
   )
 
   const folioSugerencias = CONSULTAS.filter((c: any) =>
-    normalizar(c.folio).includes(normalizar(folioQuery)),
+    normalizar(String(c.id_consulta_local || c.folio || '')).includes(normalizar(folioQuery)),
   )
 
   const resetForm = useCallback(() => {
@@ -170,38 +170,20 @@ export function NuevoEstudioModal({
     if (!fecha) { alert('Debes seleccionar una fecha'); return }
     if (folioConsulta === '') { alert('Debes seleccionar una consulta'); return }
 
-    const res = await fetch('/api/servicios/agregar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo: 1,
-        data: {
-          id_asociado: seleccionado.id,
-          id_medico: null,
-          id_tipo_estudio: Number(estudio),
-          id_consulta: Number(folioConsulta.replace('CON-', '')),
-          laboratorio: laboratorioId,
-          aportacion: monto,
-          ya_aporto: yaAporto ? 1 : 0,
-          fecha_cita: fecha,
-          estatus,
-          resultados,
-        },
-      }),
-    })
-
-    if (res.ok) {
-      if ((await res.json()) === 'Success') {
-        alert('Estudio agregado correctamente')
-        resetForm()
-        onClose()
-        window.location.reload()
-      } else {
-        alert('No se pudo agregar el estudio, intente nuevamente')
-      }
-    } else {
-      alert('No se puede conectar con el servicio de agregado de estudios, intente nuevamente más tarde')
+    const nuevo = {
+      id_asociado: seleccionado.id,
+      id_medico: null,
+      id_tipo_estudio: Number(estudio),
+      id_consulta: String(folioConsulta),
+      laboratorio: laboratorioId,
+      aportacion: monto,
+      ya_aporto: yaAporto ? 1 : 0,
+      fecha_cita: fecha,
+      estatus,
+      resultados,
     }
+    setListaNuevoEstudio((prev) => [...prev, nuevo])
+    setModalAbiertoNuevoEstudio(false)
   }
 
   return (
@@ -414,15 +396,15 @@ export function NuevoEstudioModal({
                 {folioSugerencias.length > 0 ? (
                   folioSugerencias.map((c: any) => (
                     <button
-                      key={c.folio}
+                      key={c.id_consulta_local}
                       onMouseDown={() => {
-                        setFolioConsulta(c.folio)
-                        setFolioQuery(c.folio)
+                        setFolioConsulta(c.id_consulta_local)
+                        setFolioQuery(c.id_consulta_local)
                         setFolioDropdownAbierto(false)
                       }}
                       className="w-full text-left px-3 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
                     >
-                      <div className="text-sm text-slate-800">{c.folio}</div>
+                      <div className="text-sm text-slate-800">{c.id_consulta_local}</div>
                     </button>
                   ))
                 ) : (

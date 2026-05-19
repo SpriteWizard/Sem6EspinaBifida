@@ -5,12 +5,13 @@ import { useEffect} from "react";
 import ListaTabla from "./ListaTabla";
 import ModalAsociado, { type AsociadoDetalle } from "./ModalAsociado";
 
-type Estatus = "Activo" | "Inactivo" | "Pendiente";
+type Estatus = "Activo" | "Inactivo" | "Pendiente" | "Anulado";
 
 const badgeColors: Record<Estatus, string> = {
   Activo: "bg-green-600/10 text-green-600",
   Inactivo: "bg-red-500/10 text-red-500",
   Pendiente: "bg-yellow-600/10 text-yellow-600",
+  Anulado: "bg-red-500/10 text-red-500"
 };
 
 export const initialAsociadosData: AsociadoDetalle[] = [

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Modal } from './ui/Modal'
+import { useRouter } from 'next/navigation'
+import { Modal } from '../ui/Modal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,10 +33,20 @@ const TITLE_ID = 'nueva-consulta-modal-title'
 export function NuevaConsultaModal({
   open,
   onClose,
+  listaNuevaConsulta,
+  setListaNuevaConsulta,
+  setModalAbiertoNuevaConsulta,
+  id_recibo
 }: {
   open: boolean
   onClose: () => void
+  listaNuevaConsulta: any[]
+  setListaNuevaConsulta: React.Dispatch<React.SetStateAction<any[]>>
+  setModalAbiertoNuevaConsulta: React.Dispatch<React.SetStateAction<boolean>>
+  id_recibo: number
 }) {
+  const router = useRouter()
+
   const [asociados, setAsociados] = useState<any[]>([])
   const [medicos, setMedicos] = useState<any[]>([])
 
@@ -86,35 +97,24 @@ export function NuevaConsultaModal({
     onClose()
   }, [onClose, resetForm])
 
-  async function agregarConsulta() {
-    const res = await fetch('/api/servicios/agregar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo: 0,
-        data: {
-          id_asociado: Number(seleccionado?.id),
-          id_medico: medicoSeleccionado,
-          id_recibo: null,
-          tipo_consulta: tipoConsulta,
-          motivo: null,
-          diagnostico: null,
-          tratamiento: null,
-          aportacion: monto,
-          ya_aporto: 0,
-          estatus: false,
-          fecha_cita: String(fecha + ' ' + to24Hour(hora, periodo)),
-        },
-      }),
-    })
-    if ((await res.json()) === 'Success') {
-      alert('Servicio creado correctamente')
-      resetForm()
-      onClose()
-      window.location.reload()
-    } else {
-      alert('Hubo un error, intente nuevamente')
+  async function guardarConsulta() {
+    const nuevo = {
+      id_consulta_local: 'CON-' + String(listaNuevaConsulta.length),
+      id_asociado: Number(seleccionado?.id),
+      id_medico: medicoSeleccionado,
+      id_recibo: id_recibo,
+      tipo_consulta: tipoConsulta,
+      motivo: null,
+      diagnostico: null,
+      tratamiento: null,
+      aportacion: monto,
+      ya_aporto: 0,
+      estatus: false,
+      fecha_cita: String(fecha + ' ' + to24Hour(hora, periodo)),
     }
+    setListaNuevaConsulta((prev) => [...prev, nuevo])
+    setModalAbiertoNuevaConsulta(false)
+    alert('Consulta guardada localmente. El folio se generará al sincronizar con el servidor.')
   }
 
   function handleMonto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -302,7 +302,7 @@ export function NuevaConsultaModal({
         </button>
         <button
           type="button"
-          onClick={agregarConsulta}
+          onClick={guardarConsulta}
           className="inline-flex items-center justify-center rounded-full bg-slate-700 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-10"
         >
           Guardar consulta
