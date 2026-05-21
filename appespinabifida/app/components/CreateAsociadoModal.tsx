@@ -13,7 +13,6 @@ import type { AsociadoDetalle } from "./ModalAsociado";
 type Sexo = "Masculino" | "Femenino";
 
 type FormState = {
-  id: string;
   fechaAlta: string;
   nombre: string;
   apellidoPaterno: string;
@@ -139,7 +138,6 @@ function etapaVidaDesdeEdad(edad: number | null): string {
 
 function initialForm(): FormState {
   return {
-    id: "",
     fechaAlta: "",
     nombre: "",
     apellidoPaterno: "",
@@ -164,7 +162,7 @@ function initialForm(): FormState {
     contactoTelefono: "",
     contactoRelacion: "",
     vigenciaDesde: "",
-    vigenciaHasta: oneYearFromToday(),
+    vigenciaHasta: "",
     fotoUrl: "",
     lugarNacimiento: "",
     hospital: "",
@@ -264,6 +262,14 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
     }));
   }, [form.fechaNacimiento]);
 
+  // Vigencia hasta = 1 año después de vigencia desde
+  useEffect(() => {
+    if (!form.vigenciaDesde) return;
+    const d = new Date(form.vigenciaDesde + "T00:00:00");
+    d.setFullYear(d.getFullYear() + 1);
+    update("vigenciaHasta", d.toISOString().split("T")[0]);
+  }, [form.vigenciaDesde]);
+
   const emergencyComplete = useMemo(
     () =>
       form.contactoNombre.trim() &&
@@ -287,7 +293,6 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
 
   function validate() {
     const next: FieldErrors = {};
-    if (!form.id.trim()) next.id = "El ID es requerido.";
     if (!form.fechaAlta) next.fechaAlta = "La fecha de alta es requerida.";
     if (!form.nombre.trim()) next.nombre = "El nombre es requerido.";
     if (!form.apellidoPaterno.trim()) next.apellidoPaterno = "El apellido paterno es requerido.";
@@ -815,7 +820,11 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                   </Select>
                   <Select
                     value={form.exposicionToxicosEmbarazo}
-                    onChange={(e) => update("exposicionToxicosEmbarazo", e.target.value as "si" | "no")}
+                    onChange={(e) => {
+                      const val = e.target.value as "si" | "no";
+                      update("exposicionToxicosEmbarazo", val);
+                      if (val === "no") update("descripcionToxinas", "");
+                    }}
                   >
                     <option value="no">Exposición a tóxicos: No</option>
                     <option value="si">Exposición a tóxicos: Sí</option>

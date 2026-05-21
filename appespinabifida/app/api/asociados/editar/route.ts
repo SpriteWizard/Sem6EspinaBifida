@@ -6,6 +6,8 @@ type FormState = {
   fechaAlta: string;
   nombre: string;
   apellidos: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
   curp: string;
   fechaNacimiento: string;
   edad: string;
@@ -44,6 +46,7 @@ type FormState = {
   fechaUroTac: string;
   fechaUltEstUro: string;
   fechaOtrosEstudios: string;
+  foto: string;
   madreLugarNacimiento: string;
   madreEscolaridad: string;
   madreEdad: string;
@@ -135,50 +138,20 @@ export interface AsociadoDetalle {
   exposicionToxicosEmbarazo?: boolean;
   descripcionToxinas?: string;
   fotoUrl?: string;
-}
-
-function splitName(fullName: string) {
-  if (!fullName || typeof fullName !== "string") {
-    return { firstName: "", lastName: "" };
-  }
-
-  const parts = fullName.trim().split(/\s+/);
-
-  if (parts.length === 1) {
-    return {
-      firstName: parts[0],
-      lastName: ""
-    };
-  }
-
-  if (parts.length === 2) {
-    return {
-      firstName: parts[0],
-      lastName: parts[1]
-    };
-  }
-
-  // 3+ words → first 2 are first name, rest is last name
-  return {
-    firstName: parts.slice(0, 2).join(" "),
-    lastName: parts.slice(2).join(" ")
-  };
-}
-
-function splitDirections(str: string) {
-  if (!str) return [];
-  return str.split(",").map(s => s.trim()).filter(Boolean);
+  foto?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
 }
 
 function mapDetalleToForm(a: AsociadoDetalle): FormState {
   const [t0, t1, t2] = a.telefonos ?? [];
-  const names = splitName(a.nombre);
-  const direccion = splitDirections(a.direccion);
   return {
     id: a.id ?? "",
     fechaAlta: a.fechaAlta ?? "",
-    nombre: names.firstName ?? "",
-    apellidos: names.lastName ??  "",
+    nombre: a.nombre ?? "",
+    apellidoPaterno: a.apellidoPaterno ?? "",
+    apellidoMaterno: a.apellidoMaterno ?? "",
+    apellidos: `${a.apellidoPaterno ?? ""} ${a.apellidoMaterno ?? ""}`.trim(),
     curp: a.curp ?? "",
     fechaNacimiento: a.fechaNacimiento ?? "",
     edad: a.edad ?? "",
@@ -192,10 +165,10 @@ function mapDetalleToForm(a: AsociadoDetalle): FormState {
 
     fechaUltRecibo: a.fechaUltRecibo ?? "",
 
-    direccion: direccion[0] ?? "",
-    ciudad: direccion[1] ?? "",
-    estado: direccion[2] ?? "",
-    cp: direccion[3] ?? "",
+    direccion: a.direccion ?? "",
+    ciudad: a.ciudad ?? "",
+    estado: a.estado ?? "",
+    cp: a.cp ?? "",
 
     telCasa: a.telCasa ?? t0 ?? "",
     telTrabajo: a.telTrabajo ?? t1 ?? "",
@@ -230,6 +203,7 @@ function mapDetalleToForm(a: AsociadoDetalle): FormState {
     fechaUroTac: a.fechaUroTac ?? "",
     fechaUltEstUro: a.fechaUltEstUro ?? "",
     fechaOtrosEstudios: a.fechaOtrosEstudios ?? "",
+    foto: a.foto ?? "",
 
     madreLugarNacimiento: a.madreLugarNacimiento ?? "",
     madreEscolaridad: a.madreEscolaridad ?? "",

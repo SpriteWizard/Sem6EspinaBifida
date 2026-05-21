@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import ListaTabla from "./ListaTabla";
 import ModalPreregistro from "./ModalPreregistro";
-
+import { Button } from "./ui/Button";
 import { type FiltrosPreregistroValues } from "./FiltrosPreregistro";
 
 export type EstatusPreregistro = "Pendiente" | "Anulado";
@@ -14,14 +14,13 @@ const badgeColors: Record<EstatusPreregistro, string> = {
 };
 
 export interface PreregistroDetalle {
-  // ── Campos base ──────────────────────────────────────────────────────────
   id: string;
+  folio: string;
   nombre: string;
   fechaSolicitud: string;
   estatus: EstatusPreregistro;
   notaanulacion?: string;
 
-  // ── Datos generales (obligatorio) ─────────────────────────────────────────
   fechaNacimiento: string;
   sexo: string;
   curp: string;
@@ -34,25 +33,17 @@ export interface PreregistroDetalle {
     relacion: string;
   };
 
-  // ── Dirección (opcional) ──────────────────────────────────────────────────
   direccion?: string;
   ciudad?: string;
   estado?: string;
   cp?: string;
 
-  // ── Historial médico (opcional) ───────────────────────────────────────────
   lugarNacimiento?: string;
   hospital?: string;
   padecimiento?: string;
   tipoSangre?: string;
   valvula?: boolean;
 }
-
-// TODO: Eliminar datos dummy cuando el endpoint GET /api/preregistros/lista esté listo.
-// Cada caso cubre una etapa de vida distinta y refleja qué campos opcionales
-// puede o no haber llenado el solicitante.
-const DUMMY_PREREGISTROS: PreregistroDetalle[] = [
-];
 
 const HEADERS = ["ID", "Nombre", "Fecha de solicitud", "Estatus"];
 
@@ -61,44 +52,68 @@ type ListaPreregistroProps = {
 };
 
 export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
-  const [rawData, setRawData] = useState<PreregistroDetalle[]>([]);
-  const [data, setData] = useState<PreregistroDetalle[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [items, setItems] = useState<PreregistroDetalle[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/asociados/preRegistro/lista");
-        if (res.ok) {
-          const json = await res.json();
-          setRawData(json);
-          setData(json);
-          return;
-        }
-      } catch (error) {
-        console.error("Error fetching preregistros:", error);
-      }
-      setRawData(DUMMY_PREREGISTROS);
-      setData(DUMMY_PREREGISTROS);
-    };
+    let cancelled = false;
+    setSelectedIndex(null);
+    setLoading(true);
+    setItems([]);
+    setNextCursor(null);
 
-    fetchData();
-  }, []);
+    const params = new URLSearchParams({
+      cursor: "0",
+      limit: "5",
+      id: String(filtros.id ?? 0),
+      nombre: filtros.nombre,
+      fecha: filtros.fecha,
+      estatus: filtros.estatus,
+    });
 
-  useEffect(() => {
-    setData(rawData.filter((el) => {
-      const idMatch     = !filtros.id || filtros.id === 0 || filtros.id === Number(el.id.replace("PR-", ""));
-      const nombreMatch = !filtros.nombre  || el.nombre.includes(filtros.nombre);
-      const fechaMatch  = !filtros.fecha   || filtros.fecha === el.fechaSolicitud;
-      const statusMatch = !filtros.estatus || filtros.estatus === el.estatus;
-      return idMatch && nombreMatch && fechaMatch && statusMatch;
-    }));
-  }, [filtros, rawData]);
+    fetch(`/api/asociados/preRegistro/lista?${params}`)
+      .then((r) => r.json())
+      .then(({ items: newItems, nextCursor: nc }) => {
+        if (cancelled) return;
+        setItems(newItems ?? []);
+        setNextCursor(nc ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  const rows = data.map((row) => ({
+    return () => { cancelled = true; };
+  }, [filtros]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({
+        cursor: nextCursor,
+        limit: "5",
+        id: String(filtros.id ?? 0),
+        nombre: filtros.nombre,
+        fecha: filtros.fecha,
+        estatus: filtros.estatus,
+      });
+      const res = await fetch(`/api/asociados/preRegistro/lista?${params}`);
+      const { items: more, nextCursor: nc } = await res.json();
+      setItems((prev) => [...prev, ...more]);
+      setNextCursor(nc ?? null);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const rows = items.map((row) => ({
     key: row.id,
     cells: [
-      row.id,
+      row.folio,
       row.nombre,
       row.fechaSolicitud,
       <span
@@ -110,7 +125,7 @@ export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
     ],
   }));
 
-  const selectedPreregistro = selectedIndex !== null ? data[selectedIndex] : null;
+  const selectedPreregistro = selectedIndex !== null ? items[selectedIndex] : null;
 
   return (
     <>
@@ -120,6 +135,15 @@ export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
           rows={rows}
           onRowClick={setSelectedIndex}
         />
+        <div className="flex justify-center p-5">
+          <Button
+            variant="secondary"
+            onClick={loadMore}
+            disabled={!nextCursor || loading || loadingMore}
+          >
+            {loadingMore ? "Cargando…" : "Cargar más datos"}
+          </Button>
+        </div>
       </div>
 
       {selectedPreregistro !== null && selectedIndex !== null && (
@@ -127,17 +151,21 @@ export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
           preregistro={selectedPreregistro}
           onClose={() => setSelectedIndex(null)}
           onPrev={selectedIndex > 0 ? () => setSelectedIndex(selectedIndex - 1) : undefined}
-          onNext={selectedIndex < data.length - 1 ? () => setSelectedIndex(selectedIndex + 1) : undefined}
+          onNext={selectedIndex < items.length - 1 ? () => setSelectedIndex(selectedIndex + 1) : undefined}
           onAceptar={async (id) => {
-            await fetch("/api/asociados/preRegistro/aceptar", { method: "PUT", body: JSON.stringify({ id: id }) });
-            console.log("[preregistro] Aceptar →", JSON.stringify({ id }, null, 2));
-            setRawData((prev) => prev.filter((p) => p.id !== id));
+            await fetch("/api/asociados/preRegistro/aceptar", {
+              method: "PUT",
+              body: JSON.stringify({ id }),
+            });
+            setItems((prev) => prev.filter((p) => p.id !== id));
             setSelectedIndex(null);
           }}
           onAnular={async (id, nota) => {
-            await fetch("/api/asociados/preRegistro/anular", { method: "PUT", body: JSON.stringify({ id: id, razon: nota }) });
-            console.log("[preregistro] Anular →", JSON.stringify({ id, nota }, null, 2));
-            setRawData((prev) =>
+            await fetch("/api/asociados/preRegistro/anular", {
+              method: "PUT",
+              body: JSON.stringify({ id, razon: nota }),
+            });
+            setItems((prev) =>
               prev.map((p) =>
                 p.id === id ? { ...p, estatus: "Anulado" as const, notaanulacion: nota } : p
               )

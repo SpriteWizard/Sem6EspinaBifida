@@ -11,17 +11,37 @@ type FilterProps = {
 }
 
 export default function Filtros({ sendFilters }: FilterProps) {
-  const [id, setId] = useState<number | null>(null);
+  const [idStr, setIdStr] = useState<string>("");
   const [nombre, setNombre] = useState<string>("");
   const [fecha, setFecha] = useState<string>("");
   const [estatus, setEstatus] = useState<string>("");
 
+  const hasActiveFilters = idStr !== "" || nombre !== "" || fecha !== "" || estatus !== "";
+
+  function clearFilters() {
+    setIdStr("");
+    setNombre("");
+    setFecha("");
+    setEstatus("");
+  }
+
   useEffect(() => {
-    sendFilters({ id, nombre, fecha, estatus });
-  }, [id, nombre, fecha, estatus]);
+    sendFilters({ id: idStr ? Number(idStr) : null, nombre, fecha, estatus });
+  }, [idStr, nombre, fecha, estatus]);
 
   return (
     <div className="rounded-2xl bg-white/70 p-4 shadow-sm ring-1 ring-slate-200/70">
+      {hasActiveFilters && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-sm text-slate-500 underline underline-offset-2 hover:text-slate-800"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4 items-start">
         {/* ID */}
         <div className="relative">
@@ -29,7 +49,8 @@ export default function Filtros({ sendFilters }: FilterProps) {
           <Input
             type="number"
             placeholder="ID"
-            onChange={(e) => setId(Number(e.target.value))}
+            value={idStr}
+            onChange={(e) => setIdStr(e.target.value)}
             aria-label="Buscar por ID"
             className="pl-9"
           />
@@ -41,6 +62,7 @@ export default function Filtros({ sendFilters }: FilterProps) {
           <Input
             type="text"
             placeholder="Nombre"
+            value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             aria-label="Buscar por nombre"
             className="pl-9"
@@ -51,6 +73,7 @@ export default function Filtros({ sendFilters }: FilterProps) {
         <div>
           <Input
             type="date"
+            value={fecha}
             onChange={(e) => setFecha(e.target.value)}
             aria-label="Filtrar por fecha de alta"
           />
@@ -60,6 +83,7 @@ export default function Filtros({ sendFilters }: FilterProps) {
         {/* Estatus */}
         <div className="relative">
           <Select
+            value={estatus}
             onChange={(e) => setEstatus(e.target.value)}
             aria-label="Filtrar por estatus"
           >
