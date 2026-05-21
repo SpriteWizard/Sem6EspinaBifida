@@ -68,27 +68,24 @@ type FormState = {
 };
 export async function POST(request: Request){
     const body : FormState = (await request.json());
+
+    // fotoUrl es un blob URL del cliente, no se manda a Oracle
+    const { fotoUrl, ...payload } = body as any;
+
     const res = await fetch("https://g53bc679c5acb2c-espinabd.adb.mx-queretaro-1.oraclecloudapps.com/ords/admin/asociados/agregarAsociado",{
         method: "POST",
         headers: {
         "Content-Type": "application/json",
         "Authorization": "Basic " + Buffer.from(`${process.env.DB_USER}:${process.env.DB_PASSWORD}`).toString("base64"),
         },
-        body: JSON.stringify(body),
-    })
+        body: JSON.stringify(payload),
+    });
 
-    console.log(body);
     if (res.ok){
-        const returnMessage = {
-            status: "ok",
-            reason: "ok"
-        };
-        return Response.json(returnMessage);
-    } else{
-        const returnMessage = {
-            status: "fail",
-            reason: res
-        };
-        return Response.json(returnMessage);
+        return Response.json({ status: "ok" });
+    } else {
+        const errorText = await res.text();
+        console.error("Oracle agregarAsociado error:", res.status, errorText);
+        return Response.json({ status: "fail", reason: errorText });
     }
 }

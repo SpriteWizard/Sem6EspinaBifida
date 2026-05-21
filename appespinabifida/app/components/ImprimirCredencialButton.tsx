@@ -10,6 +10,13 @@ interface ImprimirCredencialButtonProps {
   asociado: AsociadoDetalle;
 }
 
+function formatDate(iso?: string | null): string {
+  if (!iso) return "—";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
@@ -118,7 +125,24 @@ export default function ImprimirCredencialButton({
       doc.setTextColor(0, 0, 0);
       doc.text(`Folio:  ${asociado.folio || "—"}`, FR, TOP_Y + PAD + 5, { align: "right" });
 
-      drawField("Nombre:", asociado.nombre, LOGO_RIGHT, TOP_Y + PAD + 12, FR);
+      const fullName = [asociado.nombre, asociado.apellidoPaterno, asociado.apellidoMaterno]
+        .filter(Boolean).join(" ");
+      drawField("Nombre:", fullName, LOGO_RIGHT, TOP_Y + PAD + 12, FR - 8);
+
+      if (asociado.tipoSangre) {
+        const badgeW = 7;
+        const badgeH = 4.5;
+        const badgeX = FR - badgeW;
+        const badgeY = TOP_Y + PAD + 8.5;
+        doc.setFillColor(200, 0, 0);
+        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 0.8, 0.8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text(asociado.tipoSangre, badgeX + badgeW / 2, badgeY + badgeH - 1.2, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      }
+
       drawField("Dirección:", asociado.direccion || "—", LOGO_RIGHT, TOP_Y + PAD + 21, FR);
 
       const PHOTO_X = FL;
@@ -148,7 +172,7 @@ export default function ImprimirCredencialButton({
       doc.setTextColor(0, 0, 0);
       doc.text("Fecha de Expedición:", FL, expY);
       doc.setFont("helvetica", "normal");
-      doc.text(asociado.fechaAlta || "—", FL + doc.getTextWidth("Fecha de Expedición:") + 2, expY);
+      doc.text(formatDate(asociado.fechaAlta), FL + doc.getTextWidth("Fecha de Expedición:") + 2, expY);
 
       // ── REVERSO ─────────────────────────────────────────────────────────────
       drawField("Padecimiento:", asociado.padecimiento || "—", BL, TOP_Y + PAD + 8, BR);
@@ -163,11 +187,19 @@ export default function ImprimirCredencialButton({
       const valvStr = asociado.valvula === true ? "Sí" : asociado.valvula === false ? "No" : "—";
       doc.text(valvStr, midBackX + doc.getTextWidth("Tiene Válvula?") + 2, TOP_Y + PAD + 18);
 
-      drawField("En caso de accidente avisar a:", asociado.contactoEmergencia?.nombre || "—", BL, TOP_Y + PAD + 28, BR, 6.5);
-      drawField("Teléfono:", asociado.contactoEmergencia?.telefono || "—", BL, TOP_Y + PAD + 37, BR);
-      drawField("Correo Electrónico:", asociado.correo || "—", BL, TOP_Y + PAD + 46, BR);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text("En caso de accidente avisar a:", BL, TOP_Y + PAD + 28);
+      const midEmergX = BL + 62;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      const emergName = doc.splitTextToSize(asociado.contactoEmergencia?.nombre || "—", midEmergX - BL - 2)[0] ?? "";
+      doc.text(emergName, BL, TOP_Y + PAD + 33);
+      drawField("Teléfono:", asociado.contactoEmergencia?.telefono || "—", midEmergX, TOP_Y + PAD + 33, BR);
+      drawField("Correo Electrónico:", asociado.correo || "—", BL, TOP_Y + PAD + 40, BR);
 
-      const SEP_Y = TOP_Y + PAD + 53;
+      const SEP_Y = TOP_Y + PAD + 49;
       doc.setDrawColor(160, 160, 160);
       doc.setLineWidth(0.3);
       doc.line(BL, SEP_Y, BR, SEP_Y);
@@ -185,8 +217,10 @@ export default function ImprimirCredencialButton({
       doc.text("DE NUEVO LEON ABP", orgTX, ORG_Y + 8.5);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(5);
-      doc.text("Monterrey, N.L.", orgTX, ORG_Y + 13);
-      doc.text("www.espinabifida.org.mx", orgTX, ORG_Y + 17);
+      doc.text("J. Villagrán #344 Sur, Col. Centro", orgTX, ORG_Y + 13);
+      doc.text("Monterrey, N.L. C.P. 64000", orgTX, ORG_Y + 17);
+      doc.text("Tel: 81 1099 0168", orgTX, ORG_Y + 21);
+      doc.text("www.espinabifida.org.mx", orgTX, ORG_Y + 25);
 
       const BIRTH_X = BL + 74;
       doc.setFont("helvetica", "bold");
@@ -202,7 +236,7 @@ export default function ImprimirCredencialButton({
         doc.text(value || "—", BIRTH_X + doc.getTextWidth(label) + 1.5, y);
       };
 
-      birthRow("Fecha:", asociado.fechaNacimiento || "—", ORG_Y + 9);
+      birthRow("Fecha:", formatDate(asociado.fechaNacimiento), ORG_Y + 9);
       birthRow("Lugar Nac.", asociado.lugarNacimiento || "—", ORG_Y + 14.5);
       birthRow("Hospital", asociado.hospital || "—", ORG_Y + 20);
 
