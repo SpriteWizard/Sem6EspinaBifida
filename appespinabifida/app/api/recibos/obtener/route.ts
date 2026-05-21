@@ -24,8 +24,6 @@ export async function GET(){
             }
         })
 
-        console.log(recibos)
-
         return Response.json(recibos)
     }
     return Response.json([]);

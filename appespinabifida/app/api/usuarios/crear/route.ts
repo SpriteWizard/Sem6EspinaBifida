@@ -49,7 +49,6 @@ export async function POST(req: Request) {
     body: JSON.stringify(user)
   });
 
-  console.log(res);
 
   if (!res.ok) {
     return new Response(JSON.stringify({ status: "failed", reason: "No se pudo crear el usuario." }), {

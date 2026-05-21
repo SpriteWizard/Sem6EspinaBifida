@@ -7,14 +7,12 @@ export async function POST(req: Request) {
     const data = await req.json();
 
     const nuevoPago = {
-        idRecibo: 66,//Number(data.idRecibo),
+        idRecibo: Number(data.idRecibo),
         monto: data.monto,
         metodoPago: data.metodoPago,
         fechaPago: data.fecha,
         idUsuario: (session?.user as any).id
     }
-
-    console.log(data.monto)
 
     const sendData = await fetch("https://g53bc679c5acb2c-espinabd.adb.mx-queretaro-1.oraclecloudapps.com/ords/admin/recibos/nuevoPago", {
         method: "POST",
@@ -24,8 +22,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify(nuevoPago)
     })
-
-    console.log(sendData);
+    console.log(sendData)
 
     if (sendData.ok){
         return Response.json({message: "Success"});
