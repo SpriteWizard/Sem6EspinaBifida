@@ -8,6 +8,13 @@ interface Props {
   foto: string;
 }
 
+function formatDate(iso?: string | null): string {
+  if (!iso) return "—";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
 function FieldLine({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="mb-1.5 border-b border-gray-300 pb-px">
@@ -20,6 +27,10 @@ function FieldLine({ label, value }: { label: string; value?: string | null }) {
 export default function CredencialPreview({ asociado, foto }: Props) {
   const valvStr =
     asociado.valvula === true ? "Sí" : asociado.valvula === false ? "No" : "—";
+
+  const fullName = [asociado.nombre, asociado.apellidoPaterno, asociado.apellidoMaterno]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="flex flex-wrap justify-center gap-3">
@@ -38,7 +49,20 @@ export default function CredencialPreview({ asociado, foto }: Props) {
             <div className="mb-1.5 text-right text-[9px] font-bold text-gray-600">
               Folio: {asociado.folio || "—"}
             </div>
-            <FieldLine label="Nombre:" value={asociado.nombre} />
+
+            {/* Nombre + badge tipo de sangre */}
+            <div className="mb-1.5 flex items-baseline justify-between border-b border-gray-300 pb-px">
+              <div className="min-w-0 flex-1 truncate">
+                <span className="text-[11px] font-bold text-gray-800">Nombre: </span>
+                <span className="text-[11px] text-gray-700">{fullName || "—"}</span>
+              </div>
+              {asociado.tipoSangre && (
+                <span className="ml-1.5 flex-shrink-0 rounded bg-red-600 px-1.5 py-px text-[9px] font-bold leading-tight text-white">
+                  {asociado.tipoSangre}
+                </span>
+              )}
+            </div>
+
             <FieldLine label="Dirección:" value={asociado.direccion} />
           </div>
         </div>
@@ -64,7 +88,7 @@ export default function CredencialPreview({ asociado, foto }: Props) {
 
         {/* Footer */}
         <div className="mt-1.5">
-          <FieldLine label="Fecha de Expedición:" value={asociado.fechaAlta} />
+          <FieldLine label="Fecha de Expedición:" value={formatDate(asociado.fechaAlta)} />
         </div>
       </div>
 
@@ -81,8 +105,19 @@ export default function CredencialPreview({ asociado, foto }: Props) {
               <FieldLine label="Tiene Válvula?" value={valvStr} />
             </div>
           </div>
-          <FieldLine label="En caso de accidente avisar a:" value={asociado.contactoEmergencia?.nombre} />
-          <FieldLine label="Teléfono:" value={asociado.contactoEmergencia?.telefono} />
+
+          {/* Emergencia + teléfono */}
+          <div className="mb-1.5 border-b border-gray-300 pb-px">
+            <div className="text-[11px] font-bold text-gray-800">En caso de accidente avisar a:</div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[11px] text-gray-700">{asociado.contactoEmergencia?.nombre || "—"}</span>
+              <div className="ml-2 flex-shrink-0">
+                <span className="text-[11px] font-bold text-gray-800">Teléfono: </span>
+                <span className="text-[11px] text-gray-700">{asociado.contactoEmergencia?.telefono || "—"}</span>
+              </div>
+            </div>
+          </div>
+
           <FieldLine label="Correo Electrónico:" value={asociado.correo} />
         </div>
 
@@ -97,12 +132,14 @@ export default function CredencialPreview({ asociado, foto }: Props) {
             <div className="min-w-0 flex-1">
               <div className="text-[8px] font-bold leading-tight">ASOCIACION DE ESPINA BIFIDA</div>
               <div className="text-[8px] font-bold leading-tight">DE NUEVO LEON ABP</div>
-              <div className="text-[7px] text-gray-500">Monterrey, N.L.</div>
+              <div className="text-[7px] text-gray-500">J. Villagrán #344 Sur, Col. Centro</div>
+              <div className="text-[7px] text-gray-500">Monterrey, N.L. C.P. 64000</div>
+              <div className="text-[7px] text-gray-500">Tel: 81 1099 0168</div>
               <div className="text-[7px] text-gray-500">www.espinabifida.org.mx</div>
             </div>
             <div className="flex-shrink-0 space-y-0.5 text-[8px]">
               <div className="font-bold">Datos de Nacimiento:</div>
-              <div><b>Fecha:</b> {asociado.fechaNacimiento || "—"}</div>
+              <div><b>Fecha:</b> {formatDate(asociado.fechaNacimiento) || "—"}</div>
               <div><b>Lugar Nac.</b> {asociado.lugarNacimiento || "—"}</div>
               <div><b>Hospital</b> {asociado.hospital || "—"}</div>
             </div>
