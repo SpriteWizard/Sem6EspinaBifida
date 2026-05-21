@@ -3,6 +3,7 @@
 import { Eye } from 'lucide-react'
 
 import type { InventoryMovement } from '../../lib/types/movements'
+import ImprimirComodatoButton from './ImprimirComodatoButton'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 
@@ -93,6 +94,7 @@ export function MovementHistoryList({
                   <Badge variant={movementVariant(m)}>
                     {movementLabel(m)}
                   </Badge>
+                  <ImprimirComodatoButton movement={m} />
                   {onEdit ? (
                     <Button
                       type="button"

@@ -530,24 +530,14 @@ function DesgloseModal({
 
 function ReciboDetailModal({
 	recibo,
-	pagos,
 	onClose,
 }: {
 	recibo: Recibo | null;
-	pagos: Pago[];
 	onClose: () => void;
 }) {
 	const [movements, setMovements] = useState<InventoryMovement[]>([]);
 	const [movementsLoading, setMovementsLoading] = useState(false);
 	const [movementsError, setMovementsError] = useState<string | null>(null);
-
-	const pagosRecibo = useMemo(() => {
-		if (!recibo) return [];
-		return pagos
-			.filter((p) => Number(p.idRecibo) === recibo.id)
-			.slice()
-			.reverse();
-	}, [pagos, recibo]);
 
 	useEffect(() => {
 		if (!recibo?.reciboId) {
@@ -586,18 +576,35 @@ function ReciboDetailModal({
 	}, [recibo?.id, recibo?.reciboId]);
 
 	const productos = recibo?.productos ?? [];
-	const servicios = recibo?.servicios ?? [];
 	const consultas = recibo?.consultas ?? [];
 	const estudios = recibo?.estudios ?? [];
-	const servicioProductos = productos.filter(
-		(p) => p.itemName === "Consulta" || p.itemName === "Estudio",
-	);
-	const serviciosDetalle = servicios.length > 0
-		? servicios.map((s) => ({ label: s.tipo, cantidad: 1, precio: s.precio }))
-		: servicioProductos.map((p) => ({
-			label: p.itemName,
-			cantidad: p.cantidad,
-			precio: p.precioUnitario,
+	const consultaFallback = productos.filter((p) => p.itemName === "Consulta");
+	const estudioFallback = productos.filter((p) => p.itemName === "Estudio");
+	const consultaItems = consultas.length > 0
+		? consultas.map((c, i) => ({
+			id: `consulta-${i}`,
+			title: c?.tipo_consulta || c?.id_consulta_local || `Consulta ${i + 1}`,
+			meta: c?.fecha_cita
+				? formatDate(String(c.fecha_cita).split(" ")[0])
+				: "",
+		}))
+		: consultaFallback.map((p, i) => ({
+			id: `consulta-prod-${i}`,
+			title: p.itemName,
+			meta: `Cantidad ${p.cantidad} · ${formatCurrency(p.precioUnitario)}`,
+		}));
+	const estudioItems = estudios.length > 0
+		? estudios.map((e, i) => ({
+			id: `estudio-${i}`,
+			title: e?.id_tipo_estudio ? `Estudio #${e.id_tipo_estudio}` : `Estudio ${i + 1}`,
+			meta: e?.fecha_cita
+				? formatDate(String(e.fecha_cita).split(" ")[0])
+				: "",
+		}))
+		: estudioFallback.map((p, i) => ({
+			id: `estudio-prod-${i}`,
+			title: p.itemName,
+			meta: `Cantidad ${p.cantidad} · ${formatCurrency(p.precioUnitario)}`,
 		}));
 
 	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
@@ -686,21 +693,20 @@ function ReciboDetailModal({
 					<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
 							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-								Servicios
+								Consultas
 							</p>
-							{serviciosDetalle.length === 0 ? (
-								<p className="text-sm text-slate-400">Sin servicios.</p>
+							{consultaItems.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin consultas.</p>
 							) : (
 								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-									{serviciosDetalle.map((s, i) => (
-										<li key={i} className="flex items-center justify-between px-4 py-2 text-sm">
+									{consultaItems.map((item) => (
+										<li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
 											<div>
-												<p className="font-medium text-slate-800">{s.label}</p>
-												<p className="text-xs text-slate-500">Cantidad {s.cantidad}</p>
+												<p className="font-medium text-slate-800">{item.title}</p>
+												{item.meta ? (
+													<p className="text-xs text-slate-500">{item.meta}</p>
+												) : null}
 											</div>
-											<span className="font-medium text-slate-800">
-												{formatCurrency(s.precio)}
-											</span>
 										</li>
 									))}
 								</ul>
@@ -709,64 +715,23 @@ function ReciboDetailModal({
 
 						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
 							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-								Pagos
+								Estudios
 							</p>
-							{pagosRecibo.length === 0 ? (
-								<p className="text-sm text-slate-400">Sin pagos registrados.</p>
+							{estudioItems.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin estudios.</p>
 							) : (
-								<ul className="space-y-2 text-sm">
-									{pagosRecibo.map((p) => (
-										<li key={p.id} className="flex items-center justify-between">
-											<div className="flex items-center gap-2">
-												<span className="font-medium text-slate-800">
-													{formatCurrency(p.monto)}
-												</span>
-												<span className="text-slate-500">
-													{METODO_LABELS[p.metodoPago]}
-												</span>
+								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+									{estudioItems.map((item) => (
+										<li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
+											<div>
+												<p className="font-medium text-slate-800">{item.title}</p>
+												{item.meta ? (
+													<p className="text-xs text-slate-500">{item.meta}</p>
+												) : null}
 											</div>
-											<span className="text-slate-400">{formatDate(p.fechaPago)}</span>
 										</li>
 									))}
 								</ul>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
-							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-								Consultas y estudios
-							</p>
-							{consultas.length === 0 && estudios.length === 0 ? (
-								<p className="text-sm text-slate-400">Sin consultas o estudios.</p>
-							) : (
-								<div className="space-y-3">
-									{consultas.length > 0 && (
-										<div>
-											<p className="mb-1 text-xs font-medium text-slate-500">Consultas</p>
-											<ul className="space-y-1 text-sm">
-												{consultas.map((c, i) => (
-													<li key={i} className="text-slate-700">
-														{c?.tipo_consulta || c?.id_consulta_local || `Consulta ${i + 1}`}
-													</li>
-												))}
-											</ul>
-										</div>
-									)}
-									{estudios.length > 0 && (
-										<div>
-											<p className="mb-1 text-xs font-medium text-slate-500">Estudios</p>
-											<ul className="space-y-1 text-sm">
-												{estudios.map((e, i) => (
-													<li key={i} className="text-slate-700">
-														{e?.id_tipo_estudio ? `Estudio #${e.id_tipo_estudio}` : `Estudio ${i + 1}`}
-													</li>
-												))}
-											</ul>
-										</div>
-									)}
-								</div>
 							)}
 						</div>
 					</div>
@@ -1348,13 +1313,13 @@ function NuevoReciboModal({
 												key={tipo}
 												type="button"
 												onClick={() => {
-											setShowServicioSelector(false);
-											if (tipo === "Consulta") {
-												setNuevaConsultaModalAbierto(true);
-											} else {
-												setNuevoEstudioModalAbierto(true);
-											}
-											}}
+													setShowServicioSelector(false);
+													if (tipo === "Consulta") {
+														setNuevaConsultaModalAbierto(true);
+													} else {
+														setNuevoEstudioModalAbierto(true);
+													}
+												}}
 												className="flex flex-col items-start rounded-lg border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70"
 											>
 												<span className="font-medium text-slate-800">{tipo}</span>
@@ -1372,39 +1337,39 @@ function NuevoReciboModal({
 										Cancelar
 									</button>
 								</div>
-							) : (
-								<button
-									type="button"
-									onClick={() => setShowServicioSelector(true)}
-									className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
-								>
-									<Plus className="h-4 w-4" />
-									Agregar servicio
-								</button>
-							)}
-						</div>
-					)}
-				</div>
+								) : (
+									<button
+										type="button"
+										onClick={() => setShowServicioSelector(true)}
+										className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
+									>
+										<Plus className="h-4 w-4" />
+										Agregar servicio
+									</button>
+								)}
+							</div>
+						)}
+					</div>
 
-				{/* ── Inventario ── */}
-				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
-					<label className="flex cursor-pointer select-none items-center gap-2.5">
-						<input
-							type="checkbox"
-							checked={inventarioChecked}
-							onChange={(e) => {
-								setInventarioChecked(e.target.checked);
-								if (!e.target.checked) {
-									setProductos([]);
-									setProductSearch("");
-									setSearchResults([]);
-									setShowDropdown(false);
-								}
-							}}
-							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
-						/>
-						<span className="text-sm font-semibold text-slate-700">Inventario</span>
-					</label>
+					{/* ── Inventario ── */}
+					<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+						<label className="flex cursor-pointer select-none items-center gap-2.5">
+							<input
+								type="checkbox"
+								checked={inventarioChecked}
+								onChange={(e) => {
+									setInventarioChecked(e.target.checked);
+									if (!e.target.checked) {
+										setProductos([]);
+										setProductSearch("");
+										setSearchResults([]);
+										setShowDropdown(false);
+										}
+									}}
+									className="h-4 w-4 rounded border-slate-300 accent-slate-600"
+								/>
+							<span className="text-sm font-semibold text-slate-700">Inventario</span>
+						</label>
 
 					{inventarioChecked && (
 						<div className="mt-3 space-y-3">
@@ -1848,7 +1813,6 @@ export default function RecibosPage() {
 			/>
 			<ReciboDetailModal
 				recibo={reciboDetalle}
-				pagos={pagos}
 				onClose={() => setReciboDetalle(null)}
 			/>
 			<DesgloseModal
