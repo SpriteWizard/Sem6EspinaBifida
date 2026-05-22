@@ -21,6 +21,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
+import { NuevoServicioModal } from "../components/NuevoServicioModal";
 import { NuevaConsultaModal } from "../components/reciboWorkflow/nuevaConsultaModal";
 import { NuevoEstudioModal } from "../components/reciboWorkflow/nuevoEstudioModal";
 import { NewMovementModal } from "../components/inventory/NewMovementModal";
@@ -837,7 +838,7 @@ function NuevoReciboModal({
 	// Servicio state
 	const [servicioChecked, setServicioChecked] = useState(false);
 	const [servicios, setServicios] = useState<ReciboServicio[]>([]);
-	const [showServicioSelector, setShowServicioSelector] = useState(false);
+	const [servicioModalOpen, setServicioModalOpen] = useState(false);
 
 	// Inventario state
 	const [inventarioChecked, setInventarioChecked] = useState(false);
@@ -957,7 +958,7 @@ function NuevoReciboModal({
 		setShowAsociadoDropdown(false);
 		setServicioChecked(false);
 		setServicios([]);
-		setShowServicioSelector(false);
+		setServicioModalOpen(false);
 		setInventarioChecked(false);
 		setProductos([]);
 		setProductSearch("");
@@ -985,7 +986,7 @@ function NuevoReciboModal({
 
 	function addServicio(tipo: TipoServicio) {
 		setServicios((prev) => [...prev, { tipo, precio: SERVICIO_PRECIOS[tipo] }]);
-		setShowServicioSelector(false);
+		setServicioModalOpen(false);
 	}
 
 	function removeServicio(index: number) {
@@ -1250,7 +1251,7 @@ function NuevoReciboModal({
 								setServicioChecked(e.target.checked);
 								if (!e.target.checked) {
 									setServicios([]);
-									setShowServicioSelector(false);
+									setServicioModalOpen(false);
 								}
 							}}
 							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
@@ -1299,55 +1300,14 @@ function NuevoReciboModal({
 								</ul>
 							)}
 
-							{showServicioSelector ? (
-								<div className="rounded-lg border border-slate-200 bg-white p-3">
-									<div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-										<AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-										El servicio debe liquidarse en el momento en que se agrega, no después.
-									</div>
-									<p className="mb-2 text-xs font-medium text-slate-600">
-										Seleccionar tipo de servicio
-									</p>
-									<div className="grid grid-cols-2 gap-2">
-										{(["Consulta", "Estudio"] as TipoServicio[]).map((tipo) => (
-											<button
-												key={tipo}
-												type="button"
-												onClick={() => {
-													setShowServicioSelector(false);
-													if (tipo === "Consulta") {
-														setNuevaConsultaModalAbierto(true);
-													} else {
-														setNuevoEstudioModalAbierto(true);
-													}
-												}}
-												className="flex flex-col items-start rounded-lg border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70"
-											>
-												<span className="font-medium text-slate-800">{tipo}</span>
-												<span className="mt-0.5 text-xs text-slate-500">
-													{formatCurrency(SERVICIO_PRECIOS[tipo])} MXN
-												</span>
-											</button>
-										))}
-									</div>
-									<button
-										type="button"
-										onClick={() => setShowServicioSelector(false)}
-										className="mt-2 text-xs text-slate-400 hover:text-slate-600"
-									>
-										Cancelar
-									</button>
-								</div>
-								) : (
-									<button
-										type="button"
-										onClick={() => setShowServicioSelector(true)}
-										className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
-									>
-										<Plus className="h-4 w-4" />
-										Agregar servicio
-									</button>
-								)}
+							<button
+								type="button"
+								onClick={() => setServicioModalOpen(true)}
+								className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
+							>
+								<Plus className="h-4 w-4" />
+								Agregar servicio
+							</button>
 							</div>
 						)}
 					</div>
@@ -1661,6 +1621,13 @@ function NuevoReciboModal({
 					</Button>
 				</div>
 			</Modal>
+
+			<NuevoServicioModal
+				open={servicioModalOpen}
+				onClose={() => setServicioModalOpen(false)}
+				onSelectConsulta={() => setNuevaConsultaModalAbierto(true)}
+				onSelectEstudio={() => setNuevoEstudioModalAbierto(true)}
+			/>
 
 			<NewMovementModal
 				open={open && movementModalOpen}

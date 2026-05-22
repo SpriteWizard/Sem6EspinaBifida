@@ -24,6 +24,14 @@ export async function GET(){
             }
         })
 
+        recibos.sort((a: any, b: any) => {
+            const byId = Number(b.id ?? 0) - Number(a.id ?? 0)
+            if (byId !== 0) return byId
+            const dateA = String(a.fechaEmision ?? '')
+            const dateB = String(b.fechaEmision ?? '')
+            return dateB.localeCompare(dateA)
+        })
+
         return Response.json(recibos)
     }
     return Response.json([]);
