@@ -2,7 +2,7 @@
 require('dotenv').config({ path: '../.env.local' });
 
 const config = {
-  testDir: './',
+  testDir: './appespinabifida/tests/playwright/tests',
   use: {
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
