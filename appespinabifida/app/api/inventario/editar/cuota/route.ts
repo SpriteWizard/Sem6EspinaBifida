@@ -14,6 +14,8 @@ const DEFAULT_UPDATE_PATHS = [
 const DEFAULT_LIST_PATHS = ['inventario/obtenerInventario']
 
 type UpdateQuotaBody = {
+  nombre?: string
+  descripcion?: string
   itemId?: number
   cuotaRecuperacion?: number | null
   stockMinimo?: number | null
@@ -40,13 +42,15 @@ async function persistItemSettings(payload: {
   id_articulo: number
   cuota_recuperacion: number | null
   stock_minimo?: number | null
+  nombre? : string,
+  descripcion? : string
 }) {
   const updatePaths = getCandidatePaths('ORDS_INVENTORY_UPDATE_PATHS', DEFAULT_UPDATE_PATHS)
   let lastError: unknown = null
 
   for (const method of ['PUT', 'POST'] as const) {
     try {
-      await fetchOrdsJsonCandidates(updatePaths, {
+        await fetchOrdsJsonCandidates(updatePaths, {
         method,
         body: JSON.stringify(payload),
       })
@@ -93,10 +97,15 @@ async function handleUpdate(request: Request) {
       )
     }
 
+    const nombre = body.nombre;
+    const descripcion = body.descripcion;
+
     await persistItemSettings({
       id_articulo: itemId,
       cuota_recuperacion: cuotaRecuperacion,
       ...(stockMinimo === undefined ? {} : { stock_minimo: stockMinimo }),
+      nombre: nombre,
+      descripcion: descripcion
     })
 
     const updated = await fetchInventoryItemById(itemId)

@@ -309,6 +309,8 @@ export async function fetchOrdsJsonCandidates(
 
     const payload = await parseResponseBody(response)
 
+    console.log(response);
+
     if (response.ok) {
       return {
         data: payload,
