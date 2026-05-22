@@ -413,3 +413,5 @@ select
 from RECIBO r
 inner join ASOCIADO a
     on a.ID_ASOCIADO = r.ID_ASOCIADO;
+
+commit;

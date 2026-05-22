@@ -9,7 +9,6 @@ export async function PUT(req: Request){
         },
         body: JSON.stringify({id: id, razon: razon}),
     });
-    console.log(res);
     if (res.ok){
         return Response.json({status: "Success"});
     }

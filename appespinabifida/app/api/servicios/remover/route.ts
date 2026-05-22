@@ -15,8 +15,6 @@ export async function DELETE(request: Request){
         },
         body: JSON.stringify({servicio_to_delete: deleteData.id})
     });
-    console.log(res);
     const status = (res.ok) ? "Element eliminated correctly" : "Element could not be eliminated, try again";
-    console.log(status);
     return Response.json(status);
 }

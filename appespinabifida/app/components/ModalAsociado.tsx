@@ -8,11 +8,26 @@ import { PadecimientoSelector } from "./PadecimientoSelector";
 import { Select } from "./ui/Select";
 import { Textarea } from "./ui/Textarea";
 import { useRouter } from "next/navigation";
-import { Session } from "inspector/promises";
-
-
 type Estatus = "Activo" | "Inactivo" | "Pendiente" | "Anulado";
 type Sexo = "Masculino" | "Femenino";
+
+const ESTADOS_MEXICO = [
+  "Aguascalientes", "Baja California", "Baja California Sur", "Campeche",
+  "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila de Zaragoza",
+  "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero",
+  "Hidalgo", "Jalisco", "Michoacán de Ocampo", "Morelos", "Nayarit",
+  "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo",
+  "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas",
+  "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas", "Fuera del país",
+];
+
+const TIPOS_SANGRE = ["A+", "A−", "B+", "B−", "AB+", "AB−", "O+", "O−"];
+
+const ESCOLARIDADES = [
+  "Sin escolaridad", "Primaria incompleta", "Primaria completa",
+  "Secundaria incompleta", "Secundaria completa", "Preparatoria/Bachillerato",
+  "Carrera técnica", "Licenciatura", "Posgrado",
+];
 
 export interface ContactoEmergencia {
   nombre: string;
@@ -83,6 +98,9 @@ export interface AsociadoDetalle {
   exposicionToxicosEmbarazo?: boolean;
   descripcionToxinas?: string;
   fotoUrl?: string;
+  foto?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
 }
 
 interface ModalAsociadoProps {
@@ -148,8 +166,44 @@ function SiNoSelect({
   );
 }
 
+function calcularEdad(fechaNacimiento: string): number | null {
+  if (!fechaNacimiento) return null;
+  let birthDate: Date;
+  if (fechaNacimiento.includes("-")) {
+    birthDate = new Date(fechaNacimiento + "T00:00:00");
+  } else if (fechaNacimiento.includes("/")) {
+    const [d, m, y] = fechaNacimiento.split("/");
+    birthDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  } else {
+    return null;
+  }
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const dm = today.getMonth() - birthDate.getMonth();
+  if (dm < 0 || (dm === 0 && today.getDate() < birthDate.getDate())) age--;
+  return age;
+}
+
+function etapaVidaDesdeEdad(edad: number | null): string {
+  if (edad === null) return "";
+  if (edad <= 2)  return "Primera infancia";
+  if (edad <= 5)  return "Preescolar";
+  if (edad <= 11) return "Edad escolar";
+  if (edad <= 17) return "Adolescencia";
+  if (edad <= 29) return "Adulto joven";
+  if (edad <= 59) return "Adulto";
+  return "Adulto mayor";
+}
+
+function sanitizeNulls(a: AsociadoDetalle): AsociadoDetalle {
+  return Object.fromEntries(
+    Object.entries(a).map(([k, v]) => [k, v === null ? "—" : v])
+  ) as AsociadoDetalle;
+}
+
 function mergeDetalle(a: AsociadoDetalle) {
-  const [t0, t1, t2] = a.telefonos;
+  const clean = sanitizeNulls(a);
+  const [t0, t1, t2] = clean.telefonos ?? [];
   return {
     fechaUltRecibo: "—",
     etapaVida: "—",
@@ -189,10 +243,12 @@ function mergeDetalle(a: AsociadoDetalle) {
     padreSeguro: "—",
     adiccionesAmbos: "—",
     descripcionToxinas: "—",
-    ...a,
-    telCasa: a.telCasa ?? t0 ?? "—",
-    telTrabajo: a.telTrabajo ?? t1 ?? "—",
-    telCel: a.telCel ?? t2 ?? t1 ?? t0 ?? "—",
+    apellidoPaterno: "—",
+    apellidoMaterno: "—",
+    ...clean,
+    telCasa: clean.telCasa ?? t0 ?? "—",
+    telTrabajo: clean.telTrabajo ?? t1 ?? "—",
+    telCel: clean.telCel ?? t2 ?? t1 ?? t0 ?? "—",
     fotoUrl: ""
   };
 } 
@@ -218,7 +274,24 @@ export default function ModalAsociado({
     setIsEditMode(false);
     setActiveTab("Datos generales");
     setNewFoto("");
+    setFoto("");
   }, [base]);
+
+  useEffect(() => {
+    const edad = calcularEdad(draft.fechaNacimiento);
+    setDraft((prev) => ({
+      ...prev,
+      edad: edad !== null ? String(edad) : "",
+      etapaVida: etapaVidaDesdeEdad(edad),
+    }));
+  }, [draft.fechaNacimiento]);
+
+  useEffect(() => {
+    if (!draft.vigenciaDesde || draft.vigenciaDesde === "—") return;
+    const desde = new Date(draft.vigenciaDesde + "T00:00:00");
+    desde.setFullYear(desde.getFullYear() + 1);
+    setDraft((prev) => ({ ...prev, vigenciaHasta: desde.toISOString().split("T")[0] }));
+  }, [draft.vigenciaDesde]);
 
   const hasChanges = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(base),
@@ -259,7 +332,7 @@ export default function ModalAsociado({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(draft),
+      body: JSON.stringify({ ...draft, foto: newFoto || "" }),
     })
     
     onSave?.(next);
@@ -267,7 +340,7 @@ export default function ModalAsociado({
 
     if (res.ok){
       const data = await res.json();
-      if(data.status = "ok"){
+      if(data.status === "ok"){
         window.location.reload();
       }
     }
@@ -298,18 +371,22 @@ export default function ModalAsociado({
     };
   }
 
-  async function buildImageSrc() {
-    const res = await fetch(`/api/asociados/fotoAsociado/obtener?id=${asociado.id}`);
-    if (!res.ok) return;
-    const obj = await res.json();
-    if (!obj?.image || !obj?.mime) return;
-    setFoto(`data:${obj.mime};base64,${obj.image}`);
-  }
+  useEffect(() => {
+    const controller = new AbortController();
 
-  useEffect(()=>{
-    buildImageSrc();
+    (async () => {
+      const res = await fetch(
+        `/api/asociados/fotoAsociado/obtener?id=${asociado.id}`,
+        { signal: controller.signal },
+      ).catch(() => null);
+      if (!res || !res.ok) return;
+      const obj = await res.json();
+      if (!obj?.image || !obj?.mime) return;
+      setFoto(`data:${obj.mime};base64,${obj.image}`);
+    })();
 
-  },[])
+    return () => controller.abort();
+  }, [asociado.id]);
 
   function handleClose() {
     if (isEditMode && hasChanges) {
@@ -346,7 +423,7 @@ export default function ModalAsociado({
 
             <div className="min-w-0">
               <h2 className="text-2xl font-bold text-[#003c64] leading-tight truncate">
-                {d.nombre}
+                {[d.nombre, d.apellidoPaterno, d.apellidoMaterno].filter((v) => v && v !== "—").join(" ")}
               </h2>
               <p className="mt-0.5 text-sm text-gray-500">
                 ID&nbsp;{d.id} &middot; Folio&nbsp;{d.folio}
@@ -384,7 +461,7 @@ export default function ModalAsociado({
             {isEditMode ? "Modo edición activado" : "Modo vista"}
           </p>
           <div className="flex gap-2">
-            { ((session as any).user as any).role === "admin" || ((session as any).user as any).role === "superadmin" &&
+            { (((session as any).user as any).role === "admin" || ((session as any).user as any).role === "superadmin") &&
             (isEditMode ? (
               <>
                 <button
@@ -447,21 +524,31 @@ export default function ModalAsociado({
                     <Field label="Fecha de alta">{d.fechaAlta}</Field>
                   </div>
                     {isEditMode ? (
-                      <div>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          Nombre completo
-                        </span>
-                        <Input value={d.nombre} onChange={(e) => updateDraft("nombre", e.target.value)} />
+                      <div className="grid grid-cols-3 gap-x-4">
+                        <div>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Nombre</span>
+                          <Input value={d.nombre} onChange={(e) => updateDraft("nombre", e.target.value)} />
+                        </div>
+                        <div>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Apellido paterno</span>
+                          <Input value={d.apellidoPaterno === "—" ? "" : (d.apellidoPaterno ?? "")} onChange={(e) => updateDraft("apellidoPaterno", e.target.value)} />
+                        </div>
+                        <div>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Apellido materno</span>
+                          <Input value={d.apellidoMaterno === "—" ? "" : (d.apellidoMaterno ?? "")} onChange={(e) => updateDraft("apellidoMaterno", e.target.value)} />
+                        </div>
                       </div>
                     ) : (
-                      <Field label="Nombre completo">{d.nombre}</Field>
+                      <Field label="Nombre completo">
+                        {[d.nombre, d.apellidoPaterno, d.apellidoMaterno].filter((v) => v && v !== "—").join(" ")}
+                      </Field>
                     )}
                   {isEditMode ? (
                     <div>
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                         CURP
                       </span>
-                      <Input value={d.curp} onChange={(e) => updateDraft("curp", e.target.value)} />
+                      <Input value={d.curp} maxLength={18} onChange={(e) => updateDraft("curp", e.target.value.toUpperCase())} />
                     </div>
                   ) : (
                     <Field label="CURP">
@@ -474,21 +561,14 @@ export default function ModalAsociado({
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                           Fecha de nacimiento
                         </span>
-                        <Input value={d.fechaNacimiento} onChange={(e) => updateDraft("fechaNacimiento", e.target.value)} />
+                        <Input type="date" value={d.fechaNacimiento} onChange={(e) => updateDraft("fechaNacimiento", e.target.value)} />
                       </div>
                     ) : (
                       <Field label="Fecha de nacimiento">{d.fechaNacimiento}</Field>
                     )}
-                    {isEditMode ? (
-                      <div>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          Edad
-                        </span>
-                        <Input value={d.edad} onChange={(e) => updateDraft("edad", e.target.value)} />
-                      </div>
-                    ) : (
-                      <Field label="Edad">{d.edad}</Field>
-                    )}
+                    <Field label="Edad / Etapa de vida">
+                      {d.edad ? `${d.edad} años — ${d.etapaVida}` : "—"}
+                    </Field>
                   </div>
                   <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                     {isEditMode ? (
@@ -556,16 +636,7 @@ export default function ModalAsociado({
                 ) : (
                   <Field label="Nombre padre / madre">{d.nombrePadreMadre}</Field>
                 )}
-                {isEditMode ? (
-                  <div>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      Etapa de vida
-                    </span>
-                    <Input value={d.etapaVida} onChange={(e) => updateDraft("etapaVida", e.target.value)} />
-                  </div>
-                ) : (
-                  <Field label="Etapa de vida">{d.etapaVida}</Field>
-                )}
+                <Field label="Etapa de vida">{d.etapaVida || "—"}</Field>
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">¿Vive?</span>
                   {isEditMode ? (
@@ -579,7 +650,7 @@ export default function ModalAsociado({
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                       Fecha últ. recibo
                     </span>
-                    <Input value={d.fechaUltRecibo} onChange={(e) => updateDraft("fechaUltRecibo", e.target.value)} />
+                    <Input type="date" value={d.fechaUltRecibo} onChange={(e) => updateDraft("fechaUltRecibo", e.target.value)} />
                   </div>
                 ) : (
                   <Field label="Fecha últ. recibo">{d.fechaUltRecibo}</Field>
@@ -607,11 +678,14 @@ export default function ModalAsociado({
                       </div>
                       <div>
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Estado</span>
-                        <Input value={d.estado} onChange={(e) => updateDraft("estado", e.target.value)} />
+                        <Select value={d.estado} onChange={(e) => updateDraft("estado", e.target.value)}>
+                          <option value="">— Selecciona —</option>
+                          {ESTADOS_MEXICO.map((est) => <option key={est} value={est}>{est}</option>)}
+                        </Select>
                       </div>
                       <div>
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">CP</span>
-                        <Input value={d.cp} onChange={(e) => updateDraft("cp", e.target.value)} />
+                        <Input value={d.cp} inputMode="numeric" maxLength={5} onChange={(e) => updateDraft("cp", e.target.value.replace(/\D/g, "").slice(0, 5))} />
                       </div>
                     </>
                   ) : (
@@ -715,11 +789,11 @@ export default function ModalAsociado({
                   <>
                     <div>
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Desde</span>
-                      <Input value={d.vigenciaDesde} onChange={(e) => updateDraft("vigenciaDesde", e.target.value)} />
+                      <Input type="date" value={d.vigenciaDesde} onChange={(e) => updateDraft("vigenciaDesde", e.target.value)} />
                     </div>
                     <div>
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Hasta</span>
-                      <Input value={d.vigenciaHasta} onChange={(e) => updateDraft("vigenciaHasta", e.target.value)} />
+                      <Input type="date" value={d.vigenciaHasta} onChange={(e) => updateDraft("vigenciaHasta", e.target.value)} />
                     </div>
                   </>
                 ) : (
@@ -777,7 +851,10 @@ export default function ModalAsociado({
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                       Sangre (tipo)
                     </span>
-                    <Input value={d.tipoSangre} onChange={(e) => updateDraft("tipoSangre", e.target.value)} />
+                    <Select value={d.tipoSangre} onChange={(e) => updateDraft("tipoSangre", e.target.value)}>
+                      <option value="">— Selecciona —</option>
+                      {TIPOS_SANGRE.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </Select>
                   </div>
                 ) : (
                   <Field label="Sangre (tipo)">{d.tipoSangre}</Field>
@@ -821,10 +898,10 @@ export default function ModalAsociado({
                 <div className="space-y-5">
                   {isEditMode ? (
                     <>
-                      <Input value={d.fechaGralOrina} onChange={(e) => updateDraft("fechaGralOrina", e.target.value)} placeholder="Gral. orina" />
-                      <Input value={d.fechaEcoRenal} onChange={(e) => updateDraft("fechaEcoRenal", e.target.value)} placeholder="Eco renal" />
-                      <Input value={d.fechaEstUrodinamico} onChange={(e) => updateDraft("fechaEstUrodinamico", e.target.value)} placeholder="Est. urodinámico" />
-                      <Input value={d.fechaTacCerebro} onChange={(e) => updateDraft("fechaTacCerebro", e.target.value)} placeholder="TAC cerebro" />
+                      <Input type="date" value={d.fechaGralOrina} onChange={(e) => updateDraft("fechaGralOrina", e.target.value)} placeholder="Gral. orina" />
+                      <Input type="date" value={d.fechaEcoRenal} onChange={(e) => updateDraft("fechaEcoRenal", e.target.value)} placeholder="Eco renal" />
+                      <Input type="date" value={d.fechaEstUrodinamico} onChange={(e) => updateDraft("fechaEstUrodinamico", e.target.value)} placeholder="Est. urodinámico" />
+                      <Input type="date" value={d.fechaTacCerebro} onChange={(e) => updateDraft("fechaTacCerebro", e.target.value)} placeholder="TAC cerebro" />
                     </>
                   ) : (
                     <>
@@ -838,10 +915,10 @@ export default function ModalAsociado({
                 <div className="space-y-5">
                   {isEditMode ? (
                     <>
-                      <Input value={d.fechaUrocultivo} onChange={(e) => updateDraft("fechaUrocultivo", e.target.value)} placeholder="Urocultivo" />
-                      <Input value={d.fechaUroTac} onChange={(e) => updateDraft("fechaUroTac", e.target.value)} placeholder="UroTAC" />
-                      <Input value={d.fechaUltEstUro} onChange={(e) => updateDraft("fechaUltEstUro", e.target.value)} placeholder="Últ. est. uro." />
-                      <Input value={d.fechaOtrosEstudios} onChange={(e) => updateDraft("fechaOtrosEstudios", e.target.value)} placeholder="Otros" />
+                      <Input type="date" value={d.fechaUrocultivo} onChange={(e) => updateDraft("fechaUrocultivo", e.target.value)} placeholder="Urocultivo" />
+                      <Input type="date" value={d.fechaUroTac} onChange={(e) => updateDraft("fechaUroTac", e.target.value)} placeholder="UroTAC" />
+                      <Input type="date" value={d.fechaUltEstUro} onChange={(e) => updateDraft("fechaUltEstUro", e.target.value)} placeholder="Últ. est. uro." />
+                      <Input type="date" value={d.fechaOtrosEstudios} onChange={(e) => updateDraft("fechaOtrosEstudios", e.target.value)} placeholder="Otros" />
                     </>
                   ) : (
                     <>
@@ -862,18 +939,14 @@ export default function ModalAsociado({
                 <div className="min-w-0 space-y-5">
                   <Divider label="Historial madre" />
                   <Field label="Lugar nac.">{isEditMode ? <Input value={d.madreLugarNacimiento} onChange={(e) => updateDraft("madreLugarNacimiento", e.target.value)} /> : d.madreLugarNacimiento}</Field>
-                  <Field label="Escolaridad">{isEditMode ? <Input value={d.madreEscolaridad} onChange={(e) => updateDraft("madreEscolaridad", e.target.value)} /> : d.madreEscolaridad}</Field>
+                  <Field label="Escolaridad">{isEditMode ? <Select value={d.madreEscolaridad} onChange={(e) => updateDraft("madreEscolaridad", e.target.value)}><option value="">— Selecciona —</option>{ESCOLARIDADES.map((esc) => <option key={esc} value={esc}>{esc}</option>)}</Select> : d.madreEscolaridad}</Field>
                   <Field label="Edad">{isEditMode ? <Input value={d.madreEdad} onChange={(e) => updateDraft("madreEdad", e.target.value)} /> : d.madreEdad}</Field>
                   <Field label="Ocupación">{isEditMode ? <Input value={d.madreOcupacion} onChange={(e) => updateDraft("madreOcupacion", e.target.value)} /> : d.madreOcupacion}</Field>
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                       Parentesco con pareja
                     </span>
-                    {isEditMode ? (
-                      <SiNoSelect value={d.madreParentescoConPareja} onChange={(next) => updateDraft("madreParentescoConPareja", next)} />
-                    ) : (
-                      <SiNo value={d.madreParentescoConPareja} />
-                    )}
+                    <SiNo value={d.madreParentescoConPareja} />
                   </div>
                   <Field label="Cd. inicio embarazo">{isEditMode ? <Input value={d.madreCdInicioEmbarazo} onChange={(e) => updateDraft("madreCdInicioEmbarazo", e.target.value)} /> : d.madreCdInicioEmbarazo}</Field>
                   <div className="flex flex-col gap-1">
@@ -893,24 +966,36 @@ export default function ModalAsociado({
                 <div className="min-w-0 space-y-5">
                   <Divider label="Historial padre" />
                   <Field label="Lugar nacimiento">{isEditMode ? <Input value={d.padreLugarNacimiento} onChange={(e) => updateDraft("padreLugarNacimiento", e.target.value)} /> : d.padreLugarNacimiento}</Field>
-                  <Field label="Escolaridad">{isEditMode ? <Input value={d.padreEscolaridad} onChange={(e) => updateDraft("padreEscolaridad", e.target.value)} /> : d.padreEscolaridad}</Field>
+                  <Field label="Escolaridad">{isEditMode ? <Select value={d.padreEscolaridad} onChange={(e) => updateDraft("padreEscolaridad", e.target.value)}><option value="">— Selecciona —</option>{ESCOLARIDADES.map((esc) => <option key={esc} value={esc}>{esc}</option>)}</Select> : d.padreEscolaridad}</Field>
                   <Field label="Edad">{isEditMode ? <Input value={d.padreEdad} onChange={(e) => updateDraft("padreEdad", e.target.value)} /> : d.padreEdad}</Field>
                   <Field label="Ocupación">{isEditMode ? <Input value={d.padreOcupacion} onChange={(e) => updateDraft("padreOcupacion", e.target.value)} /> : d.padreOcupacion}</Field>
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                       Parentesco con pareja
                     </span>
-                    {isEditMode ? (
-                      <SiNoSelect value={d.padreParentescoConPareja} onChange={(next) => updateDraft("padreParentescoConPareja", next)} />
-                    ) : (
-                      <SiNo value={d.padreParentescoConPareja} />
-                    )}
+                    <SiNo value={d.padreParentescoConPareja} />
                   </div>
                   <Field label="Seguro">{isEditMode ? <Input value={d.padreSeguro} onChange={(e) => updateDraft("padreSeguro", e.target.value)} /> : d.padreSeguro}</Field>
                 </div>
 
                 <div className="min-w-0 space-y-5">
                   <Divider label="Historial ambos" />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      ¿Parentesco entre la pareja?
+                    </span>
+                    {isEditMode ? (
+                      <SiNoSelect
+                        value={d.madreParentescoConPareja}
+                        onChange={(next) => {
+                          updateDraft("madreParentescoConPareja", next);
+                          updateDraft("padreParentescoConPareja", next);
+                        }}
+                      />
+                    ) : (
+                      <SiNo value={d.madreParentescoConPareja} />
+                    )}
+                  </div>
                   <div className="space-y-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                       Adicciones
@@ -950,7 +1035,10 @@ export default function ModalAsociado({
                       Exposición a tóxicos antes o durante embarazo
                     </span>
                     {isEditMode ? (
-                      <SiNoSelect value={d.exposicionToxicosEmbarazo} onChange={(next) => updateDraft("exposicionToxicosEmbarazo", next)} />
+                      <SiNoSelect value={d.exposicionToxicosEmbarazo} onChange={(next) => {
+                      updateDraft("exposicionToxicosEmbarazo", next);
+                      if (!next) updateDraft("descripcionToxinas", "");
+                    }} />
                     ) : (
                       <SiNo value={d.exposicionToxicosEmbarazo} />
                     )}

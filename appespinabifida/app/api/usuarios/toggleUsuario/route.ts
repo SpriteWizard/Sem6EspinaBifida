@@ -16,8 +16,6 @@ export async function PUT(req: Request) {
             status: nextStatus
         })
     })
-
-    console.log(res);
         
     if (res.ok){
         return Response.json({status: "Success"});

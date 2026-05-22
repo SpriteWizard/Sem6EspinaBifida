@@ -915,7 +915,6 @@ function NuevoReciboModal({
 	useEffect(() => {
 		async function getAsociados(){
 			const res = await fetch("/api/asociados/lista_asociados/mini");
-			console.log(res);
 			if (res.ok){
 				const data = await res.json();
 				
@@ -1085,7 +1084,7 @@ function NuevoReciboModal({
 			if (!resRecibo.ok || reciboData?.status !== "Success" || !parsedId) {
 				throw new Error(reciboData?.message ?? "No se pudo crear el recibo.");
 			}
-			id_recibo = Math.floor(parsedId);
+			id_recibo = parsedId;
 		} catch (error) {
 			setMovementSubmitError(
 				error instanceof Error
@@ -1156,7 +1155,6 @@ function NuevoReciboModal({
 				);
 			}
 		}
-
 		for (const prod of productos) {
 			if (prod.itemId !== null && prod.cantidad > 0) {
 				fetch("/api/inventario/movimientos/agregar", {
@@ -1175,6 +1173,9 @@ function NuevoReciboModal({
 		}
 
 		resetState();
+
+		window.location.reload()
+
 	}
 
 	const canCrear = asociadoSeleccionado !== null && fechaLimite.length > 0;
@@ -1724,6 +1725,23 @@ export default function RecibosPage() {
 		return () => { alive = false; };
 	}, []);
 
+	useEffect(() => {
+		async function getPagos(){
+			const res = await fetch("/api/recibos/lista_pagos");
+
+			if (res.ok){
+				const data = await res.json();
+
+				if (data.message === "Success"){
+
+					setPagos(data.data);
+
+				}
+			}
+		}
+		getPagos();
+	}, [])
+
 	async function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
 		if (!reciboActivo) return;
 
@@ -1774,7 +1792,9 @@ export default function RecibosPage() {
 					!r.asociado.toLowerCase().includes(debouncedNombre.toLowerCase())
 				)
 					return false;
-				if (filterFecha && r.fechaEmision !== filterFecha) return false;
+				const [fechaSinTiempo,_] = r.fechaEmision.split("T");
+				if (filterFecha && fechaSinTiempo !== filterFecha) {
+					return false};
 				if (filterEstatus !== "todos" && derivarEstatus(r) !== filterEstatus)
 					return false;
 				return true;
@@ -1958,11 +1978,16 @@ export default function RecibosPage() {
 													<Button
 														variant="ghost"
 														size="sm"
-														leftIcon={<Receipt className="h-4 w-4" />}
 														onClick={() => setDesgloseRecibo(r)}
 													>
 														Ver
 													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														leftIcon={<Receipt className="h-4 w-4 translate-y-1" />}
+														onClick={() => setReciboActivo(r)}
+													></Button>
 												</td>
 											</tr>
 										);
