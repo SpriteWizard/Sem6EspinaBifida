@@ -1,8 +1,9 @@
 // Playwright config (CommonJS). Uses the official playwright-qase-reporter.
-require('dotenv').config({ path: '../.env.local' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env.local') });
 
 const config = {
-  testDir: './appespinabifida/tests/playwright/tests',
+  testDir: './tests',
   use: {
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
