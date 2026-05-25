@@ -268,10 +268,13 @@ export default function ModalAsociado({
   const base = useMemo(() => mergeDetalle(asociado), [asociado]);
   const [draft, setDraft] = useState(() => mergeDetalle(asociado));
   const [isEditMode, setIsEditMode] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setDraft(base);
     setIsEditMode(false);
+    setSaveError(null);
     setActiveTab("Datos generales");
     setNewFoto("");
     setFoto("");
@@ -309,6 +312,9 @@ export default function ModalAsociado({
   }
 
   async function handleSave() {
+    setSaveError(null);
+    setIsSaving(true);
+
     const telefonos = [draft.telCasa, draft.telTrabajo, draft.telCel].filter(
       (v) => Boolean(v && v !== "—"),
     ) as string[];
@@ -319,32 +325,36 @@ export default function ModalAsociado({
       contactoEmergencia: draft.contactoEmergencia,
     };
 
-    // TODO backend — actualizar foto al editar:
-    // La variable `newFoto` contiene el base64 (JPEG 200×200) de la nueva foto si el
-    // usuario seleccionó una. Para persistirla se recomienda una de estas dos opciones:
-    //   A) Si `editarAsociado` de Oracle acepta el campo `foto`, agregar `foto` al
-    //      FormState en editar/route.ts y pasar `{ ...draft, foto: newFoto }` aquí.
-    //   B) Si Oracle necesita un endpoint separado, crear `/api/asociados/fotoAsociado/actualizar`
-    //      que reciba `{ id, foto }` y haga POST a un endpoint Oracle dedicado,
-    //      luego llamarlo aquí después de guardar los datos generales.
-    const res = await fetch("/api/asociados/editar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ...draft, foto: newFoto || "" }),
-    })
-    
-    onSave?.(next);
-    setIsEditMode(false);
+    try {
+      // TODO backend — actualizar foto al editar:
+      // La variable `newFoto` contiene el base64 (JPEG 200×200) de la nueva foto si el
+      // usuario seleccionó una. Para persistirla se recomienda una de estas dos opciones:
+      //   A) Si `editarAsociado` de Oracle acepta el campo `foto`, agregar `foto` al
+      //      FormState en editar/route.ts y pasar `{ ...draft, foto: newFoto }` aquí.
+      //   B) Si Oracle necesita un endpoint separado, crear `/api/asociados/fotoAsociado/actualizar`
+      //      que reciba `{ id, foto }` y haga POST a un endpoint Oracle dedicado,
+      //      luego llamarlo aquí después de guardar los datos generales.
+      const res = await fetch("/api/asociados/editar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...draft, foto: newFoto || "" }),
+      });
 
-    if (res.ok){
       const data = await res.json();
-      if(data.status === "ok"){
-        window.location.reload();
-      }
-    }
 
+      if (data.status === "ok") {
+        onSave?.(next);
+        setIsEditMode(false);
+      } else if (data.reason === "curp_duplicado") {
+        setSaveError("El CURP ingresado ya está registrado en otro asociado.");
+      } else {
+        setSaveError("Ocurrió un error al guardar. Intenta nuevamente.");
+      }
+    } catch {
+      setSaveError("No se pudo conectar con el servidor.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const [foto, setFoto] = useState("");
@@ -474,9 +484,10 @@ export default function ModalAsociado({
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="rounded-md bg-[#003c64] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#003c64]/90"
+                  disabled={isSaving}
+                  className="rounded-md bg-[#003c64] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#003c64]/90 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar cambios
+                  {isSaving ? "Guardando..." : "Guardar cambios"}
                 </button>
               </>
             ) : (
@@ -508,6 +519,12 @@ export default function ModalAsociado({
             </button>
           ))}
         </div>
+
+        {saveError && (
+          <div className="mx-8 mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+            {saveError}
+          </div>
+        )}
 
         {/* ── Contenido ── */}
         <div className="overflow-y-auto flex-1 min-h-0 px-8 py-7">
