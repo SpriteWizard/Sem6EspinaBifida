@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '../ui/Modal'
 
@@ -36,7 +36,9 @@ export function NuevaConsultaModal({
   listaNuevaConsulta,
   setListaNuevaConsulta,
   setModalAbiertoNuevaConsulta,
-  id_recibo
+  id_recibo,
+  defaultAsociadoId,
+  defaultAsociadoNombre,
 }: {
   open: boolean
   onClose: () => void
@@ -44,8 +46,11 @@ export function NuevaConsultaModal({
   setListaNuevaConsulta: React.Dispatch<React.SetStateAction<any[]>>
   setModalAbiertoNuevaConsulta: React.Dispatch<React.SetStateAction<boolean>>
   id_recibo: number
+  defaultAsociadoId?: number
+  defaultAsociadoNombre?: string
 }) {
   const router = useRouter()
+  const prefillsAppliedRef = useRef(false)
 
   const [asociados, setAsociados] = useState<any[]>([])
   const [medicos, setMedicos] = useState<any[]>([])
@@ -65,6 +70,28 @@ export function NuevaConsultaModal({
     id: String(a.id_asociado),
     nombre: a.nombre + ' ' + a.apellidos,
   }))
+
+  useEffect(() => {
+    if (!open) {
+      prefillsAppliedRef.current = false
+      return
+    }
+
+    if (prefillsAppliedRef.current || defaultAsociadoId == null) return
+
+    const fallback = {
+      id: String(defaultAsociadoId),
+      nombre: defaultAsociadoNombre || `Asociado #${defaultAsociadoId}`,
+    }
+
+    const matched = listaAsociados.find((a) => Number(a.id) === defaultAsociadoId)
+    const seleccionadoInicial = matched || fallback
+
+    setSeleccionado(seleccionadoInicial)
+    setQuery(`${seleccionadoInicial.nombre} · #${seleccionadoInicial.id}`)
+    setDropdownAbierto(false)
+    prefillsAppliedRef.current = true
+  }, [open, defaultAsociadoId, defaultAsociadoNombre, listaAsociados])
 
   const [query, setQuery] = useState('')
   const [seleccionado, setSeleccionado] = useState<{ id: string; nombre: string } | null>(null)
@@ -98,6 +125,12 @@ export function NuevaConsultaModal({
   }, [onClose, resetForm])
 
   async function guardarConsulta() {
+    if (!seleccionado) { alert('Debes seleccionar un asociado'); return }
+    if (!tipoConsulta) { alert('Debes seleccionar un tipo de consulta'); return }
+    if (!medicoSeleccionado) { alert('Debes seleccionar un médico responsable'); return }
+    if (!fecha) { alert('Debes seleccionar una fecha'); return }
+    if (!hora || !validarHora(hora)) { alert('Debes capturar una hora válida'); return }
+
     const nuevo = {
       id_consulta_local: 'CON-' + String(listaNuevaConsulta.length),
       id_asociado: Number(seleccionado?.id),
@@ -114,7 +147,6 @@ export function NuevaConsultaModal({
     }
     setListaNuevaConsulta((prev) => [...prev, nuevo])
     setModalAbiertoNuevaConsulta(false)
-    alert('Consulta guardada localmente. El folio se generará al sincronizar con el servidor.')
   }
 
   function handleMonto(e: React.ChangeEvent<HTMLInputElement>) {

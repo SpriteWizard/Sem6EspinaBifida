@@ -10,7 +10,7 @@ export async function POST(req: Request) {
         idRecibo: Number(data.idRecibo),
         monto: data.monto,
         metodoPago: data.metodoPago,
-        fechaPago: data.fecha,
+        fechaPago: data.fecha ?? data.fechaPago,
         idUsuario: (session?.user as any).id
     }
 

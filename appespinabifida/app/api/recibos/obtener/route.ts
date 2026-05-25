@@ -12,9 +12,10 @@ export async function GET(){
         const recibos = data.items.map((r: any) => {
             return {
                 id: r.id_recibo,
+                reciboId: r.id_recibo,
                 asociado: r.asociado,
-                fechaEmision: r.fechaemision,
-                fechaLimite: r.fechalimite,
+                fechaEmision: r.fechaemision ?? r.fecha_emision ?? r.fechaEmision,
+                fechaLimite: r.fechalimite ?? r.fecha_limite ?? r.fechaLimite,
                 montoTotal: r.montototal,
                 montoPagado: r.montopagado,
                 tipoPaciente: r.tipopaciente,

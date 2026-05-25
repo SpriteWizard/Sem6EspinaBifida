@@ -23,6 +23,7 @@ interface Servicio {
   medico: string
   laboratorio?: string
   fecha: string
+  fechaOrden: number
   estatus: 'Pendiente' | 'En proceso' | 'Completado' | 'Cancelado'
 }
 
@@ -39,7 +40,9 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
 
 function mapServicioFromApi(raw: any): Servicio {
   const [date, timeWithZ] = String(raw.fecha).split("T");
-  const time = String(timeWithZ).replace("Z", "");
+  const time = String(timeWithZ ?? "").replace("Z", "");
+  const parsedFecha = Date.parse(String(raw.fecha ?? ""));
+  const fechaOrden = Number.isNaN(parsedFecha) ? 0 : parsedFecha;
 
   return {
     id:
@@ -59,6 +62,7 @@ function mapServicioFromApi(raw: any): Servicio {
     medico: raw.medico,
     laboratorio: raw.tipo_servicio !== 'Consulta' ? raw.laboratorio : undefined,
     fecha: date,
+    fechaOrden,
     estatus: raw.estatus,
   };
 }
@@ -291,19 +295,23 @@ export default function ServiciosPage() {
     [allServicios],
   )
 
-  const filteredServicios = useMemo(
-    () =>
-      filterServicios(allServicios, {
-        folio: debouncedFolio,
-        tipo,
-        asociado: debouncedAsociado,
-        medico,
-        laboratorio,
-        fecha,
-        estatus,
-      }),
-    [allServicios, debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus],
-  )
+  const filteredServicios = useMemo(() => {
+    const filtered = filterServicios(allServicios, {
+      folio: debouncedFolio,
+      tipo,
+      asociado: debouncedAsociado,
+      medico,
+      laboratorio,
+      fecha,
+      estatus,
+    })
+
+    return filtered.slice().sort((a, b) => {
+      const byFecha = (b.fechaOrden ?? 0) - (a.fechaOrden ?? 0)
+      if (byFecha !== 0) return byFecha
+      return String(b.folio).localeCompare(String(a.folio))
+    })
+  }, [allServicios, debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus])
 
   function handleRowClick(s: Servicio) {
     const ruta =
