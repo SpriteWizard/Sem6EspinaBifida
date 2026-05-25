@@ -87,8 +87,8 @@ export function InventoryTable({
                         it.status === 'in_stock'
                           ? 'success'
                           : it.status === 'low_stock'
-                            ? 'failed'
-                            : 'warning'
+                            ? 'warning'
+                            : 'failed'
                       }
                     >
                       {it.status === 'in_stock'

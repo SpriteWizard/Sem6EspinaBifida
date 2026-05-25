@@ -8,6 +8,7 @@ export type MovementItemType = 'Material Médico' | 'Equipo Médico' | 'Medicame
 export type InventoryMovement = {
   id: number
   itemId: number | null
+  reciboId?: number | null
   itemName: string
   itemType: MovementItemType
   date: string // YYYY-MM-DD
@@ -31,6 +32,7 @@ export type ListMovementsParams = {
   movementType?: MovementListFilter
   itemType?: MovementItemType | 'all'
   itemId?: number
+  reciboId?: number
   itemName?: string
   date?: string // YYYY-MM-DD
   dateFrom?: string // YYYY-MM-DD
@@ -46,6 +48,7 @@ export type ListMovementsResult = {
 
 export type CreateMovementInput = {
   itemId?: number
+  reciboId?: number | null
   itemName: string
   itemType: MovementItemType
   newItemDescription?: string

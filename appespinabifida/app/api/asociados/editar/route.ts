@@ -243,8 +243,6 @@ export async function POST(request: Request){
         },
         body: JSON.stringify(data),
     });
-
-    console.log(res);
     if (res.ok){
         return Response.json({status: "ok"})
     }

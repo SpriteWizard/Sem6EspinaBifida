@@ -59,6 +59,12 @@ export async function GET(request: Request) {
             return matchesSearch && matchesCategory
         })
 
+        filtered.sort((a, b) => {
+            const byId = b.id - a.id
+            if (byId !== 0) return byId
+            return a.name.localeCompare(b.name)
+        })
+
         const page = filtered.slice(cursor, cursor + limit)
         const nextCursor = cursor + limit < filtered.length ? String(cursor + limit) : null
 

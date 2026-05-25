@@ -21,14 +21,15 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
+import { NuevoServicioModal } from "../components/NuevoServicioModal";
 import { NuevaConsultaModal } from "../components/reciboWorkflow/nuevaConsultaModal";
 import { NuevoEstudioModal } from "../components/reciboWorkflow/nuevoEstudioModal";
 import { NewMovementModal } from "../components/inventory/NewMovementModal";
 import { cn } from "../lib/utils/cn";
 import { searchInventoryItemsByName } from "../lib/api/inventory";
-import { createMovement, listMovementItemTypes } from "../lib/api/movements";
+import { createMovement, listMovementItemTypes, listMovements } from "../lib/api/movements";
 import type { InventoryItem } from "../lib/types/inventory";
-import type { CreateMovementInput, MovementItemType } from "../lib/types/movements";
+import type { CreateMovementInput, MovementItemType, InventoryMovement } from "../lib/types/movements";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,8 @@ interface ReciboServicio {
 }
 
 interface Recibo {
-	id: string;
+	id: number;
+	reciboId?: number | null;
 	asociado: string;
 	fechaEmision: string;
 	fechaLimite?: string;
@@ -60,6 +62,9 @@ interface Recibo {
 	descuentoPct: number;
 	productos: ReciboProducto[];
 	exento?: boolean;
+	servicios?: ReciboServicio[];
+	consultas?: any[];
+	estudios?: any[];
 }
 
 interface DraftMovement {
@@ -93,8 +98,27 @@ function formatCurrency(n: number) {
 	return `$${n.toFixed(2)}`;
 }
 
+function parseMoneyValue(value: unknown): number {
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? value : 0;
+	}
+	if (typeof value === "string") {
+		const normalized = value.replace(/[^0-9.-]/g, "");
+		if (!normalized) return 0;
+		const parsed = Number(normalized);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+}
+
+function getAsociadoNumericId(asociado: AsociadoMini | null): number | undefined {
+	if (!asociado) return undefined;
+	const numericId = Number(asociado.id.replace(/^ASC-/, ""));
+	return Number.isFinite(numericId) ? numericId : undefined;
+}
+
 function formatDate(iso: string) {
-	return new Date(iso + "T00:00:00").toLocaleDateString("es-MX", {
+	return new Date(iso).toLocaleDateString("es-MX", {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
@@ -116,11 +140,12 @@ function aplicarDescuento(bruto: number, pct: number): number {
 // ─── Data layer ───────────────────────────────────────────────────────────────
 
 async function fetchRecibos(): Promise<Recibo[]> {
-	// TODO: replace with real API call once endpoint is live
-	// const res = await fetch("/api/recibos/obtener");
-	// if (!res.ok) throw new Error("Error al cargar recibos");
-	// return res.json();
-	return RECIBOS_INICIALES;
+	const res = await fetch("/api/recibos/obtener");
+	if (res.ok){
+		const data = await res.json();
+		return data;
+	}
+	return [];
 }
 
 async function fetchAsociados(): Promise<AsociadoMini[]> {
@@ -169,99 +194,6 @@ const SERVICIO_PRECIOS: Record<TipoServicio, number> = {
 	Consulta: 350,
 	Estudio: 800,
 };
-
-const RECIBOS_INICIALES: Recibo[] = [
-	{
-		id: "REC-2026-0001",
-		asociado: "María Guadalupe Hernández Torres",
-		fechaEmision: "2026-03-13",
-		montoTotal: 3540.0,
-		montoPagado: 3540.0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [
-			{ itemId: null, itemName: "Silla de ruedas manual", cantidad: 1, precioUnitario: 2500.0 },
-			{ itemId: null, itemName: "Cojín antiescaras", cantidad: 2, precioUnitario: 520.0 },
-		],
-	},
-	{
-		id: "REC-2026-0002",
-		asociado: "Carlos Eduardo Ramírez López",
-		fechaEmision: "2026-03-15",
-		montoTotal: 1800.0,
-		montoPagado: 0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [
-			{ itemId: null, itemName: "Andadera estándar", cantidad: 1, precioUnitario: 1200.0 },
-			{ itemId: null, itemName: "Plantillas ortopédicas", cantidad: 2, precioUnitario: 300.0 },
-		],
-	},
-	{
-		id: "REC-2026-0003",
-		asociado: "Ana Sofía Martínez Pérez",
-		fechaEmision: "2026-03-20",
-		montoTotal: 2250.0,
-		montoPagado: 1000.0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [
-			{ itemId: null, itemName: "Silla de ruedas pediátrica", cantidad: 1, precioUnitario: 2250.0 },
-		],
-	},
-	{
-		id: "REC-2026-0004",
-		asociado: "Roberto Jiménez Vega",
-		fechaEmision: "2026-03-22",
-		montoTotal: 950.0,
-		montoPagado: 950.0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [
-			{ itemId: null, itemName: "Colchón antiescaras", cantidad: 1, precioUnitario: 950.0 },
-		],
-	},
-	{
-		id: "REC-2026-0005",
-		asociado: "Lucía Fernández Castro",
-		fechaEmision: "2026-03-25",
-		montoTotal: 3100.0,
-		montoPagado: 0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [],
-	},
-	{
-		id: "REC-2026-0006",
-		asociado: "Diego Morales Ríos",
-		fechaEmision: "2026-03-28",
-		montoTotal: 1650.0,
-		montoPagado: 800.0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [],
-	},
-	{
-		id: "REC-2026-0007",
-		asociado: "Valentina Cruz Mendoza",
-		fechaEmision: "2026-04-01",
-		montoTotal: 850.0,
-		montoPagado: 850.0,
-		tipoPaciente: "A",
-		descuentoPct: 0,
-		productos: [],
-	},
-	{
-		id: "REC-2026-0008",
-		asociado: "Andrés Torres Guzmán",
-		fechaEmision: "2026-04-05",
-		montoTotal: 2400.0,
-		montoPagado: 0,
-		tipoPaciente: "B",
-		descuentoPct: 50,
-		productos: [],
-	},
-];
 
 const PAGOS_INICIALES: Pago[] = [
 	{ id: "PAG-001", idRecibo: "REC-2026-0001", monto: 2000.0, metodoPago: "transferencia", fechaPago: "2026-03-14" },
@@ -369,7 +301,7 @@ function RegistrarPagoModal({
 	}
 
 	const historial = pagos
-		.filter((p) => p.idRecibo === recibo?.id)
+		.filter((p) => Number(p.idRecibo) === Number(recibo?.id))
 		.slice()
 		.reverse();
 
@@ -614,6 +546,341 @@ function DesgloseModal({
 	);
 }
 
+// ─── Recibo detail modal ────────────────────────────────────────────────────
+
+function ReciboDetailModal({
+	recibo,
+	onClose,
+}: {
+	recibo: Recibo | null;
+	onClose: () => void;
+}) {
+	const [movements, setMovements] = useState<InventoryMovement[]>([]);
+	const [movementsLoading, setMovementsLoading] = useState(false);
+	const [movementsError, setMovementsError] = useState<string | null>(null);
+	const [detailConsultas, setDetailConsultas] = useState<any[]>([]);
+	const [detailEstudios, setDetailEstudios] = useState<any[]>([]);
+	const [serviciosLoading, setServiciosLoading] = useState(false);
+	const [serviciosError, setServiciosError] = useState<string | null>(null);
+
+	const currentReciboId = recibo?.reciboId ?? recibo?.id ?? null;
+
+	useEffect(() => {
+		if (!currentReciboId) {
+			setMovements([]);
+			setMovementsError(null);
+			setMovementsLoading(false);
+			return;
+		}
+
+		let alive = true;
+		setMovementsLoading(true);
+		setMovementsError(null);
+
+		listMovements({ reciboId: currentReciboId, limit: 50 })
+			.then((res) => {
+				if (!alive) return;
+				setMovements(res.items);
+			})
+			.catch((error) => {
+				if (!alive) return;
+				setMovements([]);
+				setMovementsError(
+					error instanceof Error
+						? error.message
+						: "No se pudieron cargar los movimientos.",
+				);
+			})
+			.finally(() => {
+				if (!alive) return;
+				setMovementsLoading(false);
+			});
+
+		return () => {
+			alive = false;
+		};
+	}, [currentReciboId]);
+
+	useEffect(() => {
+		if (!currentReciboId) {
+			setDetailConsultas([]);
+			setDetailEstudios([]);
+			setServiciosError(null);
+			setServiciosLoading(false);
+			return;
+		}
+
+		let alive = true;
+		setServiciosLoading(true);
+		setServiciosError(null);
+
+		fetch("/api/servicios/obtener")
+			.then(async (res) => {
+				if (!res.ok) throw new Error("No se pudieron cargar los servicios.");
+				const data = await res.json();
+				const servicios = Array.isArray(data?.servicios) ? data.servicios : [];
+				const consultas = servicios.filter((s: any) => "id_consulta" in s);
+				const estudios = servicios.filter((s: any) => "id_estudio" in s);
+				const consultasPorRecibo = consultas.filter(
+					(c: any) => Number(c?.id_recibo) === Number(currentReciboId),
+				);
+				const consultaIds = new Set(
+					consultasPorRecibo.map((c: any) => Number(c?.id_consulta)).filter(Boolean),
+				);
+				const estudiosPorRecibo = estudios.filter((e: any) => {
+					const idRecibo = Number(e?.id_recibo);
+					if (Number.isFinite(idRecibo) && idRecibo === Number(currentReciboId)) return true;
+					const idConsulta = Number(e?.id_consulta);
+					return consultaIds.has(idConsulta);
+				});
+
+				if (!alive) return;
+				setDetailConsultas(consultasPorRecibo);
+				setDetailEstudios(estudiosPorRecibo);
+			})
+			.catch((error) => {
+				if (!alive) return;
+				setDetailConsultas([]);
+				setDetailEstudios([]);
+				setServiciosError(
+					error instanceof Error ? error.message : "No se pudieron cargar los servicios.",
+				);
+			})
+			.finally(() => {
+				if (!alive) return;
+				setServiciosLoading(false);
+			});
+
+		return () => {
+			alive = false;
+		};
+	}, [currentReciboId]);
+
+	const productos = recibo?.productos ?? [];
+	const consultas = detailConsultas.length > 0 ? detailConsultas : recibo?.consultas ?? [];
+	const estudios = detailEstudios.length > 0 ? detailEstudios : recibo?.estudios ?? [];
+	const consultaFallback = productos.filter((p) => p.itemName === "Consulta");
+	const estudioFallback = productos.filter((p) => p.itemName === "Estudio");
+	const consultaItems = consultas.length > 0
+		? consultas.map((c, i) => {
+			const amount = parseMoneyValue(c?.aportacion);
+			const datePart = c?.fecha_cita
+				? formatDate(String(c.fecha_cita).split(" ")[0])
+				: "";
+			const meta = [datePart, formatCurrency(amount)].filter(Boolean).join(" · ");
+			return {
+				id: `consulta-${i}`,
+				title: c?.tipo_consulta || c?.id_consulta_local || `Consulta ${i + 1}`,
+				meta,
+			};
+		})
+		: consultaFallback.map((p, i) => ({
+			id: `consulta-prod-${i}`,
+			title: p.itemName,
+			meta: `Cantidad ${p.cantidad} · ${formatCurrency(p.precioUnitario)}`,
+		}));
+	const estudioItems = estudios.length > 0
+		? estudios.map((e, i) => {
+			const amount = parseMoneyValue(e?.aportacion);
+			const datePart = e?.fecha_cita
+				? formatDate(String(e.fecha_cita).split(" ")[0])
+				: "";
+			const meta = [datePart, formatCurrency(amount)].filter(Boolean).join(" · ");
+			return {
+				id: `estudio-${i}`,
+				title: e?.id_tipo_estudio ? `Estudio #${e.id_tipo_estudio}` : `Estudio ${i + 1}`,
+				meta,
+			};
+		})
+		: estudioFallback.map((p, i) => ({
+			id: `estudio-prod-${i}`,
+			title: p.itemName,
+			meta: `Cantidad ${p.cantidad} · ${formatCurrency(p.precioUnitario)}`,
+		}));
+
+	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
+	const saldoPendiente = recibo
+		? Math.max(0, Math.round((recibo.montoTotal - recibo.montoPagado) * 100) / 100)
+		: 0;
+
+	return (
+		<Modal
+			open={recibo !== null}
+			onClose={onClose}
+			title={recibo ? `Detalle de recibo ${recibo.id}` : "Detalle de recibo"}
+			titleId="recibo-detail-title"
+			className="max-w-5xl"
+		>
+			{recibo && (
+				<div className="space-y-4 px-5 py-4">
+					<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+						<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+							Datos generales
+						</p>
+						<div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+							<div>
+								<p className="text-xs uppercase text-slate-400">Recibo</p>
+								<p className="font-medium text-slate-800">{recibo.id}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Recibo DB</p>
+								<p className="font-medium text-slate-800">
+									{recibo.reciboId ?? "—"}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Asociado</p>
+								<p className="font-medium text-slate-800">{recibo.asociado}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Fecha emision</p>
+								<p className="text-slate-800">{formatDate(recibo.fechaEmision)}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Fecha limite</p>
+								<p className="text-slate-800">
+									{recibo.fechaLimite ? formatDate(recibo.fechaLimite) : "—"}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Estatus</p>
+								<p className={cn("font-medium", ESTATUS_AMOUNT_CLASS[estatus])}>
+									{estatus}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Tipo paciente</p>
+								<p className="text-slate-800">Tipo {recibo.tipoPaciente}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Descuento</p>
+								<p className="text-slate-800">{recibo.descuentoPct}%</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Exento</p>
+								<p className="text-slate-800">{recibo.exento ? "Si" : "No"}</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Total</p>
+								<p className="font-medium text-slate-800">
+									{formatCurrency(recibo.montoTotal)}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Pagado</p>
+								<p className="font-medium text-slate-800">
+									{formatCurrency(recibo.montoPagado)}
+								</p>
+							</div>
+							<div>
+								<p className="text-xs uppercase text-slate-400">Saldo</p>
+								<p className="font-medium text-slate-800">
+									{formatCurrency(saldoPendiente)}
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Consultas
+							</p>
+							{serviciosLoading ? (
+								<p className="text-sm text-slate-400">Cargando consultas...</p>
+							) : serviciosError ? (
+								<p className="text-sm text-rose-700">{serviciosError}</p>
+							) : consultaItems.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin consultas.</p>
+							) : (
+								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+									{consultaItems.map((item) => (
+										<li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
+											<div>
+												<p className="font-medium text-slate-800">{item.title}</p>
+												{item.meta ? (
+													<p className="text-xs text-slate-500">{item.meta}</p>
+												) : null}
+											</div>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+
+						<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Estudios
+							</p>
+							{serviciosLoading ? (
+								<p className="text-sm text-slate-400">Cargando estudios...</p>
+							) : serviciosError ? (
+								<p className="text-sm text-rose-700">{serviciosError}</p>
+							) : estudioItems.length === 0 ? (
+								<p className="text-sm text-slate-400">Sin estudios.</p>
+							) : (
+								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+									{estudioItems.map((item) => (
+										<li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
+											<div>
+												<p className="font-medium text-slate-800">{item.title}</p>
+												{item.meta ? (
+													<p className="text-xs text-slate-500">{item.meta}</p>
+												) : null}
+											</div>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+					</div>
+
+					<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+						<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+							Movimientos asociados
+						</p>
+						{!recibo.reciboId ? (
+							<p className="text-sm text-slate-400">
+								Este recibo no tiene id_recibo asociado.
+							</p>
+						) : movementsLoading ? (
+							<p className="text-sm text-slate-400">Cargando movimientos...</p>
+						) : movementsError ? (
+							<p className="text-sm text-rose-700">{movementsError}</p>
+						) : movements.length === 0 ? (
+							<p className="text-sm text-slate-400">Sin movimientos asociados.</p>
+						) : (
+							<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+								{movements.map((m) => (
+									<li key={m.id} className="flex items-center justify-between px-4 py-2 text-sm">
+										<div>
+											<p className="font-medium text-slate-800">
+												{m.itemName}
+											</p>
+											<p className="text-xs text-slate-500">
+												{m.movementType === "in" ? "Entrada" : "Salida"} · {m.quantity} uds · {formatDate(m.date)}
+											</p>
+											{m.notes ? (
+												<p className="text-xs text-slate-400">{m.notes}</p>
+											) : null}
+										</div>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+
+					<div className="flex justify-end border-t border-slate-100 pt-3">
+						<Button variant="ghost" onClick={onClose}>
+							Cerrar
+						</Button>
+					</div>
+				</div>
+			)}
+		</Modal>
+	);
+}
+
 type nuevoRecibo = {
   "id_asociado": number,
   "id_usuario": number,
@@ -669,7 +936,7 @@ function NuevoReciboModal({
 	// Servicio state
 	const [servicioChecked, setServicioChecked] = useState(false);
 	const [servicios, setServicios] = useState<ReciboServicio[]>([]);
-	const [showServicioSelector, setShowServicioSelector] = useState(false);
+	const [servicioModalOpen, setServicioModalOpen] = useState(false);
 
 	// Inventario state
 	const [inventarioChecked, setInventarioChecked] = useState(false);
@@ -694,15 +961,37 @@ function NuevoReciboModal({
 
 	// Computed totals
 	const totalServicios = servicios.reduce((s, sv) => s + sv.precio, 0);
+	const totalConsultas = listaNuevaConsulta.reduce(
+		(s, c) => s + parseMoneyValue(c?.aportacion),
+		0,
+	);
+	const totalEstudios = listaNuevoEstudio.reduce(
+		(s, e) => s + parseMoneyValue(e?.aportacion),
+		0,
+	);
 	const totalInventario = productos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
 	const totalMovimientos = draftMovements.reduce(
 		(s, d) => s + d.unitPrice * d.input.quantity,
 		0,
 	);
-	const totalBruto = totalServicios + totalInventario + totalMovimientos;
+	const totalBruto = totalServicios + totalConsultas + totalEstudios + totalInventario + totalMovimientos;
 	const descuentoMonto = Math.round(totalBruto * (descuentoPct / 100) * 100) / 100;
 	const totalFinal = exento ? 0 : Math.round((totalBruto - descuentoMonto) * 100) / 100;
-	const hasEstudio = servicios.some((s) => s.tipo === "Estudio");
+	const hasEstudio = servicios.some((s) => s.tipo === "Estudio") || listaNuevoEstudio.length > 0;
+	const asociadoSeleccionadoId = getAsociadoNumericId(asociadoSeleccionado);
+	const defaultFolioConsultaEstudio = useMemo(() => {
+		if (asociadoSeleccionadoId == null) return undefined;
+
+		const consultasDelAsociado = listaNuevaConsulta
+			.map((consulta) => consulta?.data ?? consulta)
+			.filter((consulta) => Number(consulta?.id_asociado) === asociadoSeleccionadoId);
+		const latest = consultasDelAsociado[consultasDelAsociado.length - 1];
+		const ref = latest
+			? String(latest?.id_consulta_local ?? latest?.id_consulta ?? latest?.folio ?? "")
+			: "";
+
+		return ref || undefined;
+	}, [asociadoSeleccionadoId, listaNuevaConsulta]);
 
 	const filteredAsociados = useMemo(() => {
 		const q = asociadoSearch.trim().toLowerCase();
@@ -747,7 +1036,6 @@ function NuevoReciboModal({
 	useEffect(() => {
 		async function getAsociados(){
 			const res = await fetch("/api/asociados/lista_asociados/mini");
-			console.log(res);
 			if (res.ok){
 				const data = await res.json();
 				
@@ -790,7 +1078,12 @@ function NuevoReciboModal({
 		setShowAsociadoDropdown(false);
 		setServicioChecked(false);
 		setServicios([]);
-		setShowServicioSelector(false);
+		setServicioModalOpen(false);
+		setListaNuevaConsulta([]);
+		setListaNuevoEstudio([]);
+		setNuevaConsultaModalAbierto(false);
+		setNuevoEstudioModalAbierto(false);
+		setNuevoRecibo(nuevoReciboDefault);
 		setInventarioChecked(false);
 		setProductos([]);
 		setProductSearch("");
@@ -818,7 +1111,7 @@ function NuevoReciboModal({
 
 	function addServicio(tipo: TipoServicio) {
 		setServicios((prev) => [...prev, { tipo, precio: SERVICIO_PRECIOS[tipo] }]);
-		setShowServicioSelector(false);
+		setServicioModalOpen(false);
 	}
 
 	function removeServicio(index: number) {
@@ -862,6 +1155,37 @@ function NuevoReciboModal({
 		setDraftMovements((prev) => prev.filter((draft) => draft.id !== id));
 	}
 
+	function removeConsulta(index: number) {
+		setListaNuevaConsulta((prev) => prev.filter((_, i) => i !== index));
+	}
+
+	function removeEstudio(index: number) {
+		setListaNuevoEstudio((prev) => prev.filter((_, i) => i !== index));
+	}
+
+	function getConsultaRefId(consulta: any, index: number) {
+		return String(consulta?.id_consulta_local ?? consulta?.folio ?? `consulta-${index}`);
+	}
+
+	function getConsultaLabel(consulta: any, index: number) {
+		const tipo = consulta?.tipo_consulta;
+		if (tipo) return `Consulta ${tipo}`;
+		const ref = getConsultaRefId(consulta, index);
+		return ref ? `Consulta ${ref}` : `Consulta ${index + 1}`;
+	}
+
+	function getEstudioLabel(estudio: any, index: number) {
+		return estudio?.id_tipo_estudio
+			? `Estudio #${estudio.id_tipo_estudio}`
+			: `Estudio ${index + 1}`;
+	}
+
+	function consultaTieneEstudio(consulta: any, index: number) {
+		const refId = getConsultaRefId(consulta, index);
+		if (!refId) return false;
+		return listaNuevoEstudio.some((e) => String(e?.id_consulta ?? e?.id_consulta_local ?? "") === refId);
+	}
+
 	function handleMovementDraft(payload: { input: CreateMovementInput; unitPrice: number }) {
 		setDraftMovements((prev) => [
 			{ id: createDraftId(), input: payload.input, unitPrice: payload.unitPrice },
@@ -885,25 +1209,28 @@ function NuevoReciboModal({
 			cantidad: 1,
 			precioUnitario: s.precio,
 		}));
-
-		try {
-			for (const draft of draftMovements) {
-				await createMovement(draft.input);
-			}
-		} catch (error) {
-			setMovementSubmitError(
-				error instanceof Error
-					? error.message
-					: "No se pudieron registrar los movimientos pendientes.",
-			);
-			setCreating(false);
-			return;
-		}
+		const consultaProductos: ReciboProducto[] = listaNuevaConsulta.map((c, i) => ({
+			itemId: null,
+			itemName: c?.tipo_consulta
+				? `Consulta ${c.tipo_consulta}`
+				: c?.id_consulta_local
+					? `Consulta ${c.id_consulta_local}`
+					: `Consulta ${i + 1}`,
+			cantidad: 1,
+			precioUnitario: parseMoneyValue(c?.aportacion),
+		}));
+		const estudioProductos: ReciboProducto[] = listaNuevoEstudio.map((e, i) => ({
+			itemId: null,
+			itemName: e?.id_tipo_estudio ? `Estudio #${e.id_tipo_estudio}` : `Estudio ${i + 1}`,
+			cantidad: 1,
+			precioUnitario: parseMoneyValue(e?.aportacion),
+		}));
 
 		const session = await getSession();
+		const asociadoId = getAsociadoNumericId(asociadoSeleccionado);
 
 		const reciboActualizado: nuevoRecibo = {
-			id_asociado: Number(asociadoSeleccionado.id.replace("ASC-","")),
+			id_asociado: asociadoId ?? 0,
 			id_usuario: Number((session?.user as any).id ?? 0),
 			fecha_limite: fechaLimite,
 			tipo_zona: "urbano",
@@ -916,54 +1243,123 @@ function NuevoReciboModal({
 
 		setNuevoRecibo(reciboActualizado);
 
-		const resRecibo = await fetch('/api/recibos/nuevo',{
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(reciboActualizado)
-        })
+		let id_recibo: number | null = null;
+		try {
+			const resRecibo = await fetch('/api/recibos/nuevo',{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(reciboActualizado)
+			});
 
-        const id_recibo = (await resRecibo.json()).id_recibo
-        
-        listaNuevaConsulta.forEach((e) => {
-            e.id_recibo = id_recibo
-        })
+			const reciboData = await resRecibo.json();
+			const parsedId = Number(reciboData?.id_recibo ?? 0);
+			if (!resRecibo.ok || reciboData?.status !== "Success" || !parsedId) {
+				throw new Error(reciboData?.message ?? "No se pudo crear el recibo.");
+			}
+			id_recibo = parsedId;
+		} catch (error) {
+			setMovementSubmitError(
+				error instanceof Error
+					? error.message
+					: "No se pudo crear el recibo.",
+			);
+			setCreating(false);
+			return;
+		}
 
-        const resServicios = await fetch('/api/recibos/agregarServicios', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'            
-            },
-            body: JSON.stringify({
-                consultas: listaNuevaConsulta,
-                estudios: listaNuevoEstudio
-            })
-        })
+		const consultasConRecibo = listaNuevaConsulta.map((c) => {
+			const idAsociado = Number(c?.id_asociado ?? asociadoId ?? 0);
+			const idMedico = Number(c?.id_medico ?? 0);
+			return {
+				...c,
+				id_recibo,
+				id_asociado: Number.isFinite(idAsociado) ? idAsociado : 0,
+				id_medico: Number.isFinite(idMedico) ? idMedico : 0,
+				aportacion: parseMoneyValue(c?.aportacion),
+				ya_aporto: c?.ya_aporto ? 1 : 0,
+				estatus: "Pendiente",
+			};
+		});
+		const estudiosConRecibo = listaNuevoEstudio.map((e) => {
+			const idAsociado = Number(e?.id_asociado ?? asociadoId ?? 0);
+			const idTipoEstudio = Number(e?.id_tipo_estudio ?? 0);
+			return {
+				...e,
+				id_recibo,
+				id_asociado: Number.isFinite(idAsociado) ? idAsociado : 0,
+				id_tipo_estudio: Number.isFinite(idTipoEstudio) ? idTipoEstudio : 0,
+				aportacion: parseMoneyValue(e?.aportacion),
+				ya_aporto: e?.ya_aporto ? 1 : 0,
+			};
+		});
 
-        if (resServicios.ok){
-            if ((await resServicios.json()).message === "Success"){
-                alert("Servicios agregados exitosamente");
-                setListaNuevaConsulta([]);
-                setListaNuevoEstudio([]);
-            } else {
-                alert("Error al agregar servicios");
-            }
-        }
+		const resServicios = await fetch('/api/recibos/agregarServicios', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'            
+			},
+			body: JSON.stringify({
+				consultas: consultasConRecibo,
+				estudios: estudiosConRecibo
+			})
+		});
+
+		const serviciosData = await resServicios.json().catch(() => null);
+		if (resServicios.ok && serviciosData?.message === "Success"){
+			alert("Servicios agregados exitosamente");
+			setListaNuevaConsulta([]);
+			setListaNuevoEstudio([]);
+		} else {
+			const error = serviciosData?.error ? `\n\nError: ${serviciosData.error}` : "";
+			const detail = serviciosData?.details
+				? `\n\nDetalle: ${
+					typeof serviciosData.details === "string"
+						? serviciosData.details
+						: JSON.stringify(serviciosData.details, null, 2)
+				}`
+				: "";
+			alert(`Error al agregar servicios${error}${detail}`);
+			setCreating(false);
+			return;
+		}
 
 		onCrear({
-			id,
+			id: Number(id),
+			reciboId: id_recibo,
 			asociado: asociadoSeleccionado.nombre,
 			fechaEmision: fechaHoy,
 			fechaLimite,
 			montoTotal: totalFinal,
 			montoPagado: 0,
 			tipoPaciente: "A",
-			descuentoPct: 0,
-			productos: [...serviciosComoProductos, ...productos],
+			descuentoPct,
+			productos: [
+				...serviciosComoProductos,
+				...consultaProductos,
+				...estudioProductos,
+				...productos,
+			],
 			exento,
+			servicios,
+			consultas: consultasConRecibo,
+			estudios: estudiosConRecibo,
 		});
 
+		if (draftMovements.length > 0) {
+			try {
+				for (const draft of draftMovements) {
+					await createMovement({ ...draft.input, reciboId: id_recibo });
+				}
+			} catch (error) {
+				setMovementSubmitError(
+					error instanceof Error
+						? error.message
+						: "No se pudieron registrar los movimientos pendientes.",
+				);
+			}
+		}
 		for (const prod of productos) {
 			if (prod.itemId !== null && prod.cantidad > 0) {
 				fetch("/api/inventario/movimientos/agregar", {
@@ -975,12 +1371,16 @@ function NuevoReciboModal({
 						date: fechaHoy,
 						quantity: prod.cantidad,
 						notes: `Salida por recibo ${id}`,
+						reciboId: id_recibo,
 					}),
 				}).catch(console.error);
 			}
 		}
 
 		resetState();
+
+		window.location.reload()
+
 	}
 
 	const canCrear = asociadoSeleccionado !== null && fechaLimite.length > 0;
@@ -1055,7 +1455,7 @@ function NuevoReciboModal({
 								setServicioChecked(e.target.checked);
 								if (!e.target.checked) {
 									setServicios([]);
-									setShowServicioSelector(false);
+									setServicioModalOpen(false);
 								}
 							}}
 							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
@@ -1072,110 +1472,87 @@ function NuevoReciboModal({
 								</div>
 							)}
 
-							{servicios.length > 0 && (
-								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-									{servicios.map((s, i) => (
-										<li key={i} className="flex items-center justify-between px-4 py-2.5 text-sm">
-											<span
-												className={cn(
-													"rounded-full px-2.5 py-0.5 text-xs font-medium",
-													s.tipo === "Estudio"
-														? "bg-amber-100 text-amber-700"
-														: "bg-slate-100 text-slate-600",
-												)}
+							<button
+								type="button"
+								onClick={() => setServicioModalOpen(true)}
+								className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
+							>
+								<Plus className="h-4 w-4" />
+								Agregar servicio
+							</button>
+							{(listaNuevaConsulta.length > 0 || listaNuevoEstudio.length > 0) && (
+								<ul className="space-y-2 text-xs">
+									{listaNuevaConsulta.map((consulta, index) => {
+										const locked = consultaTieneEstudio(consulta, index);
+										return (
+											<li
+												key={`consulta-${index}`}
+												className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
 											>
-												{s.tipo}
-											</span>
-											<div className="flex items-center gap-3">
-												<span className="font-medium text-slate-800">
-													{formatCurrency(s.precio)}
+												<span className="font-medium text-slate-700">
+													{getConsultaLabel(consulta, index)}
 												</span>
 												<button
 													type="button"
-													onClick={() => removeServicio(i)}
-													className="rounded-full p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none"
-													aria-label="Eliminar servicio"
+													onClick={() => !locked && removeConsulta(index)}
+													disabled={locked}
+													title={locked ? "Elimina el estudio primero" : "Eliminar consulta"}
+													className={cn(
+														"rounded-full p-1 text-slate-400 transition focus-visible:outline-none",
+														locked
+															? "cursor-not-allowed opacity-50"
+															: "hover:bg-red-50 hover:text-red-600",
+													)}
+													aria-label="Eliminar consulta"
 												>
 													<Trash2 className="h-3.5 w-3.5" />
 												</button>
-											</div>
+											</li>
+										);
+									})}
+									{listaNuevoEstudio.map((estudio, index) => (
+										<li
+											key={`estudio-${index}`}
+											className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
+										>
+											<span className="font-medium text-slate-700">
+												{getEstudioLabel(estudio, index)}
+											</span>
+											<button
+												type="button"
+												onClick={() => removeEstudio(index)}
+												className="rounded-full p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none"
+												aria-label="Eliminar estudio"
+											>
+												<Trash2 className="h-3.5 w-3.5" />
+											</button>
 										</li>
 									))}
 								</ul>
 							)}
+							</div>
+						)}
+					</div>
 
-							{showServicioSelector ? (
-								<div className="rounded-lg border border-slate-200 bg-white p-3">
-									<div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-										<AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-										El servicio debe liquidarse en el momento en que se agrega, no después.
-									</div>
-									<p className="mb-2 text-xs font-medium text-slate-600">
-										Seleccionar tipo de servicio
-									</p>
-									<div className="grid grid-cols-2 gap-2">
-										{(["Consulta", "Estudio"] as TipoServicio[]).map((tipo) => (
-											<button
-												key={tipo}
-												type="button"
-												onClick={() => {
-											setShowServicioSelector(false);
-											if (tipo === "Consulta") {
-												setNuevaConsultaModalAbierto(true);
-											} else {
-												setNuevoEstudioModalAbierto(true);
-											}
-											}}
-												className="flex flex-col items-start rounded-lg border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70"
-											>
-												<span className="font-medium text-slate-800">{tipo}</span>
-												<span className="mt-0.5 text-xs text-slate-500">
-													{formatCurrency(SERVICIO_PRECIOS[tipo])} MXN
-												</span>
-											</button>
-										))}
-									</div>
-									<button
-										type="button"
-										onClick={() => setShowServicioSelector(false)}
-										className="mt-2 text-xs text-slate-400 hover:text-slate-600"
-									>
-										Cancelar
-									</button>
-								</div>
-							) : (
-								<button
-									type="button"
-									onClick={() => setShowServicioSelector(true)}
-									className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 focus-visible:outline-none"
-								>
-									<Plus className="h-4 w-4" />
-									Agregar servicio
-								</button>
-							)}
-						</div>
-					)}
-				</div>
-
-				{/* ── Inventario ── */}
-				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
-					<label className="flex cursor-pointer select-none items-center gap-2.5">
-						<input
-							type="checkbox"
-							checked={inventarioChecked}
-							onChange={(e) => {
-								setInventarioChecked(e.target.checked);
-								if (!e.target.checked) {
-									setProductos([]);
-									setProductSearch("");
-									setSearchResults([]);
-									setShowDropdown(false);
-								}
-							}}
-							className="h-4 w-4 rounded border-slate-300 accent-slate-600"
-						/>
-						<span className="text-sm font-semibold text-slate-700">Inventario</span>
-					</label>
+					{/* ── Inventario ── */}
+					<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
+						<label className="flex cursor-pointer select-none items-center gap-2.5">
+							<input
+								type="checkbox"
+								checked={inventarioChecked}
+								onChange={(e) => {
+									setInventarioChecked(e.target.checked);
+									if (!e.target.checked) {
+										setProductos([]);
+										setProductSearch("");
+										setSearchResults([]);
+										setShowDropdown(false);
+										}
+									}}
+									className="h-4 w-4 rounded border-slate-300 accent-slate-600"
+								/>
+							<span className="text-sm font-semibold text-slate-700">Inventario</span>
+						</label>
 
 					{inventarioChecked && (
 						<div className="mt-3 space-y-3">
@@ -1245,59 +1622,31 @@ function NuevoReciboModal({
 								<Plus className="h-4 w-4" />
 								Agregar inventario
 							</button>
-						</div>
-					)}
-				</div>
-
-				{inventarioChecked && (
-					<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
-						<div className="flex items-center justify-between">
-							<p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-								Movimientos del recibo
-							</p>
-							<span className="text-xs text-slate-400">Pendientes</span>
-						</div>
-						{draftMovements.length === 0 ? (
-							<p className="mt-2 text-sm text-slate-400">
-								No hay movimientos pendientes.
-							</p>
-						) : (
-							<ul className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-								{draftMovements.map((draft) => (
-									<li key={draft.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
-										<div>
-											<p className="font-medium text-slate-800">
-												{draft.input.itemName || "Articulo"}
-											</p>
-											<p className="text-xs text-slate-500">
-												{draft.input.movementType === "in" ? "Entrada" : "Salida"} · {draft.input.quantity} uds · {formatCurrency(draft.unitPrice)} c/u · {formatDate(draft.input.date)}
-											</p>
-											<p className="text-xs font-medium text-slate-700">
-												Total: {formatCurrency(draft.unitPrice * draft.input.quantity)}
-											</p>
-										</div>
-										<button
-											type="button"
-											onClick={() => removeDraftMovement(draft.id)}
-											className="rounded-full p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none"
-											aria-label="Quitar movimiento"
+							{draftMovements.length > 0 && (
+								<ul className="space-y-2 text-xs">
+									{draftMovements.map((draft) => (
+										<li
+											key={draft.id}
+											className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
 										>
-											<Trash2 className="h-3.5 w-3.5" />
-										</button>
+											<span className="font-medium text-slate-700">
+												{draft.input.movementType === "in" ? "Entrada" : "Salida"} · {draft.input.quantity} uds · {draft.input.itemName || "Articulo"}
+											</span>
+											<button
+												type="button"
+												onClick={() => removeDraftMovement(draft.id)}
+												className="rounded-full p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none"
+												aria-label="Quitar movimiento"
+											>
+												<Trash2 className="h-3.5 w-3.5" />
+											</button>
 									</li>
 								))}
 							</ul>
-						)}
-						<p className="mt-2 text-xs text-slate-500">
-							Se ejecutaran cuando crees el recibo.
-						</p>
-						{movementSubmitError ? (
-							<p className="mt-2 text-xs text-rose-700" role="alert">
-								{movementSubmitError}
-							</p>
-						) : null}
-					</div>
-				)}
+							)}
+						</div>
+					)}
+				</div>
 
 				{/* ── Urbano / Rural ── */}
 				<div className="flex gap-5 px-1">
@@ -1324,7 +1673,7 @@ function NuevoReciboModal({
 				{/* ── Fecha Límite ── */}
 				<div>
 					<label className="mb-1 block text-xs font-medium text-slate-600">
-						Fecha Límite
+						Fecha limite para pagar recibo
 					</label>
 					<Input
 						type="date"
@@ -1357,12 +1706,6 @@ function NuevoReciboModal({
 					<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
 						Resumen
 					</p>
-					{servicioChecked && servicios.length > 0 && (
-						<div className="flex justify-between py-1 text-sm text-slate-600">
-							<span>Servicios ({servicios.length})</span>
-							<span>{formatCurrency(totalServicios)}</span>
-						</div>
-					)}
 					{inventarioChecked && productos.length > 0 && (
 						<div className="flex justify-between py-1 text-sm text-slate-600">
 							<span>
@@ -1372,49 +1715,118 @@ function NuevoReciboModal({
 							<span>{formatCurrency(totalInventario)}</span>
 						</div>
 					)}
-					{draftMovements.length > 0 && (
-						<div className="flex justify-between py-1 text-sm text-slate-600">
-							<span>Movimientos inventario ({draftMovements.length})</span>
-							<span>{formatCurrency(totalMovimientos)}</span>
+					{servicios.length > 0 && (
+						<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Servicios
+							</p>
+							<ul className="space-y-2 text-sm text-slate-700">
+								{servicios.map((servicio, index) => (
+									<li key={`servicio-${index}`} className="flex items-center justify-between gap-2">
+										<span className="font-medium text-slate-800">
+											{servicio.tipo}
+										</span>
+										<span className="text-sm font-medium text-slate-700">
+											{formatCurrency(servicio.precio)}
+										</span>
+									</li>
+								))}
+							</ul>
 						</div>
 					)}
 					{listaNuevaConsulta.length > 0 && (
 						<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
 							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-								Consultas añadidas
+								Consultas
 							</p>
 							<ul className="space-y-2 text-sm text-slate-700">
-								{listaNuevaConsulta.map((consulta, index) => (
-									<li key={index} className="flex items-center justify-between gap-2">
-										<span>
-											{consulta.tipo_consulta || consulta.id_consulta_local || `Consulta ${index + 1}`}
-										</span>
-										<span className="text-xs text-slate-500">
-											{consulta.fecha_cita ? formatDate(String(consulta.fecha_cita).split(" ")[0]) : ""}
-										</span>
-									</li>
-								))}
+								{listaNuevaConsulta.map((consulta, index) => {
+									const amount = parseMoneyValue(consulta?.aportacion);
+									return (
+										<li key={index} className="flex items-center justify-between gap-2">
+											<div>
+												<span>
+													{consulta.tipo_consulta || consulta.id_consulta_local || `Consulta ${index + 1}`}
+												</span>
+												{consulta.fecha_cita ? (
+													<span className="ml-2 text-xs text-slate-500">
+														{formatDate(String(consulta.fecha_cita).split(" ")[0])}
+													</span>
+												) : null}
+											</div>
+											<span className="text-sm font-medium text-slate-700">
+												{formatCurrency(amount)}
+											</span>
+										</li>
+									);
+								})}
 							</ul>
 						</div>
 					)}
 					{listaNuevoEstudio.length > 0 && (
 						<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
 							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-								Estudios añadidos
+								Estudios
 							</p>
 							<ul className="space-y-2 text-sm text-slate-700">
-								{listaNuevoEstudio.map((estudio, index) => (
-									<li key={index} className="flex items-center justify-between gap-2">
-										<span>
-											{estudio.id_tipo_estudio ? `Estudio #${estudio.id_tipo_estudio}` : `Estudio ${index + 1}`}
-										</span>
-										<span className="text-xs text-slate-500">
-											{estudio.fecha_cita ? formatDate(String(estudio.fecha_cita).split(" ")[0]) : ""}
-										</span>
+								{listaNuevoEstudio.map((estudio, index) => {
+									const amount = parseMoneyValue(estudio?.aportacion);
+									return (
+										<li key={index} className="flex items-center justify-between gap-2">
+											<div>
+												<span>
+													{estudio.id_tipo_estudio ? `Estudio #${estudio.id_tipo_estudio}` : `Estudio ${index + 1}`}
+												</span>
+												{estudio.fecha_cita ? (
+													<span className="ml-2 text-xs text-slate-500">
+														{formatDate(String(estudio.fecha_cita).split(" ")[0])}
+													</span>
+												) : null}
+											</div>
+											<span className="text-sm font-medium text-slate-700">
+												{formatCurrency(amount)}
+											</span>
+										</li>
+									);
+								})}
+							</ul>
+						</div>
+					)}
+					{draftMovements.length > 0 && (
+						<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+								Movimientos
+							</p>
+							<ul className="space-y-2 text-sm text-slate-700">
+								{draftMovements.map((draft) => (
+									<li key={draft.id} className="flex items-start justify-between gap-3">
+										<div>
+											<p className="font-medium text-slate-800">
+												{draft.input.itemName || "Articulo"}
+											</p>
+											<p className="text-xs text-slate-500">
+												{draft.input.movementType === "in" ? "Entrada" : "Salida"} · {draft.input.quantity} uds · {formatCurrency(draft.unitPrice)} c/u · {formatDate(draft.input.date)}
+											</p>
+										</div>
+										<div className="flex items-center gap-2">
+											<span className="text-sm font-medium text-slate-700">
+												{formatCurrency(draft.unitPrice * draft.input.quantity)}
+											</span>
+										</div>
 									</li>
 								))}
 							</ul>
+							{movementSubmitError ? (
+								<p className="mt-2 text-xs text-rose-700" role="alert">
+									{movementSubmitError}
+								</p>
+							) : null}
 						</div>
+					)}
+					{(servicios.length > 0 || listaNuevaConsulta.length > 0 || listaNuevoEstudio.length > 0 || draftMovements.length > 0) && (
+						<p className="mt-2 text-xs text-slate-500">
+							Se ejecutaran cuando crees el recibo.
+						</p>
 					)}
 					{/* Discount row */}
 					{!exento && (
@@ -1467,6 +1879,13 @@ function NuevoReciboModal({
 				</div>
 			</Modal>
 
+			<NuevoServicioModal
+				open={servicioModalOpen}
+				onClose={() => setServicioModalOpen(false)}
+				onSelectConsulta={() => setNuevaConsultaModalAbierto(true)}
+				onSelectEstudio={() => setNuevoEstudioModalAbierto(true)}
+			/>
+
 			<NewMovementModal
 				open={open && movementModalOpen}
 				onClose={() => setMovementModalOpen(false)}
@@ -1481,11 +1900,15 @@ function NuevoReciboModal({
 			setListaNuevaConsulta={setListaNuevaConsulta}
 			setModalAbiertoNuevaConsulta={setNuevaConsultaModalAbierto}
 			id_recibo={0}
+			defaultAsociadoId={getAsociadoNumericId(asociadoSeleccionado)}
+			defaultAsociadoNombre={asociadoSeleccionado?.nombre}
 		/>
 		<NuevoEstudioModal
 			open={nuevoEstudioModalAbierto}
 			onClose={() => setNuevoEstudioModalAbierto(false)}
-			defaultAsociadoId={asociadoSeleccionado ? Number(asociadoSeleccionado.id) : undefined}
+			defaultFolioConsulta={defaultFolioConsultaEstudio}
+			defaultAsociadoId={getAsociadoNumericId(asociadoSeleccionado)}
+			defaultAsociadoNombre={asociadoSeleccionado?.nombre}
 			setListaNuevoEstudio={setListaNuevoEstudio}
 			listaNuevaConsulta={listaNuevaConsulta}
 			setModalAbiertoNuevoEstudio={setNuevoEstudioModalAbierto}
@@ -1505,6 +1928,7 @@ export default function RecibosPage() {
 	const [nuevoOpen, setNuevoOpen] = useState(false);
 	const [reciboActivo, setReciboActivo] = useState<Recibo | null>(null);
 	const [desgloseRecibo, setDesgloseRecibo] = useState<Recibo | null>(null);
+	const [reciboDetalle, setReciboDetalle] = useState<Recibo | null>(null);
 
 	const [filterId, setFilterId] = useState("");
 	const [filterNombre, setFilterNombre] = useState("");
@@ -1529,16 +1953,60 @@ export default function RecibosPage() {
 		return () => { alive = false; };
 	}, []);
 
-	function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
+	useEffect(() => {
+		async function getPagos(){
+			const res = await fetch("/api/recibos/lista_pagos");
+
+			if (res.ok){
+				const data = await res.json();
+
+				if (data.message === "Success"){
+
+					setPagos(data.data);
+
+				}
+			}
+		}
+		getPagos();
+	}, [])
+
+	async function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
 		if (!reciboActivo) return;
 
 		const nuevoPago: Pago = {
 			id: `PAG-${Date.now()}`,
-			idRecibo: reciboActivo.id,
-			monto,
-			metodoPago,
+			idRecibo: String(reciboActivo.id),
+			monto: monto,
+			metodoPago: metodoPago,
 			fechaPago: new Date().toISOString().split("T")[0],
 		};
+		let paymentPayload: { message?: string } | null = null;
+		try {
+			const paymentHandler = await fetch("/api/recibos/pagar",{
+				method: "POST",
+				headers:{
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify(nuevoPago)
+			});
+
+			try {
+				paymentPayload = await paymentHandler.json();
+			} catch {
+				paymentPayload = null;
+			}
+
+			if (!paymentHandler.ok || paymentPayload?.message !== "Success") {
+				const message = paymentPayload?.message && paymentPayload.message !== "Failed"
+					? paymentPayload.message
+					: "No se pudo registrar el pago.";
+				alert(message);
+				return;
+			}
+		} catch {
+			alert("No se pudo registrar el pago.");
+			return;
+		}
 
 		setPagos((prev) => [...prev, nuevoPago]);
 
@@ -1564,14 +2032,16 @@ export default function RecibosPage() {
 	const recibosFiltrados = useMemo(
 		() =>
 			recibos.filter((r) => {
-				if (debouncedId && !r.id.toLowerCase().includes(debouncedId.toLowerCase()))
+				if (debouncedId && !String(r.id).toLowerCase().includes(debouncedId.toLowerCase()))
 					return false;
 				if (
 					debouncedNombre &&
 					!r.asociado.toLowerCase().includes(debouncedNombre.toLowerCase())
 				)
 					return false;
-				if (filterFecha && r.fechaEmision !== filterFecha) return false;
+				const [fechaSinTiempo,_] = r.fechaEmision.split("T");
+				if (filterFecha && fechaSinTiempo !== filterFecha) {
+					return false};
 				if (filterEstatus !== "todos" && derivarEstatus(r) !== filterEstatus)
 					return false;
 				return true;
@@ -1607,6 +2077,10 @@ export default function RecibosPage() {
 				pagos={pagos}
 				onRegistrar={handleRegistrarPago}
 				onClose={() => setReciboActivo(null)}
+			/>
+			<ReciboDetailModal
+				recibo={reciboDetalle}
+				onClose={() => setReciboDetalle(null)}
 			/>
 			<DesgloseModal
 				recibo={desgloseRecibo}
@@ -1718,7 +2192,7 @@ export default function RecibosPage() {
 											<tr
 												key={r.id}
 												className="cursor-pointer transition hover:bg-slate-50"
-												onClick={() => setReciboActivo(r)}
+												onClick={() => setReciboDetalle(r)}
 											>
 												<td className="px-5 py-4 text-sm font-medium text-slate-800">
 													{r.id}
@@ -1751,10 +2225,11 @@ export default function RecibosPage() {
 													<Button
 														variant="ghost"
 														size="sm"
-														leftIcon={<Receipt className="h-4 w-4" />}
-														onClick={() => setDesgloseRecibo(r)}
+														className="h-9 w-9 px-0"
+														onClick={() => setReciboActivo(r)}
+														aria-label="Registrar pago"
 													>
-														Ver
+														<Banknote className="h-4 w-4" />
 													</Button>
 												</td>
 											</tr>

@@ -212,7 +212,6 @@ export function PreregistroRegistroForm({
         await onSubmit(payload);
       } else {
         lastPreregistroJSON = JSON.stringify(payload, null, 2);
-        console.log("[preregistro] Datos del formulario (JSON):\n", lastPreregistroJSON);
       }
       setShowConfirm(false);
       setShowSuccess(true);
