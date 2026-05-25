@@ -306,11 +306,7 @@ export default function ServiciosPage() {
       estatus,
     })
 
-    return filtered.slice().sort((a, b) => {
-      const byFecha = (b.fechaOrden ?? 0) - (a.fechaOrden ?? 0)
-      if (byFecha !== 0) return byFecha
-      return String(b.folio).localeCompare(String(a.folio))
-    })
+    return filtered
   }, [allServicios, debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus])
 
   function handleRowClick(s: Servicio) {
