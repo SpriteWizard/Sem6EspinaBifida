@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
+import  Link from "next/link";
 import type { Session } from "next-auth";
 import {
 	Plus,
@@ -555,6 +556,8 @@ function ReciboDetailModal({
 	recibo: Recibo | null;
 	onClose: () => void;
 }) {
+	const [consultaItems, setConsultaItems] = useState<any[]>([]);
+	const [estudioItems, setEstudioItems] = useState<any[]>([]);
 	const [movements, setMovements] = useState<InventoryMovement[]>([]);
 	const [movementsLoading, setMovementsLoading] = useState(false);
 	const [movementsError, setMovementsError] = useState<string | null>(null);
@@ -656,47 +659,30 @@ function ReciboDetailModal({
 		};
 	}, [currentReciboId]);
 
-	const productos = recibo?.productos ?? [];
-	const consultas = detailConsultas.length > 0 ? detailConsultas : recibo?.consultas ?? [];
-	const estudios = detailEstudios.length > 0 ? detailEstudios : recibo?.estudios ?? [];
-	const consultaFallback = productos.filter((p) => p.itemName === "Consulta");
-	const estudioFallback = productos.filter((p) => p.itemName === "Estudio");
-	const consultaItems = consultas.length > 0
-		? consultas.map((c, i) => {
-			const amount = parseMoneyValue(c?.aportacion);
-			const datePart = c?.fecha_cita
-				? formatDate(String(c.fecha_cita).split(" ")[0])
-				: "";
-			const meta = [datePart, formatCurrency(amount)].filter(Boolean).join(" · ");
-			return {
-				id: `consulta-${i}`,
-				title: c?.tipo_consulta || c?.id_consulta_local || `Consulta ${i + 1}`,
-				meta,
-			};
-		})
-		: consultaFallback.map((p, i) => ({
-			id: `consulta-prod-${i}`,
-			title: p.itemName,
-			meta: `Cantidad ${p.cantidad} · ${formatCurrency(p.precioUnitario)}`,
-		}));
-	const estudioItems = estudios.length > 0
-		? estudios.map((e, i) => {
-			const amount = parseMoneyValue(e?.aportacion);
-			const datePart = e?.fecha_cita
-				? formatDate(String(e.fecha_cita).split(" ")[0])
-				: "";
-			const meta = [datePart, formatCurrency(amount)].filter(Boolean).join(" · ");
-			return {
-				id: `estudio-${i}`,
-				title: e?.id_tipo_estudio ? `Estudio #${e.id_tipo_estudio}` : `Estudio ${i + 1}`,
-				meta,
-			};
-		})
-		: estudioFallback.map((p, i) => ({
-			id: `estudio-prod-${i}`,
-			title: p.itemName,
-			meta: `Cantidad ${p.cantidad} · ${formatCurrency(p.precioUnitario)}`,
-		}));
+	useEffect(() => {
+	
+		const productos = JSON.parse(JSON.stringify(recibo?.productos ?? []));
+		const consultaItems = productos.map((p: any) => {
+			if (p.itemName.includes("Consulta")){
+				return p;
+			}
+			else{
+				return null;
+			}
+		}).filter((v: any): v is any => !!v);
+		setConsultaItems(consultaItems);
+		const estudioItems = productos.map((p: any) => {
+			if (p.itemName.includes("Estudio")){
+				return p;
+			}
+			else{
+				return null;
+			}
+		}).filter((v: any): v is any => !!v);
+		setEstudioItems(estudioItems);
+
+		setServiciosLoading(true);
+	}, [recibo]);
 
 	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
 	const saldoPendiente = recibo
@@ -709,7 +695,7 @@ function ReciboDetailModal({
 			onClose={onClose}
 			title={recibo ? `Detalle de recibo ${recibo.id}` : "Detalle de recibo"}
 			titleId="recibo-detail-title"
-			className="max-w-5xl"
+			className="max-w-5xl overflow-y-auto max-h-[90vh]"
 		>
 			{recibo && (
 				<div className="space-y-4 px-5 py-4">
@@ -794,16 +780,24 @@ function ReciboDetailModal({
 								<p className="text-sm text-slate-400">Sin consultas.</p>
 							) : (
 								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-									{consultaItems.map((item) => (
-										<li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
-											<div>
-												<p className="font-medium text-slate-800">{item.title}</p>
-												{item.meta ? (
-													<p className="text-xs text-slate-500">{item.meta}</p>
+									{consultaItems.map((item: any) => {
+										if (item === undefined || item === null || typeof item !== "object") {
+											return null;
+										}
+										return (
+										<li key={ "CON: " + item.itemId} className="flex items-center justify-between px-4 py-2 text-sm">
+											<Link href={`/servicios/${item.itemId}/detalle-consulta`}>
+												{item.itemName ? (
+													<p className="font-medium text-slate-800">{item.itemName}</p>
 												) : null}
-											</div>
+												{item.precioUnitario ? (
+													<p className="text-xs text-slate-500">${item.precioUnitario.toFixed(2)}</p>
+												) : 
+												<p className="text-xs text-slate-500">${(0).toFixed(2)}</p>}
+											</Link>
 										</li>
-									))}
+										)
+									})}
 								</ul>
 							)}
 						</div>
@@ -820,16 +814,25 @@ function ReciboDetailModal({
 								<p className="text-sm text-slate-400">Sin estudios.</p>
 							) : (
 								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-									{estudioItems.map((item) => (
-										<li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
-											<div>
-												<p className="font-medium text-slate-800">{item.title}</p>
-												{item.meta ? (
-													<p className="text-xs text-slate-500">{item.meta}</p>
-												) : null}
-											</div>
-										</li>
-									))}
+									{estudioItems.map((item: any) => {
+										console.log("Estudio item:", item);
+										if (item === undefined || item === null || typeof item !== "object") {
+											return null;
+										}
+										return (
+											<li key={item.itemId} className="flex items-center justify-between px-4 py-2 text-sm">
+												<Link href={`/servicios/${item.itemId}/detalle-estudio`}>
+													{item.itemName ? (
+														<p className="font-medium text-slate-800">{item.itemName}</p>
+													) : null}
+													{item.precioUnitario ? (
+														<p className="text-xs text-slate-500">${item.precioUnitario.toFixed(2)}</p>
+													) : 
+													<p className="text-xs text-slate-500">${(0).toFixed(2)}</p>}
+												</Link>
+											</li>
+										)
+									})}
 								</ul>
 							)}
 						</div>
@@ -868,12 +871,6 @@ function ReciboDetailModal({
 								))}
 							</ul>
 						)}
-					</div>
-
-					<div className="flex justify-end border-t border-slate-100 pt-3">
-						<Button variant="ghost" onClick={onClose}>
-							Cerrar
-						</Button>
 					</div>
 				</div>
 			)}

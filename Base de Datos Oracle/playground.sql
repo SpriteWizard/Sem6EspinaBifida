@@ -9,6 +9,8 @@ alter table usuarios add fecha_acceso date;
 
 select * from usuarios;
 
+update consulta set fecha = sysdate where id_consulta = 111;
+
 select nombre, apellidos, id_usuario, correo, rol, activo, fecha_creacion, telefono from usuarios;
 
 alter table asociado add razon_rechazo varchar2(255);
