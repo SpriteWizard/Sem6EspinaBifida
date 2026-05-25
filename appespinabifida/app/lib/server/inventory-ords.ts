@@ -173,6 +173,10 @@ export function toInventoryMovement(
     getRowValue(row, ['id_articulo', 'idArticulo', 'ID_ARTICULO', 'item_id'], null),
   )
   const itemId = itemIdRaw === null ? null : Math.floor(itemIdRaw)
+  const reciboIdRaw = toNullableNumberValue(
+    getRowValue(row, ['id_recibo', 'recibo_id', 'ID_RECIBO'], null),
+  )
+  const reciboId = reciboIdRaw === null ? null : Math.floor(reciboIdRaw)
   const relatedItem = itemId === null ? undefined : inventoryById?.get(itemId)
 
   const categoryId = toStringValue(
@@ -190,6 +194,7 @@ export function toInventoryMovement(
   return {
     id,
     itemId,
+    reciboId,
     itemName:
       itemNameFromRow ||
       relatedItem?.name ||
@@ -308,6 +313,8 @@ export async function fetchOrdsJsonCandidates(
     })
 
     const payload = await parseResponseBody(response)
+
+    console.log(response);
 
     if (response.ok) {
       return {

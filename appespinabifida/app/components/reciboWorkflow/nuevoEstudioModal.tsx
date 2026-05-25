@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '../ui/Modal'
 
@@ -35,6 +35,10 @@ function normalizar(s: string) {
   return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
+function getConsultaRef(consulta: any) {
+  return String(consulta?.id_consulta_local ?? consulta?.id_consulta ?? consulta?.folio ?? '')
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NuevoEstudioModal({
@@ -42,6 +46,7 @@ export function NuevoEstudioModal({
   onClose,
   defaultFolioConsulta,
   defaultAsociadoId,
+  defaultAsociadoNombre,
   setListaNuevoEstudio,
   listaNuevaConsulta,
   setModalAbiertoNuevoEstudio
@@ -50,11 +55,14 @@ export function NuevoEstudioModal({
   onClose: () => void
   defaultFolioConsulta?: string
   defaultAsociadoId?: number
+  defaultAsociadoNombre?: string
   setListaNuevoEstudio: React.Dispatch<React.SetStateAction<any[]>>
   listaNuevaConsulta: any[],
   setModalAbiertoNuevoEstudio: React.Dispatch<React.SetStateAction<boolean>>
 }) {
   const router = useRouter()
+  const prefillsAppliedRef = useRef(false)
+  const consultaPrefillAppliedRef = useRef(false)
 
   // Asociado
   const [query, setQuery] = useState('')
@@ -86,11 +94,48 @@ export function NuevoEstudioModal({
   const [TIPOESTUDIO, setTIPOESTUDIO] = useState<TipoEstudio[]>([])
 
   useEffect(() => {
-    if (open && defaultFolioConsulta) {
+    if (!open) {
+      prefillsAppliedRef.current = false
+      consultaPrefillAppliedRef.current = false
+      return
+    }
+
+    if (defaultFolioConsulta) {
       setFolioConsulta(defaultFolioConsulta)
       setFolioQuery(defaultFolioConsulta)
+      setFolioDropdownAbierto(false)
+      consultaPrefillAppliedRef.current = true
     }
-  }, [open, defaultFolioConsulta])
+
+    if (!prefillsAppliedRef.current && defaultAsociadoId != null) {
+      const fallback = {
+        id: String(defaultAsociadoId),
+        nombre: defaultAsociadoNombre || `Asociado #${defaultAsociadoId}`,
+      }
+
+      setSeleccionado(fallback)
+      setQuery(`${fallback.nombre} · #${fallback.id}`)
+      setDropdownAbierto(false)
+      prefillsAppliedRef.current = true
+    }
+  }, [open, defaultFolioConsulta, defaultAsociadoId, defaultAsociadoNombre])
+
+  useEffect(() => {
+    if (!open || consultaPrefillAppliedRef.current) return
+    if (defaultAsociadoId == null) return
+
+    const matching = listaNuevaConsulta
+      .map((c: any) => c?.data ?? c)
+      .filter((c: any) => Number(c?.id_asociado) === Number(defaultAsociadoId))
+    const latest = matching[matching.length - 1]
+    const ref = latest ? getConsultaRef(latest) : ''
+    if (!ref) return
+
+    setFolioConsulta(ref)
+    setFolioQuery(ref)
+    setFolioDropdownAbierto(false)
+    consultaPrefillAppliedRef.current = true
+  }, [open, defaultAsociadoId, listaNuevaConsulta])
 
   useEffect(() => {
     if (!open) return
@@ -100,8 +145,8 @@ export function NuevoEstudioModal({
         const r = await res.json()
         if (r.status === 'ok') {
           setASOCIADOS(r.data)
-          if (defaultAsociadoId) {
-            const found = r.data.find((a: any) => a.id === defaultAsociadoId)
+          if (defaultAsociadoId != null) {
+            const found = r.data.find((a: any) => Number(a.id) === Number(defaultAsociadoId))
             if (found) {
               setSeleccionado(found)
               setQuery(`${found.nombre} · #${found.id}`)
@@ -126,7 +171,7 @@ export function NuevoEstudioModal({
         setTIPOESTUDIO([])
       }
     })
-  }, [open])
+  }, [open, defaultAsociadoId, listaNuevaConsulta])
 
   const sugerencias = ASOCIADOS.filter(
     (a: any) =>
@@ -134,7 +179,7 @@ export function NuevoEstudioModal({
   )
 
   const folioSugerencias = CONSULTAS.filter((c: any) =>
-    normalizar(String(c.id_consulta_local || c.folio || '')).includes(normalizar(folioQuery)),
+    normalizar(getConsultaRef(c)).includes(normalizar(folioQuery)),
   )
 
   const resetForm = useCallback(() => {
@@ -154,6 +199,18 @@ export function NuevoEstudioModal({
     setSeleccionado(asociado)
     setQuery(`${asociado.nombre} · #${asociado.id}`)
     setDropdownAbierto(false)
+
+    const matching = listaNuevaConsulta
+      .map((c: any) => c?.data ?? c)
+      .filter((c: any) => Number(c?.id_asociado) === Number(asociado.id))
+    const latest = matching[matching.length - 1]
+    const ref = latest ? getConsultaRef(latest) : ''
+    if (ref) {
+      setFolioConsulta(ref)
+      setFolioQuery(ref)
+      setFolioDropdownAbierto(false)
+      consultaPrefillAppliedRef.current = true
+    }
   }
 
   function handleMonto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -170,11 +227,14 @@ export function NuevoEstudioModal({
     if (!fecha) { alert('Debes seleccionar una fecha'); return }
     if (folioConsulta === '') { alert('Debes seleccionar una consulta'); return }
 
+    const folioRaw = String(folioConsulta)
+    const isLocalConsulta = folioRaw.startsWith('CON-')
     const nuevo = {
       id_asociado: seleccionado.id,
       id_medico: null,
       id_tipo_estudio: Number(estudio),
-      id_consulta: String(folioConsulta),
+      id_consulta: isLocalConsulta ? undefined : Number(folioRaw),
+      id_consulta_local: isLocalConsulta ? folioRaw : undefined,
       laboratorio: laboratorioId,
       aportacion: monto,
       ya_aporto: yaAporto ? 1 : 0,
@@ -396,15 +456,16 @@ export function NuevoEstudioModal({
                 {folioSugerencias.length > 0 ? (
                   folioSugerencias.map((c: any) => (
                     <button
-                      key={c.id_consulta_local}
+                      key={getConsultaRef(c)}
                       onMouseDown={() => {
-                        setFolioConsulta(c.id_consulta_local)
-                        setFolioQuery(c.id_consulta_local)
+                        const ref = getConsultaRef(c)
+                        setFolioConsulta(ref)
+                        setFolioQuery(ref)
                         setFolioDropdownAbierto(false)
                       }}
                       className="w-full text-left px-3 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
                     >
-                      <div className="text-sm text-slate-800">{c.id_consulta_local}</div>
+                      <div className="text-sm text-slate-800">{getConsultaRef(c)}</div>
                     </button>
                   ))
                 ) : (

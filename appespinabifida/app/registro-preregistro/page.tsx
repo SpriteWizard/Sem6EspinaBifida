@@ -3,16 +3,6 @@
 import { PreregistroRegistroForm } from "../../standalone-preregistro";
 import type { PreregistroRegistroPayload } from "../../standalone-preregistro";
 
-// ─── INTEGRACIÓN BACKEND ─────────────────────────────────────────────────────
-// Cuando el endpoint esté listo:
-//   1. Descomenta el fetch de abajo.
-//   2. Elimina el console.log.
-//
-//   POST /api/asociados/preRegistro/crear    Body: PreregistroRegistroPayload
-//        Response: { ok: boolean; result: string }
-//
-// Si el fetch lanza un error, el formulario lo captura y lo muestra al usuario.
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function enviarPreregistro(data: PreregistroRegistroPayload): Promise<void> {
   const res = await fetch("/api/asociados/preRegistro/crear", {

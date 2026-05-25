@@ -9,7 +9,6 @@ export default async function EditarEstudioPage({
 
   const res = await fetch(`${process.env.NEXTAUTH_URL}/api/servicios/obtener/estudios/porId?id=${id}`);
 
-  console.log(res);
   const data = await res.json();
 
   return <EditarEstudioForm data={data} />;

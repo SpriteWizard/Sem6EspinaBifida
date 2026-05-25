@@ -12,10 +12,14 @@ export async function POST(req: Request){
 
     if (res.ok){
         const recibo_response = await res.json();
-        if (recibo_response.status = "Success"){
+        if (recibo_response?.status === "Success"){
             return Response.json({status: "Success", id_recibo: recibo_response.id_recibo})
         }
-        return Response.json({status: "Failed", id_recibo: recibo_response.id_recibo, message: "No se pudo agregar el recibo, intentelo nuevamente"})
+        return Response.json({
+            status: "Failed",
+            id_recibo: recibo_response?.id_recibo ?? null,
+            message: recibo_response?.message ?? "No se pudo agregar el recibo, intentelo nuevamente",
+        })
     }
 
     return Response.json({status: "Failed", message: "No se pudo conectar con la base de datos, intentelo nuevamente mas adelante"})

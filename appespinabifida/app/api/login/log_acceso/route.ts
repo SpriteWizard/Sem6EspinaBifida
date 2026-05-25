@@ -11,8 +11,6 @@ export async function PUT(req: Request){
         body: JSON.stringify({email: data.email})
     })
 
-    console.log(res);
-
     if (res.ok){
         return Response.json({status:"Success"});
     }

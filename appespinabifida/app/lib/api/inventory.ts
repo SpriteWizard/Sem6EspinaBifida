@@ -369,6 +369,8 @@ export async function updateInventoryItemSettings(
   itemId: number,
   cuotaRecuperacion: number | null,
   stockMinimo?: number | null,
+  nombre?: string,
+  descripcion?: string
 ): Promise<InventoryItem> {
   const payload = await requestJson<unknown>('/api/inventario/editar/cuota', {
     method: 'PUT',
@@ -376,6 +378,8 @@ export async function updateInventoryItemSettings(
       itemId,
       cuotaRecuperacion,
       stockMinimo,
+      nombre,
+      descripcion
     }),
   })
   return mapInventoryItem(payload as Partial<InventoryItem> & Record<string, unknown>)

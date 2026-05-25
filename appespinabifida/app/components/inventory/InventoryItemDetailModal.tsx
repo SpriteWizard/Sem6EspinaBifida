@@ -51,6 +51,8 @@ export function InventoryItemDetailModal({
   const [stockMinimoError, setStockMinimoError] = useState<string | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
+  const [nombre, setNombre] = useState('');
+  const [descripcion, setDescripcion] = useState('');
 
   const [movementPages, setMovementPages] = useState<InventoryMovement[][]>([])
   const [movementPageIndex, setMovementPageIndex] = useState(0)
@@ -94,6 +96,8 @@ export function InventoryItemDetailModal({
       item.cuotaRecuperacion === null ? '' : String(item.cuotaRecuperacion),
     )
     setStockMinimoValue(String(item.stockMinimo ?? 0))
+    setNombre(String(item.name));
+    setDescripcion(String(item.description))
   }, [open, item])
 
   useEffect(() => {
@@ -184,7 +188,7 @@ export function InventoryItemDetailModal({
 
     setSavingSettings(true)
     try {
-      const updated = await updateInventoryItemSettings(currentItem.id, parsedQuota, Math.floor(parsedStock))
+      const updated = await updateInventoryItemSettings(currentItem.id, parsedQuota, Math.floor(parsedStock), nombre, descripcion)
       onItemUpdated(updated)
       setSettingsSaved(true)
     } catch {
@@ -198,7 +202,7 @@ export function InventoryItemDetailModal({
     <Modal
       open={open}
       titleId={TITLE_ID}
-      title={`Artículo: ${currentItem.name}`}
+      title={`Artículo INV-${item.id}`}
       onClose={onClose}
       className="max-w-4xl"
     >
@@ -223,7 +227,24 @@ export function InventoryItemDetailModal({
         </div>
 
         {activeTab === 'info' ? (
-          <div className="space-y-4">
+
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto" >
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Nombre del artículo
+              </label>
+              <Input
+                type="string"
+                value={nombre}
+                onChange={(e) => {
+                  setSettingsSaved(false)
+                  setNombre(e.target.value)
+                }}
+                placeholder="Ej. 150.00"
+              />
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
                 <p className="text-xs text-slate-500">ID</p>
@@ -245,11 +266,22 @@ export function InventoryItemDetailModal({
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
-              <p className="mb-2 text-xs text-slate-500">Descripción completa</p>
-              <p className="whitespace-pre-wrap text-sm text-slate-700">
-                {currentItem.description || 'Sin descripción'}
-              </p>
+            <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Descripcion
+                </label>
+                <Input
+                  type="string"
+                  value={descripcion}
+                  onChange={(e) => {
+                    setSettingsSaved(false)
+                    setDescripcion(e.target.value)
+                  }}
+                  placeholder="Ej. 150.00"
+                />
+              </div>
+
             </div>
 
             <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
@@ -321,7 +353,7 @@ export function InventoryItemDetailModal({
             </div>
           </div>
         ) : (
-          <div className="rounded-xl bg-white ring-1 ring-slate-200/70">
+          <div className="rounded-xl bg-white ring-1 ring-slate-200/70 max-h-[60vh] overflow-y-auto">
             <MovementHistoryList
               items={visibleMovements}
               loading={movementsLoading}

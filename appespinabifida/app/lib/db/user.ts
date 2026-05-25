@@ -63,9 +63,7 @@ export async function createUser(data: any) {
       }),
     }
   );
-  console.log(res);
   if (res.ok) {
-    console.log("Success");
     return true;
   }
   return false;

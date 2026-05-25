@@ -13,7 +13,6 @@ export async function PUT(req: Request) {
   }
 
   const data = await req.json();
-  console.log(data);
   const res = await fetch(
     "https://g53bc679c5acb2c-espinabd.adb.mx-queretaro-1.oraclecloudapps.com/ords/admin/usuarios/editarUsuario",
     {
@@ -25,7 +24,6 @@ export async function PUT(req: Request) {
       body: JSON.stringify(data),
     },
   );
-  console.log(res);
   if (!res.ok) {
     return new Response(JSON.stringify({ status: "failed", reason: "No se pudo editar el usuario." }), {
       status: 500,
