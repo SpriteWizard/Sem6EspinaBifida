@@ -83,9 +83,13 @@ export async function POST(request: Request){
 
     if (res.ok){
         return Response.json({ status: "ok" });
-    } else {
-        const errorText = await res.text();
-        console.error("Oracle agregarAsociado error:", res.status, errorText);
-        return Response.json({ status: "fail", reason: errorText });
     }
+
+    const errorText = await res.text();
+    console.error("Oracle agregarAsociado error:", res.status, errorText);
+    const isDuplicateCurp = errorText.includes("ORA-00001") || errorText.includes("UQ_ASOCIADO_CURP_ACTIVO");
+    if (isDuplicateCurp) {
+        return Response.json({ status: "fail", reason: "curp_duplicado" }, { status: 409 });
+    }
+    return Response.json({ status: "fail", reason: "error_oracle" }, { status: 500 });
 }

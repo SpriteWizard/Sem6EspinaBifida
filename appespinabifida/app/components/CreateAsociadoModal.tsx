@@ -24,7 +24,6 @@ type FormState = {
   nombrePadreMadre: string;
   etapaVida: string;
   vive: "si" | "no";
-  fechaUltRecibo: string;
   direccion: string;
   ciudad: string;
   estado: string;
@@ -101,6 +100,10 @@ const ESCOLARIDADES = [
   "Carrera técnica", "Licenciatura", "Posgrado",
 ];
 
+function today(): string {
+  return new Date().toLocaleDateString("en-CA");
+}
+
 function oneYearFromToday(): string {
   const d = new Date();
   d.setFullYear(d.getFullYear() + 1);
@@ -138,7 +141,7 @@ function etapaVidaDesdeEdad(edad: number | null): string {
 
 function initialForm(): FormState {
   return {
-    fechaAlta: "",
+    fechaAlta: today(),
     nombre: "",
     apellidoPaterno: "",
     apellidoMaterno: "",
@@ -149,7 +152,6 @@ function initialForm(): FormState {
     nombrePadreMadre: "",
     etapaVida: "",
     vive: "si",
-    fechaUltRecibo: "",
     direccion: "",
     ciudad: "",
     estado: "",
@@ -161,8 +163,8 @@ function initialForm(): FormState {
     contactoNombre: "",
     contactoTelefono: "",
     contactoRelacion: "",
-    vigenciaDesde: "",
-    vigenciaHasta: "",
+    vigenciaDesde: today(),
+    vigenciaHasta: oneYearFromToday(),
     fotoUrl: "",
     lugarNacimiento: "",
     hospital: "",
@@ -215,6 +217,15 @@ function FieldLabel({ children, required }: { children: ReactNode; required?: bo
 function ErrorText({ text }: { text?: string }) {
   if (!text) return null;
   return <p className="mt-1 text-sm text-rose-700">{text}</p>;
+}
+
+function FormDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-1">
+      <span className="text-xs font-bold uppercase tracking-widest text-[#003c64]">{label}</span>
+      <div className="h-px flex-1 bg-[#003c64]/15" />
+    </div>
+  );
 }
 
 function SuccessScreen({ onClose }: { onClose: () => void }) {
@@ -293,18 +304,40 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
 
   function validate() {
     const next: FieldErrors = {};
+
+    // Datos generales
     if (!form.fechaAlta) next.fechaAlta = "La fecha de alta es requerida.";
     if (!form.nombre.trim()) next.nombre = "El nombre es requerido.";
     if (!form.apellidoPaterno.trim()) next.apellidoPaterno = "El apellido paterno es requerido.";
     if (!form.apellidoMaterno.trim()) next.apellidoMaterno = "El apellido materno es requerido.";
     if (!form.sexo) next.sexo = "Selecciona sexo.";
-    if (!emergencyComplete) next.contactoNombre = "Completa los datos de emergencia.";
+    if (!form.curp.trim()) next.curp = "El CURP es requerido.";
+    else if (form.curp.trim().length !== 18) next.curp = "El CURP debe tener exactamente 18 caracteres.";
+    if (!form.fechaNacimiento) next.fechaNacimiento = "La fecha de nacimiento es requerida.";
+    if (!form.nombrePadreMadre.trim()) next.nombrePadreMadre = "El nombre del padre/madre o tutor es requerido.";
+    if (!form.direccion.trim()) next.direccion = "La dirección es requerida.";
+    if (!form.ciudad.trim()) next.ciudad = "La ciudad es requerida.";
     if (form.cp && !/^\d{5}$/.test(form.cp)) next.cp = "El CP debe tener exactamente 5 dígitos.";
+    if (!form.correo.trim()) next.correo = "El correo es requerido.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) next.correo = "Correo inválido.";
+    if (!form.vigenciaDesde) next.vigenciaDesde = "La vigencia desde es requerida.";
+
+    // Teléfonos
     const phoneRegex = /^[0-9+\s]+$/;
-    if (form.telCasa && !phoneRegex.test(form.telCasa)) next.telCasa = "Solo dígitos y +.";
+    if (!form.telCasa.trim()) next.telCasa = "El teléfono de casa es requerido.";
+    else if (!phoneRegex.test(form.telCasa)) next.telCasa = "Solo dígitos y +.";
     if (form.telTrabajo && !phoneRegex.test(form.telTrabajo)) next.telTrabajo = "Solo dígitos y +.";
     if (form.telCel && !phoneRegex.test(form.telCel)) next.telCel = "Solo dígitos y +.";
-    if (form.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) next.correo = "Correo inválido.";
+
+    // Emergencia
+    if (!emergencyComplete) next.contactoNombre = "Completa los datos de emergencia.";
+
+    // Historial
+    if (!form.lugarNacimiento.trim()) next.lugarNacimiento = "El lugar de nacimiento es requerido.";
+    if (!form.hospital.trim()) next.hospital = "El hospital es requerido.";
+    if (!form.padecimiento.trim()) next.padecimiento = "El padecimiento es requerido.";
+    if (!form.tipoSangre) next.tipoSangre = "El tipo de sangre es requerido.";
+
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -347,8 +380,12 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (data.status === "ok") {
         setSuccess(true);
+      } else if (data.reason === "curp_duplicado") {
+        setErrors((prev) => ({ ...prev, curp: "Este CURP ya está registrado en otro asociado." }));
+        setActiveTab("Datos generales");
       } else {
         setSubmitError("No se pudo crear el asociado. Intenta de nuevo.");
       }
@@ -393,88 +430,69 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
             ))}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-5">
             {activeTab === "Datos generales" && (
               <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <FormDivider label="Alta y membresía" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <FieldLabel required>Fecha de alta</FieldLabel>
-                    <Input
-                      type="date"
-                      value={form.fechaAlta}
-                      onChange={(e) => update("fechaAlta", e.target.value)}
-                    />
+                    <Input type="date" value={form.fechaAlta} onChange={(e) => update("fechaAlta", e.target.value)} />
                     <ErrorText text={errors.fechaAlta} />
                   </div>
                   <div>
-                    <FieldLabel required>Sexo</FieldLabel>
-                    <Select
-                      value={form.sexo}
-                      onChange={(e) => update("sexo", e.target.value as Sexo)}
-                    >
-                      <option value="Femenino">Femenino</option>
-                      <option value="Masculino">Masculino</option>
-                    </Select>
+                    <FieldLabel required>Vigencia desde</FieldLabel>
+                    <Input type="date" value={form.vigenciaDesde} onChange={(e) => update("vigenciaDesde", e.target.value)} />
+                    <ErrorText text={errors.vigenciaDesde} />
+                  </div>
+                  <div>
+                    <FieldLabel>Vigencia hasta</FieldLabel>
+                    <Input type="date" value={form.vigenciaHasta} onChange={(e) => update("vigenciaHasta", e.target.value)} />
                   </div>
                 </div>
 
+                <FormDivider label="Identidad" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <FieldLabel required>Nombre</FieldLabel>
-                    <Input
-                      value={form.nombre}
-                      onChange={(e) => update("nombre", e.target.value)}
-                    />
+                    <Input value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
                     <ErrorText text={errors.nombre} />
                   </div>
                   <div>
                     <FieldLabel required>Apellido paterno</FieldLabel>
-                    <Input
-                      value={form.apellidoPaterno}
-                      onChange={(e) => update("apellidoPaterno", e.target.value)}
-                    />
+                    <Input value={form.apellidoPaterno} onChange={(e) => update("apellidoPaterno", e.target.value)} />
                     <ErrorText text={errors.apellidoPaterno} />
                   </div>
                   <div>
                     <FieldLabel required>Apellido materno</FieldLabel>
-                    <Input
-                      value={form.apellidoMaterno}
-                      onChange={(e) => update("apellidoMaterno", e.target.value)}
-                    />
+                    <Input value={form.apellidoMaterno} onChange={(e) => update("apellidoMaterno", e.target.value)} />
                     <ErrorText text={errors.apellidoMaterno} />
                   </div>
                   <div>
-                    <FieldLabel>CURP</FieldLabel>
-                    <Input
-                      value={form.curp}
-                      onChange={(e) => update("curp", e.target.value.toUpperCase())}
-                      maxLength={18}
-                    />
+                    <FieldLabel required>CURP</FieldLabel>
+                    <Input value={form.curp} onChange={(e) => update("curp", e.target.value.toUpperCase())} maxLength={18} />
+                    <ErrorText text={errors.curp} />
                   </div>
                   <div>
-                    <FieldLabel>Fecha de nacimiento</FieldLabel>
-                    <Input
-                      type="date"
-                      value={form.fechaNacimiento}
-                      onChange={(e) => update("fechaNacimiento", e.target.value)}
-                    />
+                    <FieldLabel required>Fecha de nacimiento</FieldLabel>
+                    <Input type="date" value={form.fechaNacimiento} onChange={(e) => update("fechaNacimiento", e.target.value)} />
+                    <ErrorText text={errors.fechaNacimiento} />
                   </div>
                   <div>
                     <FieldLabel>Edad / Etapa de vida</FieldLabel>
                     <Input
                       value={form.edad ? `${form.edad} años — ${form.etapaVida}` : ""}
-                      readOnly
-                      disabled
+                      readOnly disabled
                       placeholder="Se calcula desde la fecha de nacimiento"
                       className="bg-slate-50 text-slate-500"
                     />
                   </div>
                   <div>
-                    <FieldLabel>Nombre padre / madre o tutor</FieldLabel>
-                    <Input
-                      value={form.nombrePadreMadre}
-                      onChange={(e) => update("nombrePadreMadre", e.target.value)}
-                    />
+                    <FieldLabel required>Sexo</FieldLabel>
+                    <Select value={form.sexo} onChange={(e) => update("sexo", e.target.value as Sexo)}>
+                      <option value="Femenino">Femenino</option>
+                      <option value="Masculino">Masculino</option>
+                    </Select>
                   </div>
                   <div>
                     <FieldLabel>¿El asociado está vivo?</FieldLabel>
@@ -483,27 +501,28 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                       <option value="no">No</option>
                     </Select>
                   </div>
+                </div>
+
+                <FormDivider label="Padre / Madre o tutor" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Fecha últ. recibo</FieldLabel>
-                    <Input
-                      type="date"
-                      value={form.fechaUltRecibo}
-                      onChange={(e) => update("fechaUltRecibo", e.target.value)}
-                    />
+                    <FieldLabel required>Nombre</FieldLabel>
+                    <Input value={form.nombrePadreMadre} onChange={(e) => update("nombrePadreMadre", e.target.value)} />
+                    <ErrorText text={errors.nombrePadreMadre} />
                   </div>
                 </div>
 
+                <FormDivider label="Dirección" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <FieldLabel>Calle y número</FieldLabel>
-                    <Input
-                      value={form.direccion}
-                      onChange={(e) => update("direccion", e.target.value)}
-                    />
+                    <FieldLabel required>Calle y número</FieldLabel>
+                    <Input value={form.direccion} onChange={(e) => update("direccion", e.target.value)} />
+                    <ErrorText text={errors.direccion} />
                   </div>
                   <div>
-                    <FieldLabel>Ciudad</FieldLabel>
+                    <FieldLabel required>Ciudad</FieldLabel>
                     <Input value={form.ciudad} onChange={(e) => update("ciudad", e.target.value)} />
+                    <ErrorText text={errors.ciudad} />
                   </div>
                   <div>
                     <FieldLabel>Estado</FieldLabel>
@@ -518,21 +537,17 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                     <FieldLabel>CP</FieldLabel>
                     <Input
                       value={form.cp}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "").slice(0, 5);
-                        update("cp", val);
-                      }}
-                      inputMode="numeric"
-                      maxLength={5}
-                      placeholder="5 dígitos"
+                      onChange={(e) => { const val = e.target.value.replace(/\D/g, "").slice(0, 5); update("cp", val); }}
+                      inputMode="numeric" maxLength={5} placeholder="5 dígitos"
                     />
                     <ErrorText text={errors.cp} />
                   </div>
                 </div>
 
+                <FormDivider label="Contacto" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Teléfono casa</FieldLabel>
+                    <FieldLabel required>Teléfono casa</FieldLabel>
                     <Input value={form.telCasa} onChange={(e) => update("telCasa", e.target.value)} />
                     <ErrorText text={errors.telCasa} />
                   </div>
@@ -547,69 +562,34 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                     <ErrorText text={errors.telCel} />
                   </div>
                   <div>
-                    <FieldLabel>Correo electrónico</FieldLabel>
-                    <Input
-                      type="email"
-                      value={form.correo}
-                      onChange={(e) => update("correo", e.target.value)}
-                    />
+                    <FieldLabel required>Correo electrónico</FieldLabel>
+                    <Input type="email" value={form.correo} onChange={(e) => update("correo", e.target.value)} />
                     <ErrorText text={errors.correo} />
                   </div>
                 </div>
 
+                <FormDivider label="Emergencia" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
                     <FieldLabel required>Avisar a</FieldLabel>
-                    <Input
-                      value={form.contactoNombre}
-                      onChange={(e) => update("contactoNombre", e.target.value)}
-                    />
+                    <Input value={form.contactoNombre} onChange={(e) => update("contactoNombre", e.target.value)} />
                     <ErrorText text={errors.contactoNombre} />
                   </div>
                   <div>
                     <FieldLabel required>Teléfono de aviso</FieldLabel>
-                    <Input
-                      value={form.contactoTelefono}
-                      onChange={(e) => update("contactoTelefono", e.target.value)}
-                    />
+                    <Input value={form.contactoTelefono} onChange={(e) => update("contactoTelefono", e.target.value)} />
                   </div>
                   <div>
                     <FieldLabel required>Relación</FieldLabel>
-                    <Input
-                      value={form.contactoRelacion}
-                      onChange={(e) => update("contactoRelacion", e.target.value)}
-                    />
+                    <Input value={form.contactoRelacion} onChange={(e) => update("contactoRelacion", e.target.value)} />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <FieldLabel>Vigencia desde</FieldLabel>
-                    <Input
-                      type="date"
-                      value={form.vigenciaDesde}
-                      onChange={(e) => update("vigenciaDesde", e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Vigencia hasta</FieldLabel>
-                    <Input
-                      type="date"
-                      value={form.vigenciaHasta}
-                      onChange={(e) => update("vigenciaHasta", e.target.value)}
-                    />
-                  </div>
-                </div>
-
+                <FormDivider label="Foto" />
                 <div className="space-y-2">
-                  <FieldLabel>Foto</FieldLabel>
                   <Input type="file" accept="image/*" onChange={handlePhotoChange} />
                   {form.fotoUrl ? (
-                    <img
-                      src={form.fotoUrl}
-                      alt="Vista previa"
-                      className="h-28 w-28 rounded-xl border border-slate-200 object-cover"
-                    />
+                    <img src={form.fotoUrl} alt="Vista previa" className="h-28 w-28 rounded-xl border border-slate-200 object-cover" />
                   ) : null}
                 </div>
               </>
@@ -617,67 +597,60 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
 
             {activeTab === "Historial" && (
               <>
+                <FormDivider label="Nacimiento" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Lugar de nacimiento</FieldLabel>
-                    <Input
-                      value={form.lugarNacimiento}
-                      onChange={(e) => update("lugarNacimiento", e.target.value)}
-                    />
+                    <FieldLabel required>Lugar de nacimiento</FieldLabel>
+                    <Input value={form.lugarNacimiento} onChange={(e) => update("lugarNacimiento", e.target.value)} />
+                    <ErrorText text={errors.lugarNacimiento} />
                   </div>
                   <div>
-                    <FieldLabel>Hospital</FieldLabel>
+                    <FieldLabel required>Hospital</FieldLabel>
                     <Input value={form.hospital} onChange={(e) => update("hospital", e.target.value)} />
+                    <ErrorText text={errors.hospital} />
                   </div>
                 </div>
 
+                <FormDivider label="Padecimiento" />
                 <div>
-                  <FieldLabel>Padecimiento</FieldLabel>
-                  <PadecimientoSelector
-                    value={form.padecimiento}
-                    onChange={(v) => update("padecimiento", v)}
-                  />
+                  <FieldLabel required>Padecimiento</FieldLabel>
+                  <PadecimientoSelector value={form.padecimiento} onChange={(v) => update("padecimiento", v)} />
+                  <ErrorText text={errors.padecimiento} />
                 </div>
 
+                <FormDivider label="Estado de salud" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Tipo de sangre</FieldLabel>
+                    <FieldLabel required>Tipo de sangre</FieldLabel>
                     <Select value={form.tipoSangre} onChange={(e) => update("tipoSangre", e.target.value)}>
                       <option value="">— Selecciona —</option>
                       {TIPOS_SANGRE.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </Select>
+                    <ErrorText text={errors.tipoSangre} />
                   </div>
                   <div>
                     <FieldLabel>¿Válvula?</FieldLabel>
-                    <Select
-                      value={form.valvula}
-                      onChange={(e) => update("valvula", e.target.value as "si" | "no")}
-                    >
+                    <Select value={form.valvula} onChange={(e) => update("valvula", e.target.value as "si" | "no")}>
                       <option value="si">Sí</option>
                       <option value="no">No</option>
                     </Select>
                   </div>
                   <div>
                     <FieldLabel>Control urológico</FieldLabel>
-                    <Select
-                      value={form.controlUrologico}
-                      onChange={(e) => update("controlUrologico", e.target.value as "si" | "no")}
-                    >
+                    <Select value={form.controlUrologico} onChange={(e) => update("controlUrologico", e.target.value as "si" | "no")}>
                       <option value="si">Sí</option>
                       <option value="no">No</option>
                     </Select>
                   </div>
                   <div>
                     <FieldLabel>Lugar control urológico</FieldLabel>
-                    <Input
-                      value={form.lugarControlUrologico}
-                      onChange={(e) => update("lugarControlUrologico", e.target.value)}
-                    />
+                    <Input value={form.lugarControlUrologico} onChange={(e) => update("lugarControlUrologico", e.target.value)} />
                   </div>
                 </div>
 
+                <FormDivider label="Últimos estudios" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <FieldLabel>Gral. orina</FieldLabel>
@@ -718,7 +691,7 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
             {activeTab === "Historial padres" && (
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 <div className="space-y-4">
-                  <p className="text-sm font-semibold text-slate-700">Historial madre</p>
+                  <FormDivider label="Historial madre" />
                   <div>
                     <FieldLabel>Lugar nacimiento</FieldLabel>
                     <Input value={form.madreLugarNacimiento} onChange={(e) => update("madreLugarNacimiento", e.target.value)} />
@@ -760,7 +733,7 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-sm font-semibold text-slate-700">Historial padre</p>
+                  <FormDivider label="Historial padre" />
                   <div>
                     <FieldLabel>Lugar nacimiento</FieldLabel>
                     <Input value={form.padreLugarNacimiento} onChange={(e) => update("padreLugarNacimiento", e.target.value)} />
@@ -787,7 +760,7 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-sm font-semibold text-slate-700">Historial ambos</p>
+                  <FormDivider label="Historial ambos" />
                   <div>
                     <FieldLabel>¿Parentesco entre la pareja?</FieldLabel>
                     <Select

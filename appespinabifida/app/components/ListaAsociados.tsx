@@ -131,6 +131,7 @@ export default function ListaAsociados({ onUpdateAsociado, filtros }: ListaAsoci
           onNext={selectedIndex < items.length - 1 ? () => setSelectedIndex(selectedIndex + 1) : undefined}
           onSave={(next) => {
             if (selectedIndex === null) return;
+            setItems((prev) => prev.map((item, i) => i === selectedIndex ? next : item));
             onUpdateAsociado?.(selectedIndex, next);
           }}
         />

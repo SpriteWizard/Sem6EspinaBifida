@@ -90,6 +90,31 @@ function ConfirmModal({
   );
 }
 
+function ErrorModal({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-md rounded-[20px] bg-[#003C64] px-7 py-8 text-center shadow-[0_20px_45px_rgba(18,45,76,0.4)]">
+        <div className="mb-4 flex justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/20">
+            <svg className="h-7 w-7 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+        </div>
+        <h2 className="mb-2 text-xl font-semibold text-white">No se pudo enviar</h2>
+        <p className="mb-6 text-sm text-white/70 leading-relaxed">{message}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-[10px] bg-white px-6 py-2 text-sm font-semibold text-[#003C64] hover:bg-white/90 transition-colors"
+        >
+          Entendido
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SuccessModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -133,6 +158,7 @@ export function PreregistroRegistroForm({
   const [sending, setSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function set<K extends keyof PreregistroRegistroPayload>(key: K, v: PreregistroRegistroPayload[K]) {
     setValues((prev) => ({ ...prev, [key]: v }));
@@ -164,6 +190,15 @@ export function PreregistroRegistroForm({
       e.curp = "El CURP debe tener 18 caracteres";
     }
 
+    const phoneRegex = /^[0-9\s+\-()+]+$/;
+    if (values.telefono.trim() && !phoneRegex.test(values.telefono.trim())) {
+      e.telefono = "Solo dígitos, espacios, + y guiones";
+    }
+
+    if (values.direccionCp.trim() && !/^\d{5}$/.test(values.direccionCp.trim())) {
+      e.direccionCp = "El CP debe tener exactamente 5 dígitos";
+    }
+
     // Padre/Madre (obligatorio)
     req("padresMadresNombre", "El nombre del padre/madre o tutor");
     req("padresMadresApellidoPaterno", "El apellido paterno del padre/madre o tutor");
@@ -173,6 +208,10 @@ export function PreregistroRegistroForm({
     req("contactoEmergenciaNombre", "El nombre del contacto de emergencia");
     req("contactoEmergenciaTelefono", "El teléfono del contacto de emergencia");
     req("contactoEmergenciaRelacion", "La relación del contacto de emergencia");
+
+    if (values.contactoEmergenciaTelefono.trim() && !phoneRegex.test(values.contactoEmergenciaTelefono.trim())) {
+      e.contactoEmergenciaTelefono = "Solo dígitos, espacios, + y guiones";
+    }
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -217,7 +256,7 @@ export function PreregistroRegistroForm({
       setShowSuccess(true);
     } catch (err) {
       setShowConfirm(false);
-      console.error("[preregistro] Error al enviar:", err);
+      setSubmitError(err instanceof Error ? err.message : "No se pudo enviar el preregistro. Intenta de nuevo.");
     } finally {
       setSending(false);
     }
@@ -240,6 +279,7 @@ export function PreregistroRegistroForm({
         />
       )}
       {showSuccess && <SuccessModal onClose={handleSuccessClose} />}
+      {submitError && <ErrorModal message={submitError} onClose={() => setSubmitError(null)} />}
 
       <main className="min-h-screen w-full px-4 py-8 sm:px-8">
         <section className="mx-auto w-full max-w-5xl rounded-[20px] bg-slate-600 px-6 py-7 text-[#ECEDEF] shadow-[0_20px_45px_rgba(18,45,76,0.26)] sm:px-10 sm:py-9">
@@ -356,8 +396,9 @@ export function PreregistroRegistroForm({
                     type="tel"
                     className={inputClass}
                     value={values.telefono}
-                    onChange={(e) => set("telefono", e.target.value)}
+                    onChange={(e) => set("telefono", e.target.value.replace(/[^\d\s+\-()]/g, ""))}
                     autoComplete="tel"
+                    maxLength={15}
                     placeholder="Ej. 55 1234 5678"
                   />
                   <FieldError message={errors.telefono} />
@@ -443,7 +484,8 @@ export function PreregistroRegistroForm({
                     type="tel"
                     className={inputClass}
                     value={values.contactoEmergenciaTelefono}
-                    onChange={(e) => set("contactoEmergenciaTelefono", e.target.value)}
+                    onChange={(e) => set("contactoEmergenciaTelefono", e.target.value.replace(/[^\d\s+\-()]/g, ""))}
+                    maxLength={15}
                     placeholder="Ej. 55 1234 5678"
                   />
                   <FieldError message={errors.contactoEmergenciaTelefono} />
@@ -510,9 +552,12 @@ export function PreregistroRegistroForm({
                     id="pr-dir-cp"
                     className={inputClass}
                     value={values.direccionCp}
-                    onChange={(e) => set("direccionCp", e.target.value)}
+                    onChange={(e) => set("direccionCp", e.target.value.replace(/\D/g, ""))}
+                    maxLength={5}
+                    inputMode="numeric"
                     placeholder="CP"
                   />
+                  <FieldError message={errors.direccionCp} />
                 </div>
               </div>
             </div>
@@ -554,6 +599,7 @@ export function PreregistroRegistroForm({
                         value="Sí"
                         checked={values.valvula === "Sí"}
                         onChange={() => set("valvula", "Sí")}
+                        onClick={() => values.valvula === "Sí" && set("valvula", "")}
                         className="accent-[#BFD3EA] h-4 w-4"
                       />
                       Sí
@@ -565,6 +611,7 @@ export function PreregistroRegistroForm({
                         value="No"
                         checked={values.valvula === "No"}
                         onChange={() => set("valvula", "No")}
+                        onClick={() => values.valvula === "No" && set("valvula", "")}
                         className="accent-[#BFD3EA] h-4 w-4"
                       />
                       No

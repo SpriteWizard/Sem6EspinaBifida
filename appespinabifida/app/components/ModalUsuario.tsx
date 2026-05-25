@@ -159,19 +159,19 @@ export default function ModalUsuario({ open, usuario, onClose }: ModalUsuarioPro
 
           <div>
             <p className="text-xs uppercase text-slate-500">Fecha de alta</p>
-            <p className="text-sm font-medium text-slate-900">{usuario.fechaalta}</p>
+            <p className="text-sm font-medium text-slate-900">{usuario.fechaalta ? String(usuario.fechaalta).split("T")[0] : "—"}</p>
           </div>
 
           {usuario.fecha_desactivado != null && (
             <div>
               <p className="text-xs uppercase text-slate-500">Fecha de desactivación</p>
-              <p className="text-sm font-medium text-slate-900">{usuario.fecha_desactivado}</p>
+              <p className="text-sm font-medium text-slate-900">{String(usuario.fecha_desactivado).split("T")[0]}</p>
             </div>
           )}
 
           <div>
             <p className="text-xs uppercase text-slate-500">Último acceso</p>
-            <p className="text-sm font-medium text-slate-900">{usuario.ultimoacceso}</p>
+            <p className="text-sm font-medium text-slate-900">{usuario.ultimoacceso ? String(usuario.ultimoacceso).split("T")[0] : "—"}</p>
           </div>
 
           <div className="sm:col-span-2">

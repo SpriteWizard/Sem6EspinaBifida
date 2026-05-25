@@ -243,9 +243,16 @@ export async function POST(request: Request){
         },
         body: JSON.stringify(data),
     });
+
     if (res.ok){
-        return Response.json({status: "ok"})
+        return Response.json({ status: "ok" });
     }
 
-    return Response.json({status: "fail"});
+    const errorText = await res.text();
+    console.error("Oracle editarAsociado error:", res.status, errorText);
+    const isDuplicateCurp = errorText.includes("ORA-00001") || errorText.includes("UQ_ASOCIADO_CURP_ACTIVO");
+    if (isDuplicateCurp) {
+        return Response.json({ status: "fail", reason: "curp_duplicado" }, { status: 409 });
+    }
+    return Response.json({ status: "fail", reason: "error_oracle" }, { status: 500 });
 }

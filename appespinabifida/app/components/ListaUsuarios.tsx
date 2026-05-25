@@ -86,8 +86,8 @@ export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProp
       <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[getStatusLabel(row.estatus) as Estatus]}`}>
         {getStatusLabel(row.estatus)}
       </span>,
-      row.fechaalta ?? "",
-      row.ultimoacceso ?? "",
+      row.fechaalta ? String(row.fechaalta).split("T")[0] : "—",
+      row.ultimoacceso ? String(row.ultimoacceso).split("T")[0] : "—",
     ],
   }));
 
