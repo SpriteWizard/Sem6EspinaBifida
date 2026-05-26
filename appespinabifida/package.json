@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@highcharts/map-collection": "^2.3.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
@@ -20,7 +21,11 @@
     "oracledb": "^6.10.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.5.0"
+    "react-simple-maps": "^3.0.0",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.5.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -28,6 +33,7 @@
     "@types/oracledb": "^6.10.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-simple-maps": "^3.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
