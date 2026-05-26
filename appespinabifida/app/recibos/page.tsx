@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
 import  Link from "next/link";
 import type { Session } from "next-auth";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
 	Plus,
 	Search,
@@ -1936,10 +1936,6 @@ export default function RecibosPage() {
 	const debouncedId = useDebouncedValue(filterId, 300);
 	const debouncedNombre = useDebouncedValue(filterNombre, 300);
 
-	const searchParams = useSearchParams();
-
-	const redirectRecibo = searchParams.get("recibo");
-
 	useEffect(() => {
 		getSession().then((session) => {
 			setSessionLoaded(session);
@@ -1958,6 +1954,11 @@ export default function RecibosPage() {
 	const consumedRef = useRef(false);
 
 	useEffect(() => {
+
+		const params = new URLSearchParams(window.location.search);
+
+		const redirectRecibo = params.get("recibo");
+
 		if (consumedRef.current) return;
 		if (!redirectRecibo) return;
 		if (!recibos.length) return;
@@ -1975,7 +1976,7 @@ export default function RecibosPage() {
 				router.replace("/recibos");
 			}, 1);
 		}
-	}, [recibos, searchParams]);
+	}, [recibos]);
 
 
 	useEffect(() => {
