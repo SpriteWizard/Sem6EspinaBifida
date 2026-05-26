@@ -419,3 +419,13 @@ inner join ASOCIADO a
 commit;
 
 select * from recibo;
+
+create or replace trigger actualizarPrecioRecibo
+before update
+on consultas
+for each ROW
+begin
+  if :old is null then
+    update recibo set total = total + :new.contribucion where id_recibo = :new.id_recibo;
+  end if;
+end;

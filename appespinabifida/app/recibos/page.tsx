@@ -664,7 +664,7 @@ function ReciboDetailModal({
 	
 		const productos = JSON.parse(JSON.stringify(recibo?.productos ?? []));
 		const consultaItems = productos.map((p: any) => {
-			if (p.itemName.includes("Consulta")){
+			if (p.tipo.includes("Consulta")){
 				return p;
 			}
 			else{
@@ -673,13 +673,14 @@ function ReciboDetailModal({
 		}).filter((v: any): v is any => !!v);
 		setConsultaItems(consultaItems);
 		const estudioItems = productos.map((p: any) => {
-			if (p.itemName.includes("Estudio")){
+			if (p.tipo.includes("Estudio")){
 				return p;
 			}
 			else{
 				return null;
 			}
 		}).filter((v: any): v is any => !!v);
+		console.log(estudioItems);
 		setEstudioItems(estudioItems);
 
 		setServiciosLoading(true);
