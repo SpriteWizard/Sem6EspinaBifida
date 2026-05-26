@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 
 export default function Login({error}: any) {
 	const { data: session, status } = useSession();
 	const router = useRouter();
+	const [showPassword, setShowPassword] = useState(false);
 
 	useEffect(() => {
 		if (session?.user) {
@@ -114,11 +115,50 @@ export default function Login({error}: any) {
 							<input
 								name="password"
 								id="contrasena"
-								type="password"
+								type={showPassword ? "text" : "password"}
 								placeholder="Ingresa tu contraseña"
 								className="h-full w-full bg-transparent text-base text-[#2B2B2B] placeholder:text-gray-400 focus:outline-none"
 								autoComplete="current-password"
 							/>
+							<button
+								type="button"
+								onClick={() => setShowPassword((prev) => !prev)}
+								aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+								aria-pressed={showPassword}
+								className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:text-[#003C64] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003C64]"
+							>
+								{showPassword ? (
+									<svg
+										aria-hidden="true"
+										viewBox="0 0 24 24"
+										className="h-5 w-5"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.2 21.2 0 0 1 5.06-5.94" />
+										<path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.2 21.2 0 0 1-3.17 4.19" />
+										<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+										<line x1="1" y1="1" x2="23" y2="23" />
+									</svg>
+								) : (
+									<svg
+										aria-hidden="true"
+										viewBox="0 0 24 24"
+										className="h-5 w-5"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+										<circle cx="12" cy="12" r="3" />
+									</svg>
+								)}
+							</button>
 						</div>
 					</div>
 
