@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import ListItemEstudio from "@/components/ListItemEstudio";
 import { ESTATUS_CLASSES, EstatusBadge, parseFechaHora } from "@/lib/servicios-utils";
 import SolicitarEstudioButton from "@/components/SolicitarEstudioButton";
+import {redirect} from "next/navigation"
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -164,14 +165,11 @@ export default async function DetalleConsultaPage({
           Recibo vinculado
         </h2>
         <div className="flex items-center justify-between">
+          <Link href = {`${process.env.NEXTAUTH_URL}/recibos?recibo=${data.id_recibo}`}>
           <span className="text-sm italic text-slate-400">
-            Sin recibo vinculado aún.
+            REC-{data.id_recibo}
           </span>
-          {/* Vincular recibo - comentado temporalmente
-          <button className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-700 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-slate-600 h-9">
-            Vincular recibo
-          </button>
-          */}
+          </Link>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
 import  Link from "next/link";
 import type { Session } from "next-auth";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
 	Plus,
 	Search,
@@ -815,7 +816,6 @@ function ReciboDetailModal({
 							) : (
 								<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
 									{estudioItems.map((item: any) => {
-										console.log("Estudio item:", item);
 										if (item === undefined || item === null || typeof item !== "object") {
 											return null;
 										}
@@ -1915,6 +1915,7 @@ function NuevoReciboModal({
 }
 
 export default function RecibosPage() {
+	const router = useRouter();
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
 	const [loading, setLoading] = useState(true);
 
@@ -1935,6 +1936,10 @@ export default function RecibosPage() {
 	const debouncedId = useDebouncedValue(filterId, 300);
 	const debouncedNombre = useDebouncedValue(filterNombre, 300);
 
+	const searchParams = useSearchParams();
+
+	const redirectRecibo = searchParams.get("recibo");
+
 	useEffect(() => {
 		getSession().then((session) => {
 			setSessionLoaded(session);
@@ -1949,6 +1954,29 @@ export default function RecibosPage() {
 			.catch(() => { if (alive) setRecibosError("Error al cargar recibos."); });
 		return () => { alive = false; };
 	}, []);
+
+	const consumedRef = useRef(false);
+
+	useEffect(() => {
+		if (consumedRef.current) return;
+		if (!redirectRecibo) return;
+		if (!recibos.length) return;
+
+		const selectedRecibo = recibos.find(
+			(r) => r.id === Number(redirectRecibo)
+		);
+
+		if (selectedRecibo) {
+			consumedRef.current = true;
+
+			setReciboDetalle(selectedRecibo);
+
+			setTimeout(() => {
+				router.replace("/recibos");
+			}, 1);
+		}
+	}, [recibos, searchParams]);
+
 
 	useEffect(() => {
 		async function getPagos(){
