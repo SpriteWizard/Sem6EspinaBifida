@@ -924,6 +924,7 @@ type nuevoRecibo = {
   "tipo_zona": string,
   "tipo_cuota": string,
   "total": number,
+	"descuento": number,
   "total_pagado": number,
   "estatus": string,
   "nota": string
@@ -936,6 +937,7 @@ const nuevoReciboDefault: nuevoRecibo = {
   tipo_zona: "",
   tipo_cuota: "",
   total: 0,
+	descuento: 0,
   total_pagado: 0,
   estatus: "",
   nota: ""
@@ -1272,6 +1274,7 @@ function NuevoReciboModal({
 			tipo_zona: "urbano",
 			tipo_cuota: exento ? "exento" : "cuota",
 			total: totalFinal,
+			descuento: descuentoPct,
 			total_pagado: 0,
 			estatus: "no_pagado",
 			nota: "",
