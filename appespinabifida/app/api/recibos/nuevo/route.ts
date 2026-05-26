@@ -1,5 +1,17 @@
+const TIPOS_ZONA_VALIDOS = new Set(["urbano", "rural"]);
+
 export async function POST(req: Request){
     const data = await req.json();
+
+    if (!TIPOS_ZONA_VALIDOS.has(data?.tipo_zona)) {
+        return Response.json(
+            {
+                status: "Failed",
+                message: "Selecciona una zona valida para el recibo.",
+            },
+            { status: 400 },
+        );
+    }
 
     const res = await fetch ("https://g53bc679c5acb2c-espinabd.adb.mx-queretaro-1.oraclecloudapps.com/ords/admin/recibos/nuevoRecibo", {
         method: "POST",

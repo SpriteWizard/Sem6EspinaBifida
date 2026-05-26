@@ -39,6 +39,7 @@ type Estatus = "Pagado" | "Pagado parcialmente" | "Pendiente";
 type MetodoPago = "efectivo" | "tarjeta" | "deposito" | "transferencia";
 type TipoPaciente = "A" | "B";
 type TipoServicio = "Consulta" | "Estudio";
+type TipoZona = "urbano" | "rural";
 
 interface ReciboProducto {
 	itemId: number | null;
@@ -951,7 +952,7 @@ type nuevoRecibo = {
   "id_asociado": number,
   "id_usuario": number,
   "fecha_limite": string,
-  "tipo_zona": string,
+  "tipo_zona": TipoZona | "",
   "tipo_cuota": string,
   "total": number,
 	"descuento": number,
@@ -1023,6 +1024,7 @@ function NuevoReciboModal({
 
 	// Other state
 	const [fechaLimite, setFechaLimite] = useState("");
+	const [tipoZona, setTipoZona] = useState<TipoZona | "">("");
 	const [exento, setExento] = useState(false);
 	const [descuentoPct, setDescuentoPct] = useState(0);
 	const [creating, setCreating] = useState(false);
@@ -1158,6 +1160,7 @@ function NuevoReciboModal({
 		setSearchResults([]);
 		setShowDropdown(false);
 		setFechaLimite("");
+		setTipoZona("");
 		setExento(false);
 		setDescuentoPct(0);
 		setCreating(false);
@@ -1265,6 +1268,10 @@ function NuevoReciboModal({
 
 	async function handleCrear() {
 		if (!asociadoSeleccionado || !fechaLimite) return;
+		if (!tipoZona) {
+			alert("Selecciona si el recibo es urbano o rural.");
+			return;
+		}
 		setCreating(true);
 		setMovementSubmitError(null);
 
@@ -1301,7 +1308,7 @@ function NuevoReciboModal({
 			id_asociado: asociadoId ?? 0,
 			id_usuario: Number((session?.user as any).id ?? 0),
 			fecha_limite: fechaLimite,
-			tipo_zona: "urbano",
+			tipo_zona: tipoZona,
 			tipo_cuota: exento ? "exento" : "cuota",
 			total: totalFinal,
 			descuento: descuentoPct,
@@ -1377,7 +1384,6 @@ function NuevoReciboModal({
 
 		const serviciosData = await resServicios.json().catch(() => null);
 		if (resServicios.ok && serviciosData?.message === "Success"){
-			alert("Servicios agregados exitosamente");
 			setListaNuevaConsulta([]);
 			setListaNuevoEstudio([]);
 		} else {
@@ -1718,25 +1724,39 @@ function NuevoReciboModal({
 				</div>
 
 				{/* ── Urbano / Rural ── */}
-				<div className="flex gap-5 px-1">
-					<label className="flex cursor-pointer select-none items-center gap-2">
-						<input
-							type="radio"
-							name="zona"
-							value="urbano"
-							className="h-4 w-4 border-slate-300 accent-slate-600"
-						/>
-						<span className="text-sm text-slate-700">Urbano</span>
-					</label>
-					<label className="flex cursor-pointer select-none items-center gap-2">
-						<input
-							type="radio"
-							name="zona"
-							value="rural"
-							className="h-4 w-4 border-slate-300 accent-slate-600"
-						/>
-						<span className="text-sm text-slate-700">Rural</span>
-					</label>
+				<div className="space-y-2 px-1">
+					<p id="tipo-zona-label" className="text-xs font-medium text-slate-600">
+						Zona
+					</p>
+					<div
+						role="radiogroup"
+						aria-labelledby="tipo-zona-label"
+						aria-required="true"
+						className="flex gap-5"
+					>
+						<label className="flex cursor-pointer select-none items-center gap-2">
+							<input
+								type="radio"
+								name="zona"
+								value="urbano"
+								checked={tipoZona === "urbano"}
+								onChange={() => setTipoZona("urbano")}
+								className="h-4 w-4 border-slate-300 accent-slate-600"
+							/>
+							<span className="text-sm text-slate-700">Urbano</span>
+						</label>
+						<label className="flex cursor-pointer select-none items-center gap-2">
+							<input
+								type="radio"
+								name="zona"
+								value="rural"
+								checked={tipoZona === "rural"}
+								onChange={() => setTipoZona("rural")}
+								className="h-4 w-4 border-slate-300 accent-slate-600"
+							/>
+							<span className="text-sm text-slate-700">Rural</span>
+						</label>
+					</div>
 				</div>
 
 				{/* ── Fecha Límite ── */}
@@ -1960,6 +1980,7 @@ function NuevoReciboModal({
 				onClose={() => setMovementModalOpen(false)}
 				itemTypes={movementItemTypes}
 				submitMode="draft"
+				fixedMovementType="out"
 				onDraft={handleMovementDraft}
 			/>
 		<NuevaConsultaModal

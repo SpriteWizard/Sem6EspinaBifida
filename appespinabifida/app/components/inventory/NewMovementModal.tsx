@@ -55,6 +55,7 @@ type Props = {
   submitMode?: 'create' | 'draft'
   initial?: InventoryMovement | null
   viewOnly?: boolean
+  fixedMovementType?: MovementType
 }
 
 function todayISO() {
@@ -82,6 +83,7 @@ export function NewMovementModal({
   submitMode,
   initial,
   viewOnly,
+  fixedMovementType,
 }: Props) {
   const resolvedSubmitMode = submitMode ?? 'create'
   const [movementType, setMovementType] = useState<MovementType>('in')
@@ -125,7 +127,7 @@ export function NewMovementModal({
     setStockHelpOpen(false)
 
     if (initial) {
-      setMovementType(initial.movementType)
+      setMovementType(fixedMovementType ?? initial.movementType)
       setItemType(initial.itemType)
       setSelectedItemId(initial.itemId)
       setItemName(initial.itemName)
@@ -148,7 +150,7 @@ export function NewMovementModal({
     setComodatoAQuien('')
     setComodatoTiempo('')
     setComodatoCondiciones('')
-    setMovementType('in')
+    setMovementType(fixedMovementType ?? 'in')
     setItemType('')
     setSelectedItemId(null)
     setSelectedItem(null)
@@ -218,6 +220,13 @@ export function NewMovementModal({
       setComodatoCondiciones('')
     }
   }, [movementType, open])
+
+  useEffect(() => {
+    if (!open) return
+    if (fixedMovementType) {
+      setMovementType(fixedMovementType)
+    }
+  }, [fixedMovementType, open])
 
   function handleEsComodatoCheckedChange(next: boolean) {
     if (next) {
@@ -732,18 +741,24 @@ export function NewMovementModal({
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Tipo de movimiento
                 </label>
-                <Select
-                  disabled={viewOnly}
-                  value={movementType}
-                  onChange={(e) => {
-                    setMovementType(e.target.value as MovementType)
-                    setErrors((prev) => ({ ...prev, movementType: undefined }))
-                  }}
-                  aria-invalid={Boolean(errors.movementType)}
-                >
-                  <option value="in">Entrada</option>
-                  <option value="out">Salida</option>
-                </Select>
+                {fixedMovementType ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    {fixedMovementType === 'out' ? 'Salida' : 'Entrada'}
+                  </div>
+                ) : (
+                  <Select
+                    disabled={viewOnly}
+                    value={movementType}
+                    onChange={(e) => {
+                      setMovementType(e.target.value as MovementType)
+                      setErrors((prev) => ({ ...prev, movementType: undefined }))
+                    }}
+                    aria-invalid={Boolean(errors.movementType)}
+                  >
+                    <option value="in">Entrada</option>
+                    <option value="out">Salida</option>
+                  </Select>
+                )}
                 {errors.movementType ? (
                   <p className="mt-1 text-sm text-rose-700">{errors.movementType}</p>
                 ) : null}
