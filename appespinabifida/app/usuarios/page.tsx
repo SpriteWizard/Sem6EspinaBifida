@@ -11,6 +11,9 @@ import ListaUsuarios from "../components/ListaUsuarios";
 import FiltrosMedicos, { type FiltrosMedicosValues } from "../components/FiltrosMedicos";
 import ListaMedicos from "../components/ListaMedicos";
 import CreateMedicoModal from "../components/CreateMedicoModal";
+import FiltrosLaboratorios, { type FiltrosLaboratoriosValues } from "../components/FiltrosLaboratorios";
+import ListaLaboratorios from "../components/ListaLaboratorios";
+import CreateLaboratorioModal from "../components/CreateLaboratorioModal";
 
 type Tab = "usuarios" | "medicos" | "laboratorios";
 
@@ -47,6 +50,15 @@ export default function UsuariosPage() {
   const [createMedicoOpen, setCreateMedicoOpen] = useState(false);
   const [refreshMedicoKey, setRefreshMedicoKey] = useState(0);
 
+  // Estado tab Laboratorios
+  const [filtrosLaboratorios, setFiltrosLaboratorios] = useState<FiltrosLaboratoriosValues>({
+    id: null,
+    nombre: "",
+    estatus: "Activo",
+  });
+  const [createLaboratorioOpen, setCreateLaboratorioOpen] = useState(false);
+  const [refreshLaboratorioKey, setRefreshLaboratorioKey] = useState(0);
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "usuarios", label: "Usuarios" },
     { key: "medicos", label: "Médicos" },
@@ -56,7 +68,7 @@ export default function UsuariosPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-4xl font-semibold tracking-tight text-slate-800">
-        Empleados
+        Gestión
       </h1>
 
       <div className="flex items-center justify-between">
@@ -93,6 +105,15 @@ export default function UsuariosPage() {
             Registrar médico
           </Button>
         )}
+
+        {activeTab === "laboratorios" && canCreate && (
+          <Button
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => setCreateLaboratorioOpen(true)}
+          >
+            Registrar laboratorio
+          </Button>
+        )}
       </div>
 
       {activeTab === "usuarios" && (
@@ -126,9 +147,18 @@ export default function UsuariosPage() {
       )}
 
       {activeTab === "laboratorios" && (
-        <div className="flex h-64 items-center justify-center rounded-xl border-2 border-dashed border-slate-200">
-          <p className="text-slate-400">Lista de laboratorios — próximamente</p>
-        </div>
+        <>
+          <FiltrosLaboratorios sendFilters={setFiltrosLaboratorios} />
+          <ListaLaboratorios filtros={filtrosLaboratorios} refreshKey={refreshLaboratorioKey} />
+          <CreateLaboratorioModal
+            open={createLaboratorioOpen}
+            onClose={() => setCreateLaboratorioOpen(false)}
+            onSuccess={() => {
+              setCreateLaboratorioOpen(false);
+              setRefreshLaboratorioKey((prev) => prev + 1);
+            }}
+          />
+        </>
       )}
     </div>
   );
