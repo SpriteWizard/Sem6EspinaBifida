@@ -141,13 +141,43 @@ function aplicarDescuento(bruto: number, pct: number): number {
 
 // ─── Data layer ───────────────────────────────────────────────────────────────
 
-async function fetchRecibos(): Promise<Recibo[]> {
-	const res = await fetch("/api/recibos/obtener");
+type RecibosQuery = {
+	cursor: string | null;
+	limit: number;
+	filters: {
+		id: string;
+		nombre: string;
+		fecha: string;
+		estatus: string;
+	};
+};
+
+type RecibosPageResult = {
+	items: Recibo[];
+	nextCursor: string | null;
+};
+
+async function fetchRecibos({ cursor, limit, filters }: RecibosQuery): Promise<RecibosPageResult> {
+	const params = new URLSearchParams();
+	if (cursor) params.set("cursor", cursor);
+	params.set("limit", String(limit));
+	if (filters.id) params.set("id", filters.id);
+	if (filters.nombre) params.set("nombre", filters.nombre);
+	if (filters.fecha) params.set("fecha", filters.fecha);
+	if (filters.estatus) params.set("estatus", filters.estatus);
+
+	const res = await fetch(`/api/recibos/obtener?${params.toString()}`);
 	if (res.ok){
 		const data = await res.json();
-		return data;
+		if (Array.isArray(data)) {
+			return { items: data, nextCursor: null };
+		}
+		return {
+			items: Array.isArray(data?.items) ? data.items : [],
+			nextCursor: data?.nextCursor ?? null,
+		};
 	}
-	return [];
+	return { items: [], nextCursor: null };
 }
 
 async function fetchAsociados(): Promise<AsociadoMini[]> {
@@ -1960,8 +1990,12 @@ export default function RecibosPage() {
 	const router = useRouter();
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
 	const [loading, setLoading] = useState(true);
+	const RECIBOS_PAGE_SIZE = 5;
 
 	const [recibos, setRecibos] = useState<Recibo[]>([]);
+	const [recibosNextCursor, setRecibosNextCursor] = useState<string | null>(null);
+	const [recibosLoading, setRecibosLoading] = useState(true);
+	const [recibosLoadingMore, setRecibosLoadingMore] = useState(false);
 	const [recibosError, setRecibosError] = useState<string | null>(null);
 	const [pagos, setPagos] = useState<Pago[]>(PAGOS_INICIALES);
 
@@ -1977,6 +2011,10 @@ export default function RecibosPage() {
 
 	const debouncedId = useDebouncedValue(filterId, 300);
 	const debouncedNombre = useDebouncedValue(filterNombre, 300);
+	const recibosQueryKey = useMemo(
+		() => `${debouncedId}__${debouncedNombre}__${filterFecha}__${filterEstatus}`,
+		[debouncedId, debouncedNombre, filterFecha, filterEstatus],
+	);
 
 	useEffect(() => {
 		getSession().then((session) => {
@@ -1987,11 +2025,32 @@ export default function RecibosPage() {
 
 	useEffect(() => {
 		let alive = true;
-		fetchRecibos()
-			.then((data) => { if (alive) setRecibos(data); })
-			.catch(() => { if (alive) setRecibosError("Error al cargar recibos."); });
+		setRecibosLoading(true);
+		setRecibosError(null);
+		fetchRecibos({
+			cursor: null,
+			limit: RECIBOS_PAGE_SIZE,
+			filters: {
+				id: debouncedId,
+				nombre: debouncedNombre,
+				fecha: filterFecha,
+				estatus: filterEstatus,
+			},
+		})
+			.then((data) => {
+				if (!alive) return;
+				setRecibos(data.items);
+				setRecibosNextCursor(data.nextCursor);
+			})
+			.catch(() => {
+				if (alive) setRecibosError("Error al cargar recibos.");
+			})
+			.finally(() => {
+				if (!alive) return;
+				setRecibosLoading(false);
+			});
 		return () => { alive = false; };
-	}, []);
+	}, [recibosQueryKey, debouncedId, debouncedNombre, filterFecha, filterEstatus]);
 
 	const consumedRef = useRef(false);
 
@@ -2037,6 +2096,29 @@ export default function RecibosPage() {
 		}
 		getPagos();
 	}, [])
+
+	async function onLoadMoreRecibos() {
+		if (!recibosNextCursor) return;
+		setRecibosLoadingMore(true);
+		try {
+			const data = await fetchRecibos({
+				cursor: recibosNextCursor,
+				limit: RECIBOS_PAGE_SIZE,
+				filters: {
+					id: debouncedId,
+					nombre: debouncedNombre,
+					fecha: filterFecha,
+					estatus: filterEstatus,
+				},
+			});
+			setRecibos((prev) => [...prev, ...data.items]);
+			setRecibosNextCursor(data.nextCursor);
+		} catch {
+			setRecibosError("No se pudo cargar más datos.");
+		} finally {
+			setRecibosLoadingMore(false);
+		}
+	}
 
 	async function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
 		if (!reciboActivo) return;
@@ -2097,25 +2179,7 @@ export default function RecibosPage() {
 		});
 	}
 
-	const recibosFiltrados = useMemo(
-		() =>
-			recibos.filter((r) => {
-				if (debouncedId && !String(r.id).toLowerCase().includes(debouncedId.toLowerCase()))
-					return false;
-				if (
-					debouncedNombre &&
-					!r.asociado.toLowerCase().includes(debouncedNombre.toLowerCase())
-				)
-					return false;
-				const [fechaSinTiempo,_] = r.fechaEmision.split("T");
-				if (filterFecha && fechaSinTiempo !== filterFecha) {
-					return false};
-				if (filterEstatus !== "todos" && derivarEstatus(r) !== filterEstatus)
-					return false;
-				return true;
-			}),
-		[recibos, debouncedId, debouncedNombre, filterFecha, filterEstatus],
-	);
+	const recibosFiltrados = useMemo(() => recibos, [recibos]);
 
 	if (loading) {
 		return (
@@ -2234,7 +2298,16 @@ export default function RecibosPage() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
-								{recibosError ? (
+								{recibosLoading ? (
+									<tr>
+										<td
+											colSpan={5}
+											className="px-5 py-10 text-center text-sm text-slate-400"
+										>
+											Cargando...
+										</td>
+									</tr>
+								) : recibosError ? (
 									<tr>
 										<td
 											colSpan={5}
@@ -2306,6 +2379,15 @@ export default function RecibosPage() {
 								)}
 							</tbody>
 						</table>
+					</div>
+					<div className="flex justify-center p-5">
+						<Button
+							variant="secondary"
+							onClick={onLoadMoreRecibos}
+							disabled={!recibosNextCursor || recibosLoading || recibosLoadingMore}
+						>
+							{recibosLoadingMore ? "Cargando..." : "Cargar más datos"}
+						</Button>
 					</div>
 				</div>
 			</div>

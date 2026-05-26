@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ListaTabla from "./ListaTabla";
 import ModalUsuario, { type UsuarioDetalle } from "./ModalUsuario";
+import { Button } from "./ui/Button";
 
 type Estatus = "Activo" | "Inactivo" | "Pendiente";
 
@@ -27,49 +28,57 @@ type ListaUsuariosProps = {
 };
 
 export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProps) {
+  const USUARIOS_PAGE_SIZE = 5;
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [rawData, setRawData] = useState<UsuarioDetalle[]>([]);
   const [data, setData] = useState<UsuarioDetalle[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const queryKey = useMemo(
+    () => `${refreshKey ?? 0}__${filtros.id ?? ""}__${filtros.nombre}__${filtros.fecha}__${filtros.estatus}`,
+    [refreshKey, filtros.id, filtros.nombre, filtros.fecha, filtros.estatus],
+  );
+
+  function buildParams(cursor: string | null) {
+    const params = new URLSearchParams();
+    if (cursor) params.set("cursor", cursor);
+    params.set("limit", String(USUARIOS_PAGE_SIZE));
+    if (filtros.id && filtros.id !== 0) params.set("id", String(filtros.id));
+    if (filtros.nombre) params.set("nombre", filtros.nombre);
+    if (filtros.fecha) params.set("fecha", filtros.fecha);
+    if (filtros.estatus) params.set("estatus", filtros.estatus);
+    return params;
+  }
 
   useEffect(() => {
     async function loadUsers() {
-      const res = await fetch("/api/usuarios/lista");
+      setLoading(true);
+      setError(null);
+      const params = buildParams(null);
+      const res = await fetch(`/api/usuarios/lista?${params.toString()}`);
       if (res.ok) {
-        const data = await res.json();
-        const users: UsuarioDetalle[] = Array.isArray(data)
-          ? data
-          : data.res === "Success"
-          ? data.usuarios
+        const payload = await res.json();
+        const users: UsuarioDetalle[] = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+          ? payload.items
+          : payload.res === "Success"
+          ? payload.usuarios
           : [];
 
-        setRawData(users);
         setData(users);
+        setNextCursor(payload?.nextCursor ?? null);
+        setSelectedIndex(null);
+      } else {
+        setError("No se pudo cargar usuarios.");
       }
+      setLoading(false);
     }
 
     loadUsers();
-  }, [refreshKey]);
-
-  useEffect(() => {
-    const getStatusLabel = (estatus: any) => {
-      if (estatus == 1) return "Activo";
-      if (estatus == 0) return "Inactivo";
-      return String(estatus);
-    };
-
-    setData(
-      rawData.filter((element) => {
-        const idFilter = filtros.id == null || filtros.id === 0
-          ? true
-          : String(element.id).includes(String(filtros.id));
-        const nombreFilter =
-          filtros.nombre === "" || String(element.nombre ?? "").toLowerCase().includes(filtros.nombre.toLowerCase());
-        const fechaFilter = filtros.fecha === "" || String(element.fechaalta ?? "") === filtros.fecha;
-        const statusFilter = filtros.estatus === "" || getStatusLabel(element.estatus) === filtros.estatus;
-        return idFilter && nombreFilter && fechaFilter && statusFilter;
-      }),
-    );
-  }, [filtros, rawData]);
+  }, [queryKey]);
 
   const getStatusLabel = (estatus: any) => {
     if (estatus == 1) return "Activo";
@@ -96,7 +105,39 @@ export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProp
   return (
     <>
       <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
+        {error ? (
+          <div className="px-4 py-4 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
         <ListaTabla headers={HEADERS} rows={rows} onRowClick={setSelectedIndex} />
+        <div className="flex justify-center p-5">
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              if (!nextCursor) return;
+              setLoadingMore(true);
+              try {
+                const params = buildParams(nextCursor);
+                const res = await fetch(`/api/usuarios/lista?${params.toString()}`);
+                if (!res.ok) throw new Error();
+                const payload = await res.json();
+                const users: UsuarioDetalle[] = Array.isArray(payload?.items)
+                  ? payload.items
+                  : [];
+                setData((prev) => [...prev, ...users]);
+                setNextCursor(payload?.nextCursor ?? null);
+              } catch {
+                setError("No se pudo cargar más usuarios.");
+              } finally {
+                setLoadingMore(false);
+              }
+            }}
+            disabled={!nextCursor || loading || loadingMore}
+          >
+            {loadingMore ? "Cargando..." : "Cargar más datos"}
+          </Button>
+        </div>
       </div>
 
       {selectedUsuario && selectedIndex !== null && (
