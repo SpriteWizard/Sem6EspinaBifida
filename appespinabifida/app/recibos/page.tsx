@@ -39,6 +39,7 @@ type Estatus = "Pagado" | "Pagado parcialmente" | "Pendiente";
 type MetodoPago = "efectivo" | "tarjeta" | "deposito" | "transferencia";
 type TipoPaciente = "A" | "B";
 type TipoServicio = "Consulta" | "Estudio";
+type TipoZona = "urbano" | "rural";
 
 interface ReciboProducto {
 	itemId: number | null;
@@ -141,13 +142,43 @@ function aplicarDescuento(bruto: number, pct: number): number {
 
 // ─── Data layer ───────────────────────────────────────────────────────────────
 
-async function fetchRecibos(): Promise<Recibo[]> {
-	const res = await fetch("/api/recibos/obtener");
+type RecibosQuery = {
+	cursor: string | null;
+	limit: number;
+	filters: {
+		id: string;
+		nombre: string;
+		fecha: string;
+		estatus: string;
+	};
+};
+
+type RecibosPageResult = {
+	items: Recibo[];
+	nextCursor: string | null;
+};
+
+async function fetchRecibos({ cursor, limit, filters }: RecibosQuery): Promise<RecibosPageResult> {
+	const params = new URLSearchParams();
+	if (cursor) params.set("cursor", cursor);
+	params.set("limit", String(limit));
+	if (filters.id) params.set("id", filters.id);
+	if (filters.nombre) params.set("nombre", filters.nombre);
+	if (filters.fecha) params.set("fecha", filters.fecha);
+	if (filters.estatus) params.set("estatus", filters.estatus);
+
+	const res = await fetch(`/api/recibos/obtener?${params.toString()}`);
 	if (res.ok){
 		const data = await res.json();
-		return data;
+		if (Array.isArray(data)) {
+			return { items: data, nextCursor: null };
+		}
+		return {
+			items: Array.isArray(data?.items) ? data.items : [],
+			nextCursor: data?.nextCursor ?? null,
+		};
 	}
-	return [];
+	return { items: [], nextCursor: null };
 }
 
 async function fetchAsociados(): Promise<AsociadoMini[]> {
@@ -686,6 +717,30 @@ function ReciboDetailModal({
 		setServiciosLoading(true);
 	}, [recibo]);
 
+	const consultaPriceLookup = useMemo(() => {
+		const map = new Map<number, number>();
+		detailConsultas.forEach((c: any) => {
+			const id = Number(c?.id_consulta);
+			const aportacion = Number(c?.aportacion);
+			if (Number.isFinite(id) && Number.isFinite(aportacion)) {
+				map.set(id, aportacion);
+			}
+		});
+		return map;
+	}, [detailConsultas]);
+
+	const estudioPriceLookup = useMemo(() => {
+		const map = new Map<number, number>();
+		detailEstudios.forEach((e: any) => {
+			const id = Number(e?.id_estudio);
+			const aportacion = Number(e?.aportacion);
+			if (Number.isFinite(id) && Number.isFinite(aportacion)) {
+				map.set(id, aportacion);
+			}
+		});
+		return map;
+	}, [detailEstudios]);
+
 	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
 	const saldoPendiente = recibo
 		? Math.max(0, Math.round((recibo.montoTotal - recibo.montoPagado) * 100) / 100)
@@ -786,16 +841,23 @@ function ReciboDetailModal({
 										if (item === undefined || item === null || typeof item !== "object") {
 											return null;
 										}
+										const unitPrice = Number(item?.precioUnitario);
+										const lookupPrice = consultaPriceLookup.get(Number(item?.itemId));
+										const resolvedPrice =
+											Number.isFinite(unitPrice) && unitPrice > 0
+												? unitPrice
+												: typeof lookupPrice === "number" && Number.isFinite(lookupPrice)
+													? lookupPrice
+													: 0;
 										return (
 										<li key={ "CON: " + item.itemId} className="flex items-center justify-between px-4 py-2 text-sm">
 											<Link href={`/servicios/${item.itemId}/detalle-consulta`}>
 												{item.itemName ? (
 													<p className="font-medium text-slate-800">{item.itemName}</p>
 												) : null}
-												{item.precioUnitario ? (
-													<p className="text-xs text-slate-500">${item.precioUnitario.toFixed(2)}</p>
-												) : 
-												<p className="text-xs text-slate-500">${(0).toFixed(2)}</p>}
+												<p className="text-xs text-slate-500">
+													{formatCurrency(resolvedPrice)}
+												</p>
 											</Link>
 										</li>
 										)
@@ -820,16 +882,23 @@ function ReciboDetailModal({
 										if (item === undefined || item === null || typeof item !== "object") {
 											return null;
 										}
+										const unitPrice = Number(item?.precioUnitario);
+										const lookupPrice = estudioPriceLookup.get(Number(item?.itemId));
+										const resolvedPrice =
+											Number.isFinite(unitPrice) && unitPrice > 0
+												? unitPrice
+												: typeof lookupPrice === "number" && Number.isFinite(lookupPrice)
+													? lookupPrice
+													: 0;
 										return (
 											<li key={item.itemId} className="flex items-center justify-between px-4 py-2 text-sm">
 												<Link href={`/servicios/${item.itemId}/detalle-estudio`}>
 													{item.itemName ? (
 														<p className="font-medium text-slate-800">{item.itemName}</p>
 													) : null}
-													{item.precioUnitario ? (
-														<p className="text-xs text-slate-500">${item.precioUnitario.toFixed(2)}</p>
-													) : 
-													<p className="text-xs text-slate-500">${(0).toFixed(2)}</p>}
+													<p className="text-xs text-slate-500">
+														{formatCurrency(resolvedPrice)}
+													</p>
 												</Link>
 											</li>
 										)
@@ -883,9 +952,10 @@ type nuevoRecibo = {
   "id_asociado": number,
   "id_usuario": number,
   "fecha_limite": string,
-  "tipo_zona": string,
+  "tipo_zona": TipoZona | "",
   "tipo_cuota": string,
   "total": number,
+	"descuento": number,
   "total_pagado": number,
   "estatus": string,
   "nota": string
@@ -898,6 +968,7 @@ const nuevoReciboDefault: nuevoRecibo = {
   tipo_zona: "",
   tipo_cuota: "",
   total: 0,
+	descuento: 0,
   total_pagado: 0,
   estatus: "",
   nota: ""
@@ -953,6 +1024,7 @@ function NuevoReciboModal({
 
 	// Other state
 	const [fechaLimite, setFechaLimite] = useState("");
+	const [tipoZona, setTipoZona] = useState<TipoZona | "">("");
 	const [exento, setExento] = useState(false);
 	const [descuentoPct, setDescuentoPct] = useState(0);
 	const [creating, setCreating] = useState(false);
@@ -1088,6 +1160,7 @@ function NuevoReciboModal({
 		setSearchResults([]);
 		setShowDropdown(false);
 		setFechaLimite("");
+		setTipoZona("");
 		setExento(false);
 		setDescuentoPct(0);
 		setCreating(false);
@@ -1195,6 +1268,10 @@ function NuevoReciboModal({
 
 	async function handleCrear() {
 		if (!asociadoSeleccionado || !fechaLimite) return;
+		if (!tipoZona) {
+			alert("Selecciona si el recibo es urbano o rural.");
+			return;
+		}
 		setCreating(true);
 		setMovementSubmitError(null);
 
@@ -1231,9 +1308,10 @@ function NuevoReciboModal({
 			id_asociado: asociadoId ?? 0,
 			id_usuario: Number((session?.user as any).id ?? 0),
 			fecha_limite: fechaLimite,
-			tipo_zona: "urbano",
+			tipo_zona: tipoZona,
 			tipo_cuota: exento ? "exento" : "cuota",
 			total: totalFinal,
+			descuento: descuentoPct,
 			total_pagado: 0,
 			estatus: "no_pagado",
 			nota: "",
@@ -1306,7 +1384,6 @@ function NuevoReciboModal({
 
 		const serviciosData = await resServicios.json().catch(() => null);
 		if (resServicios.ok && serviciosData?.message === "Success"){
-			alert("Servicios agregados exitosamente");
 			setListaNuevaConsulta([]);
 			setListaNuevoEstudio([]);
 		} else {
@@ -1647,25 +1724,39 @@ function NuevoReciboModal({
 				</div>
 
 				{/* ── Urbano / Rural ── */}
-				<div className="flex gap-5 px-1">
-					<label className="flex cursor-pointer select-none items-center gap-2">
-						<input
-							type="radio"
-							name="zona"
-							value="urbano"
-							className="h-4 w-4 border-slate-300 accent-slate-600"
-						/>
-						<span className="text-sm text-slate-700">Urbano</span>
-					</label>
-					<label className="flex cursor-pointer select-none items-center gap-2">
-						<input
-							type="radio"
-							name="zona"
-							value="rural"
-							className="h-4 w-4 border-slate-300 accent-slate-600"
-						/>
-						<span className="text-sm text-slate-700">Rural</span>
-					</label>
+				<div className="space-y-2 px-1">
+					<p id="tipo-zona-label" className="text-xs font-medium text-slate-600">
+						Zona
+					</p>
+					<div
+						role="radiogroup"
+						aria-labelledby="tipo-zona-label"
+						aria-required="true"
+						className="flex gap-5"
+					>
+						<label className="flex cursor-pointer select-none items-center gap-2">
+							<input
+								type="radio"
+								name="zona"
+								value="urbano"
+								checked={tipoZona === "urbano"}
+								onChange={() => setTipoZona("urbano")}
+								className="h-4 w-4 border-slate-300 accent-slate-600"
+							/>
+							<span className="text-sm text-slate-700">Urbano</span>
+						</label>
+						<label className="flex cursor-pointer select-none items-center gap-2">
+							<input
+								type="radio"
+								name="zona"
+								value="rural"
+								checked={tipoZona === "rural"}
+								onChange={() => setTipoZona("rural")}
+								className="h-4 w-4 border-slate-300 accent-slate-600"
+							/>
+							<span className="text-sm text-slate-700">Rural</span>
+						</label>
+					</div>
 				</div>
 
 				{/* ── Fecha Límite ── */}
@@ -1889,6 +1980,7 @@ function NuevoReciboModal({
 				onClose={() => setMovementModalOpen(false)}
 				itemTypes={movementItemTypes}
 				submitMode="draft"
+				fixedMovementType="out"
 				onDraft={handleMovementDraft}
 			/>
 		<NuevaConsultaModal
@@ -1919,8 +2011,12 @@ export default function RecibosPage() {
 	const router = useRouter();
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
 	const [loading, setLoading] = useState(true);
+	const RECIBOS_PAGE_SIZE = 5;
 
 	const [recibos, setRecibos] = useState<Recibo[]>([]);
+	const [recibosNextCursor, setRecibosNextCursor] = useState<string | null>(null);
+	const [recibosLoading, setRecibosLoading] = useState(true);
+	const [recibosLoadingMore, setRecibosLoadingMore] = useState(false);
 	const [recibosError, setRecibosError] = useState<string | null>(null);
 	const [pagos, setPagos] = useState<Pago[]>(PAGOS_INICIALES);
 
@@ -1936,6 +2032,10 @@ export default function RecibosPage() {
 
 	const debouncedId = useDebouncedValue(filterId, 300);
 	const debouncedNombre = useDebouncedValue(filterNombre, 300);
+	const recibosQueryKey = useMemo(
+		() => `${debouncedId}__${debouncedNombre}__${filterFecha}__${filterEstatus}`,
+		[debouncedId, debouncedNombre, filterFecha, filterEstatus],
+	);
 
 	useEffect(() => {
 		getSession().then((session) => {
@@ -1946,11 +2046,32 @@ export default function RecibosPage() {
 
 	useEffect(() => {
 		let alive = true;
-		fetchRecibos()
-			.then((data) => { if (alive) setRecibos(data); })
-			.catch(() => { if (alive) setRecibosError("Error al cargar recibos."); });
+		setRecibosLoading(true);
+		setRecibosError(null);
+		fetchRecibos({
+			cursor: null,
+			limit: RECIBOS_PAGE_SIZE,
+			filters: {
+				id: debouncedId,
+				nombre: debouncedNombre,
+				fecha: filterFecha,
+				estatus: filterEstatus,
+			},
+		})
+			.then((data) => {
+				if (!alive) return;
+				setRecibos(data.items);
+				setRecibosNextCursor(data.nextCursor);
+			})
+			.catch(() => {
+				if (alive) setRecibosError("Error al cargar recibos.");
+			})
+			.finally(() => {
+				if (!alive) return;
+				setRecibosLoading(false);
+			});
 		return () => { alive = false; };
-	}, []);
+	}, [recibosQueryKey, debouncedId, debouncedNombre, filterFecha, filterEstatus]);
 
 	const consumedRef = useRef(false);
 
@@ -1996,6 +2117,29 @@ export default function RecibosPage() {
 		}
 		getPagos();
 	}, [])
+
+	async function onLoadMoreRecibos() {
+		if (!recibosNextCursor) return;
+		setRecibosLoadingMore(true);
+		try {
+			const data = await fetchRecibos({
+				cursor: recibosNextCursor,
+				limit: RECIBOS_PAGE_SIZE,
+				filters: {
+					id: debouncedId,
+					nombre: debouncedNombre,
+					fecha: filterFecha,
+					estatus: filterEstatus,
+				},
+			});
+			setRecibos((prev) => [...prev, ...data.items]);
+			setRecibosNextCursor(data.nextCursor);
+		} catch {
+			setRecibosError("No se pudo cargar más datos.");
+		} finally {
+			setRecibosLoadingMore(false);
+		}
+	}
 
 	async function handleRegistrarPago(monto: number, metodoPago: MetodoPago) {
 		if (!reciboActivo) return;
@@ -2056,25 +2200,7 @@ export default function RecibosPage() {
 		});
 	}
 
-	const recibosFiltrados = useMemo(
-		() =>
-			recibos.filter((r) => {
-				if (debouncedId && !String(r.id).toLowerCase().includes(debouncedId.toLowerCase()))
-					return false;
-				if (
-					debouncedNombre &&
-					!r.asociado.toLowerCase().includes(debouncedNombre.toLowerCase())
-				)
-					return false;
-				const [fechaSinTiempo,_] = r.fechaEmision.split("T");
-				if (filterFecha && fechaSinTiempo !== filterFecha) {
-					return false};
-				if (filterEstatus !== "todos" && derivarEstatus(r) !== filterEstatus)
-					return false;
-				return true;
-			}),
-		[recibos, debouncedId, debouncedNombre, filterFecha, filterEstatus],
-	);
+	const recibosFiltrados = useMemo(() => recibos, [recibos]);
 
 	if (loading) {
 		return (
@@ -2193,7 +2319,16 @@ export default function RecibosPage() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
-								{recibosError ? (
+								{recibosLoading ? (
+									<tr>
+										<td
+											colSpan={5}
+											className="px-5 py-10 text-center text-sm text-slate-400"
+										>
+											Cargando...
+										</td>
+									</tr>
+								) : recibosError ? (
 									<tr>
 										<td
 											colSpan={5}
@@ -2265,6 +2400,15 @@ export default function RecibosPage() {
 								)}
 							</tbody>
 						</table>
+					</div>
+					<div className="flex justify-center p-5">
+						<Button
+							variant="secondary"
+							onClick={onLoadMoreRecibos}
+							disabled={!recibosNextCursor || recibosLoading || recibosLoadingMore}
+						>
+							{recibosLoadingMore ? "Cargando..." : "Cargar más datos"}
+						</Button>
 					</div>
 				</div>
 			</div>
