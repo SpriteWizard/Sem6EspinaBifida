@@ -1803,7 +1803,7 @@ function NuevoReciboModal({
 												{draft.input.itemName || "Articulo"}
 											</p>
 											<p className="text-xs text-slate-500">
-												{draft.input.movementType === "in" ? "Entrada" : "Salida"} · {draft.input.quantity} uds · {formatCurrency(draft.unitPrice)} c/u · {formatDate(draft.input.date)}
+												{draft.input.movementType === "in" ? "Entrada" : "Salida"} · {draft.input.quantity} uds · {formatCurrency(draft.unitPrice)} c/u
 											</p>
 										</div>
 										<div className="flex items-center gap-2">
