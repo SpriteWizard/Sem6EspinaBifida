@@ -306,7 +306,7 @@ export default function ServiciosPage() {
       estatus,
     })
 
-    return filtered
+    return filtered.slice().sort((a, b) => b.fechaOrden - a.fechaOrden)
   }, [allServicios, debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus])
 
   function handleRowClick(s: Servicio) {

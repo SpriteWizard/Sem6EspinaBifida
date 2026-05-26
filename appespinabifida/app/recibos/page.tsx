@@ -686,6 +686,30 @@ function ReciboDetailModal({
 		setServiciosLoading(true);
 	}, [recibo]);
 
+	const consultaPriceLookup = useMemo(() => {
+		const map = new Map<number, number>();
+		detailConsultas.forEach((c: any) => {
+			const id = Number(c?.id_consulta);
+			const aportacion = Number(c?.aportacion);
+			if (Number.isFinite(id) && Number.isFinite(aportacion)) {
+				map.set(id, aportacion);
+			}
+		});
+		return map;
+	}, [detailConsultas]);
+
+	const estudioPriceLookup = useMemo(() => {
+		const map = new Map<number, number>();
+		detailEstudios.forEach((e: any) => {
+			const id = Number(e?.id_estudio);
+			const aportacion = Number(e?.aportacion);
+			if (Number.isFinite(id) && Number.isFinite(aportacion)) {
+				map.set(id, aportacion);
+			}
+		});
+		return map;
+	}, [detailEstudios]);
+
 	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
 	const saldoPendiente = recibo
 		? Math.max(0, Math.round((recibo.montoTotal - recibo.montoPagado) * 100) / 100)
@@ -786,16 +810,23 @@ function ReciboDetailModal({
 										if (item === undefined || item === null || typeof item !== "object") {
 											return null;
 										}
+										const unitPrice = Number(item?.precioUnitario);
+										const lookupPrice = consultaPriceLookup.get(Number(item?.itemId));
+										const resolvedPrice =
+											Number.isFinite(unitPrice) && unitPrice > 0
+												? unitPrice
+												: typeof lookupPrice === "number" && Number.isFinite(lookupPrice)
+													? lookupPrice
+													: 0;
 										return (
 										<li key={ "CON: " + item.itemId} className="flex items-center justify-between px-4 py-2 text-sm">
 											<Link href={`/servicios/${item.itemId}/detalle-consulta`}>
 												{item.itemName ? (
 													<p className="font-medium text-slate-800">{item.itemName}</p>
 												) : null}
-												{item.precioUnitario ? (
-													<p className="text-xs text-slate-500">${item.precioUnitario.toFixed(2)}</p>
-												) : 
-												<p className="text-xs text-slate-500">${(0).toFixed(2)}</p>}
+												<p className="text-xs text-slate-500">
+													{formatCurrency(resolvedPrice)}
+												</p>
 											</Link>
 										</li>
 										)
@@ -820,16 +851,23 @@ function ReciboDetailModal({
 										if (item === undefined || item === null || typeof item !== "object") {
 											return null;
 										}
+										const unitPrice = Number(item?.precioUnitario);
+										const lookupPrice = estudioPriceLookup.get(Number(item?.itemId));
+										const resolvedPrice =
+											Number.isFinite(unitPrice) && unitPrice > 0
+												? unitPrice
+												: typeof lookupPrice === "number" && Number.isFinite(lookupPrice)
+													? lookupPrice
+													: 0;
 										return (
 											<li key={item.itemId} className="flex items-center justify-between px-4 py-2 text-sm">
 												<Link href={`/servicios/${item.itemId}/detalle-estudio`}>
 													{item.itemName ? (
 														<p className="font-medium text-slate-800">{item.itemName}</p>
 													) : null}
-													{item.precioUnitario ? (
-														<p className="text-xs text-slate-500">${item.precioUnitario.toFixed(2)}</p>
-													) : 
-													<p className="text-xs text-slate-500">${(0).toFixed(2)}</p>}
+													<p className="text-xs text-slate-500">
+														{formatCurrency(resolvedPrice)}
+													</p>
 												</Link>
 											</li>
 										)
