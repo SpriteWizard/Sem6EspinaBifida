@@ -22,7 +22,6 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify(nuevoPago)
     })
-    console.log(sendData)
 
     if (sendData.ok){
         return Response.json({message: "Success"});

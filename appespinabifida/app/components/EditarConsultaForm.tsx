@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -30,12 +30,35 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
   const [diagnostico, setDiagnostico] = useState(data.diagnostico ?? '')
   const [tratamiento, setTratamiento] = useState(data.tratamiento ?? '')
   const [yaAporto, setYaAporto] = useState(data.ya_aporto === 1)
+  const [reciboRelacionado, setReciboRelacionado] = useState(`REC-${data.id_recibo}`)
+  const [listaRecibos, setListaRecibos] = useState<any[]>([]);
+  const [dropdownAbierto, setDropdownAbierto] = useState(false);
+  const [query, setquery] = useState<any[]>([]);
+  const [selectedRecibo, setSelectedRecibo] = useState(data.id_recibo);
+  const divRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/medicos/lista_medicos')
       .then((r) => (r.ok ? r.json() : []))
       .then(setMedicos)
   }, [])
+
+  useEffect(() => {
+    async function getRecibos(){
+      const res = await fetch("/api/recibos/obtener/mini");
+      if (res.ok){
+        const data = await res.json();
+        setListaRecibos(data);
+      }
+    }
+    getRecibos();
+  },[])
+
+  useEffect(() => {
+    setquery(listaRecibos.filter((e) => {
+      return  String(`REC-${e.id}`).includes(reciboRelacionado);
+    }).slice(0,3))
+  }, [reciboRelacionado])
 
   async function handleGuardar() {
     setGuardando(true)
@@ -72,6 +95,50 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
     } finally {
       setGuardando(false)
     }
+    try {
+      const res = await fetch("/api/recibos/ligarConsulta",{
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({id_consulta: data.id_consulta, id_recibo: selectedRecibo})
+      })
+
+      if (res.ok){
+        alert("Recibo ligado correctaente")
+      }
+      else{
+        alert("Error al ligar el recibo")
+      }
+    }
+    catch{
+      alert("Error al ligar el recibo");
+    }
+
+  }
+
+  useEffect(() => {
+		function handleClickOutside(event: MouseEvent) {
+			if (
+				divRef.current &&
+				!divRef.current.contains(event.target as Node)
+			) {
+				setDropdownAbierto(false);
+        setReciboRelacionado(`REC-${selectedRecibo}`)
+			}
+		}
+
+		document.addEventListener("mousedown", handleClickOutside);
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, [selectedRecibo]);
+
+  function handleSetSelection(number: number){
+    setSelectedRecibo(number);
+    setReciboRelacionado(`REC-${number}`);
+    setDropdownAbierto(false);
   }
 
   return (
@@ -196,6 +263,8 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
             />
           </div>
 
+          
+
           <div className="flex flex-col gap-1">
             <label className="text-xs text-slate-500">Monto de aportación (MXN)</label>
             <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-400">
@@ -235,6 +304,41 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
           </button>
         </div>
         */}
+      </div>
+
+      {/*Recibo relacionado*/}
+      <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70 px-6 py-5">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Recibo vinculado
+        </h2>
+        <div className="relative flex items-center justify-between w-full" ref={divRef}>
+          <textarea
+          value = {reciboRelacionado}
+          onChange={ (e) => setReciboRelacionado(e.target.value)}
+          onClick = {() => setDropdownAbierto(true)}
+          rows={1}
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-800 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 resize-none"></textarea>
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-md z-20 overflow-hidden" >
+          {
+            dropdownAbierto ?
+            query.length > 0 ? 
+            query.map((a) => (
+              <button
+                key={a.id}
+                onMouseDown={() => handleSetSelection(a.id)}
+                className="w-full text-left px-3 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+              >
+                <div className="text-sm text-slate-800">REC-{a.id}</div>
+                <div className="text-sm text-slate-800">{a.nombre}</div>
+                <div className="text-sm text-slate-800">Fecha de pago: {a.fecha_limite}</div>
+                <div className="text-sm text-slate-800">Monto: {a.total}$</div>
+              </button>
+            )) :
+            <div className="px-3 py-2.5 text-sm text-slate-400 italic">Sin resultados.</div> :
+            null
+          }
+          </div>
+        </div>
       </div>
 
       {/* Diagnóstico y tratamiento */}
