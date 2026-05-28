@@ -26,7 +26,7 @@ export function Topbar() {
       { href: '/servicios', label: 'Servicios' },
       { href: '/inventory', label: 'Inventario' },
       { href: '/metricas', label: 'Métricas' },
-      { href: '/usuarios', label: 'Empleados' },
+      { href: '/usuarios', label: 'Gestión' },
     ]
   } else if (role === 'ceo') {
     NAV_ITEMS = [

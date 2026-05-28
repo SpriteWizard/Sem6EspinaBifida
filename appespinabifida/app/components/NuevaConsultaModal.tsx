@@ -219,7 +219,7 @@ export function NuevaConsultaModal({
                 <option value="">Selecciona médico responsable</option>
                 {medicos.map((m: any) => (
                   <option key={`medico-${m.id_medico}`} value={m.id_medico}>
-                    Dr(a) {m.nombre}
+                    Dr. {m.nombre}
                   </option>
                 ))}
               </select>
