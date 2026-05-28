@@ -14,6 +14,8 @@ type CreateMedicoModalProps = {
 type FormState = {
   nombre: string;
   apellido: string;
+  especialidad: string;
+  cedula_profesional: string;
   telefono: string;
   correo: string;
 };
@@ -23,6 +25,8 @@ type FieldErrors = Partial<Record<keyof FormState, string>>;
 const initialFormState: FormState = {
   nombre: "",
   apellido: "",
+  especialidad: "",
+  cedula_profesional: "",
   telefono: "",
   correo: "",
 };
@@ -50,6 +54,8 @@ export default function CreateMedicoModal({ open, onClose, onSuccess }: CreateMe
 
     if (!form.nombre.trim()) next.nombre = "El nombre es requerido.";
     if (!form.apellido.trim()) next.apellido = "El apellido es requerido.";
+    if (!form.especialidad.trim()) next.especialidad = "La especialidad es requerida.";
+    if (!form.cedula_profesional.trim()) next.cedula_profesional = "La cédula es requerida.";
     if (!form.telefono.trim()) next.telefono = "El teléfono es requerido.";
     else if (!/^[0-9+\-\s()]{7,20}$/.test(form.telefono))
       next.telefono = "Ingresa un teléfono válido.";
@@ -78,8 +84,12 @@ export default function CreateMedicoModal({ open, onClose, onSuccess }: CreateMe
 
       if (!res.ok || data.status !== "ok") {
         const reason = data.reason ?? "No se pudo registrar el médico.";
-        if (reason.toLowerCase().includes("correo") || reason.toLowerCase().includes("duplicado") || reason.toLowerCase().includes("unique")) {
+        if (reason.toLowerCase().includes("correo")) {
           setErrors((prev) => ({ ...prev, correo: "Este correo ya está registrado." }));
+        } else if (reason.toLowerCase().includes("cedula") || reason.toLowerCase().includes("cédula")) {
+          setErrors((prev) => ({ ...prev, cedula_profesional: "Esta cédula ya está registrada." }));
+        } else if (reason.toLowerCase().includes("unique") || reason.toLowerCase().includes("duplicado")) {
+          setSubmitError(reason);
         } else {
           setSubmitError(reason);
         }
@@ -117,6 +127,28 @@ export default function CreateMedicoModal({ open, onClose, onSuccess }: CreateMe
             placeholder="Apellidos"
           />
           {errors.apellido && <p className="mt-1 text-sm text-rose-700">{errors.apellido}</p>}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Especialidad *</label>
+          <Input
+            type="text"
+            value={form.especialidad}
+            onChange={(e) => updateField("especialidad", e.target.value)}
+            placeholder="Cardiología, Neurología..."
+          />
+          {errors.especialidad && <p className="mt-1 text-sm text-rose-700">{errors.especialidad}</p>}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Cédula profesional *</label>
+          <Input
+            type="text"
+            value={form.cedula_profesional}
+            onChange={(e) => updateField("cedula_profesional", e.target.value)}
+            placeholder="CED000000"
+          />
+          {errors.cedula_profesional && <p className="mt-1 text-sm text-rose-700">{errors.cedula_profesional}</p>}
         </div>
 
         <div>

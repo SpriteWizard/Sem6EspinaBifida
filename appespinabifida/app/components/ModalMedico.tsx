@@ -6,9 +6,11 @@ import { Input } from "./ui/Input";
 import { Modal } from "./ui/Modal";
 
 export type MedicoDetalle = {
-  id: string;
+  id_medico: number;
   nombre: string;
   apellido: string;
+  especialidad: string;
+  cedula_profesional: string;
   telefono: string;
   correo: string;
   estatus: "Activo" | "Inactivo" | 1 | 0;
@@ -20,6 +22,7 @@ type ModalMedicoProps = {
   open: boolean;
   medico: MedicoDetalle;
   onClose: () => void;
+  onSuccess: () => void;
 };
 
 function getStatusLabel(estatus: MedicoDetalle["estatus"]): "Activo" | "Inactivo" {
@@ -36,9 +39,9 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-type FieldErrors = Partial<Record<"nombre" | "apellido" | "telefono" | "correo", string>>;
+type FieldErrors = Partial<Record<"nombre" | "apellido" | "especialidad" | "cedula_profesional" | "telefono" | "correo", string>>;
 
-export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps) {
+export default function ModalMedico({ open, medico, onClose, onSuccess }: ModalMedicoProps) {
   const base = useMemo(() => medico, [medico]);
   const [draft, setDraft] = useState<MedicoDetalle>(base);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -68,6 +71,8 @@ export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps)
     const next: FieldErrors = {};
     if (!draft.nombre.trim()) next.nombre = "El nombre es requerido.";
     if (!draft.apellido.trim()) next.apellido = "El apellido es requerido.";
+    if (!draft.especialidad.trim()) next.especialidad = "La especialidad es requerida.";
+    if (!draft.cedula_profesional.trim()) next.cedula_profesional = "La cédula es requerida.";
     if (!draft.telefono.trim()) next.telefono = "El teléfono es requerido.";
     if (!draft.correo.trim()) next.correo = "El correo es requerido.";
     else if (!isValidEmail(draft.correo)) next.correo = "Ingresa un correo válido.";
@@ -88,8 +93,8 @@ export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps)
     if (res.ok) {
       const data = await res.json();
       if (data.status === "ok") {
-        setIsEditMode(false);
-        window.location.reload();
+        onClose();
+        onSuccess();
         return;
       }
     }
@@ -98,25 +103,19 @@ export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps)
   }
 
   async function handleToggle() {
-    if (isActive) {
-      const confirmed = window.confirm(
-        `¿Estás seguro de que deseas desactivar al médico ${medico.nombre} ${medico.apellido}?`,
-      );
-      if (!confirmed) return;
-    }
-
     await fetch("/api/medicos/toggleMedico", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: medico.id, estatus: isActive ? 0 : 1 }),
+      body: JSON.stringify({ id_medico: medico.id_medico, estatus: isActive ? 0 : 1 }),
     });
 
-    window.location.reload();
+    onClose();
+    onSuccess();
   }
 
   const field = (
     label: string,
-    key: "nombre" | "apellido" | "telefono" | "correo",
+    key: "nombre" | "apellido" | "especialidad" | "cedula_profesional" | "telefono" | "correo",
     type: string = "text",
     colSpan?: boolean,
   ) => (
@@ -150,7 +149,7 @@ export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps)
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs uppercase text-slate-500">ID</p>
-            <p className="text-sm font-medium text-slate-900">{medico.id}</p>
+            <p className="text-sm font-medium text-slate-900">MED-{medico.id_medico}</p>
           </div>
 
           <div>
@@ -159,7 +158,7 @@ export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps)
               className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${
                 isActive
                   ? "bg-green-600/10 text-green-600"
-                  : "bg-slate-100 text-slate-500"
+                  : "bg-red-500/10 text-red-500"
               }`}
             >
               {statusLabel}
@@ -168,6 +167,8 @@ export default function ModalMedico({ open, medico, onClose }: ModalMedicoProps)
 
           {field("Nombre", "nombre")}
           {field("Apellido", "apellido")}
+          {field("Especialidad", "especialidad")}
+          {field("Cédula profesional", "cedula_profesional")}
           {field("Teléfono", "telefono", "tel")}
           {field("Correo", "correo", "email")}
 

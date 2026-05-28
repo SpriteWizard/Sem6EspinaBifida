@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react";
 import ListaTabla from "./ListaTabla";
 import ModalMedico, { type MedicoDetalle } from "./ModalMedico";
+import { Button } from "./ui/Button";
 import type { FiltrosMedicosValues } from "./FiltrosMedicos";
+
+const PAGE_SIZE = 5;
 
 type Estatus = "Activo" | "Inactivo";
 
 const badgeColors: Record<Estatus, string> = {
   Activo: "bg-green-600/10 text-green-600",
-  Inactivo: "bg-slate-100 text-slate-500",
+  Inactivo: "bg-red-500/10 text-red-500",
 };
 
 const HEADERS = ["ID", "Nombre", "Teléfono", "Correo", "Estatus"];
@@ -17,6 +20,7 @@ const HEADERS = ["ID", "Nombre", "Teléfono", "Correo", "Estatus"];
 type ListaMedicosProps = {
   filtros: FiltrosMedicosValues;
   refreshKey?: number;
+  onSuccess?: () => void;
 };
 
 function getStatusLabel(estatus: any): Estatus {
@@ -25,10 +29,11 @@ function getStatusLabel(estatus: any): Estatus {
   return "Inactivo";
 }
 
-export default function ListaMedicos({ filtros, refreshKey }: ListaMedicosProps) {
+export default function ListaMedicos({ filtros, refreshKey, onSuccess }: ListaMedicosProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [rawData, setRawData] = useState<MedicoDetalle[]>([]);
   const [data, setData] = useState<MedicoDetalle[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     async function loadMedicos() {
@@ -45,12 +50,13 @@ export default function ListaMedicos({ filtros, refreshKey }: ListaMedicosProps)
   }, [refreshKey]);
 
   useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
     setData(
       rawData.filter((m) => {
         const idMatch =
           filtros.id == null || filtros.id === 0
             ? true
-            : String(m.id).includes(String(filtros.id));
+            : String(m.id_medico).includes(String(filtros.id));
 
         const nombreCompleto = `${m.nombre ?? ""} ${m.apellido ?? ""}`.toLowerCase();
         const nombreMatch =
@@ -66,12 +72,14 @@ export default function ListaMedicos({ filtros, refreshKey }: ListaMedicosProps)
     );
   }, [filtros, rawData]);
 
-  const rows = data.map((m, i) => {
+  const visible = data.slice(0, visibleCount);
+
+  const rows = visible.map((m, i) => {
     const label = getStatusLabel(m.estatus);
     return {
-      key: String(m.id ?? i),
+      key: String(m.id_medico ?? i),
       cells: [
-        m.id ?? "—",
+        m.id_medico != null ? `MED-${m.id_medico}` : "—",
         `${m.nombre ?? ""} ${m.apellido ?? ""}`.trim(),
         m.telefono ?? "—",
         m.correo ?? "—",
@@ -86,8 +94,8 @@ export default function ListaMedicos({ filtros, refreshKey }: ListaMedicosProps)
   });
 
   const selectedMedico =
-    selectedIndex !== null && selectedIndex < data.length
-      ? data[selectedIndex]
+    selectedIndex !== null && selectedIndex < visible.length
+      ? visible[selectedIndex]
       : null;
 
   return (
@@ -103,6 +111,15 @@ export default function ListaMedicos({ filtros, refreshKey }: ListaMedicosProps)
               : "No hay médicos registrados"
           }
         />
+        <div className="flex justify-center p-5">
+          <Button
+            variant="secondary"
+            onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+            disabled={visibleCount >= data.length}
+          >
+            {visibleCount < data.length ? "Cargar más datos" : "No hay más resultados"}
+          </Button>
+        </div>
       </div>
 
       {selectedMedico !== null && selectedIndex !== null && (
@@ -110,6 +127,7 @@ export default function ListaMedicos({ filtros, refreshKey }: ListaMedicosProps)
           open
           medico={selectedMedico}
           onClose={() => setSelectedIndex(null)}
+          onSuccess={() => { setSelectedIndex(null); onSuccess?.(); }}
         />
       )}
     </>

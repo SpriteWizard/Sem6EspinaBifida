@@ -134,7 +134,7 @@ export default function UsuariosPage() {
       {activeTab === "medicos" && (
         <>
           <FiltrosMedicos sendFilters={setFiltrosMedicos} />
-          <ListaMedicos filtros={filtrosMedicos} refreshKey={refreshMedicoKey} />
+          <ListaMedicos filtros={filtrosMedicos} refreshKey={refreshMedicoKey} onSuccess={() => setRefreshMedicoKey((prev) => prev + 1)} />
           <CreateMedicoModal
             open={createMedicoOpen}
             onClose={() => setCreateMedicoOpen(false)}

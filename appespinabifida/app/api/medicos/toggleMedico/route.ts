@@ -18,8 +18,17 @@ export async function PUT(req: NextRequest) {
     body: JSON.stringify(body),
   });
 
+  let data: any = {};
+  try {
+    const text = await res.text();
+    if (text) data = JSON.parse(text);
+  } catch { /* respuesta vacía o no-JSON */ }
+
   if (!res.ok) {
-    return Response.json({ status: "failed" }, { status: res.status });
+    return Response.json(
+      { status: "error", reason: data.reason ?? "Error al cambiar estatus" },
+      { status: res.status },
+    );
   }
 
   return Response.json({ status: "ok" });

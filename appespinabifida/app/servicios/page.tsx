@@ -59,7 +59,7 @@ function mapServicioFromApi(raw: any): Servicio {
       raw.nombre_asociado +
       " " +
       raw.apellidos_asociado,
-    medico: raw.medico,
+    medico: raw.medico ? `Dr. ${raw.medico}` : '—',
     laboratorio: raw.tipo_servicio !== 'Consulta' ? raw.laboratorio : undefined,
     fecha: date,
     fechaOrden,
