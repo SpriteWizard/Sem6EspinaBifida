@@ -12,7 +12,7 @@ export default function Login({error}: any) {
 
 	useEffect(() => {
 		if (session?.user) {
-			router.replace("/asociados");
+			router.replace("/recibos");
 		}
 	}, [session, router]);
 
@@ -53,7 +53,7 @@ export default function Login({error}: any) {
 						await signIn("credentials", {
 							email,
 							password,
-							callbackUrl: "/asociados"
+							callbackUrl: "/recibos"
 						});
 
 						

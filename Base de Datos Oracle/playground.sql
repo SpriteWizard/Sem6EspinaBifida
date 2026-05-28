@@ -5,6 +5,9 @@ alter table usuarios add constraint CHK_USUARIOS_ROL check (ROL in ('superadmin'
 update usuarios set rol = 'secretaria' where rol = 'not assigned';
 commit;
 
+update consulta set fecha_creacion = sysdate where id_consulta = 185;
+
+
 alter table usuarios add fecha_acceso date;
 
 select * from usuarios;
@@ -703,3 +706,27 @@ BEGIN
 
 END;
 /
+
+create or replace trigger ultimo_recibo_asociado
+after insert
+on recibo 
+for each row
+begin
+
+  update asociado set fecha_ult_recibo = :new.fecha where id_asociado = :new.id_asociado;
+
+end;
+
+begin
+
+  for element in (
+    select * from recibo
+  )
+  loop
+    
+    update asociado set fecha_ult_recibo = element.fecha where id_asociado = element.id_asociado;
+  end loop;
+  commit;
+end;
+
+select * from asociado;

@@ -541,6 +541,7 @@ export default function ModalAsociado({
                     <Field label="Fecha de alta">{d.fechaAlta}</Field>
                   </div>
                     {isEditMode ? (
+                      <div>
                       <div className="grid grid-cols-3 gap-x-4">
                         <div>
                           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Nombre</span>
@@ -555,10 +556,18 @@ export default function ModalAsociado({
                           <Input value={d.apellidoMaterno === "—" ? "" : (d.apellidoMaterno ?? "")} onChange={(e) => updateDraft("apellidoMaterno", e.target.value)} />
                         </div>
                       </div>
+                        <div className="pt-8">
+                        <Field label="Fecha de ultimo recibo">{d.fechaUltRecibo? d.fechaUltRecibo : "No tiene recibos"}</Field>
+                        </div>
+                      </div>
                     ) : (
-                      <Field label="Nombre completo">
-                        {[d.nombre, d.apellidoPaterno, d.apellidoMaterno].filter((v) => v && v !== "—").join(" ")}
-                      </Field>
+                      <div className="grid grid-cols-2 gap-x-4">
+                        <Field label="Nombre completo">
+                          {[d.nombre, d.apellidoPaterno, d.apellidoMaterno].filter((v) => v && v !== "—").join(" ")}
+                        </Field>
+
+                        <Field label="Fecha de ultimo recibo">{d.fechaUltRecibo? d.fechaUltRecibo : "No tiene recibos"}</Field>
+                      </div>
                     )}
                   {isEditMode ? (
                     <div>
