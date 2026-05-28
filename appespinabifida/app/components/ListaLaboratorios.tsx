@@ -108,15 +108,16 @@ export default function ListaLaboratorios({ filtros, refreshKey, onSuccess }: Li
               : "No hay laboratorios registrados"
           }
         />
-      </div>
-
-      {visibleCount < data.length && (
-        <div className="flex justify-center pt-2">
-          <Button variant="secondary" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-            Cargar más datos
+        <div className="flex justify-center p-5">
+          <Button
+            variant="secondary"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            disabled={visibleCount >= data.length}
+          >
+            {visibleCount < data.length ? "Cargar más datos" : "No hay más resultados"}
           </Button>
         </div>
-      )}
+      </div>
 
       {selectedLaboratorio !== null && selectedIndex !== null && (
         <ModalLaboratorio

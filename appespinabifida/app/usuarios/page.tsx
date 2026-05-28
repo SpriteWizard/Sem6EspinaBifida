@@ -36,7 +36,7 @@ export default function UsuariosPage() {
     id: 0,
     nombre: "",
     fecha: "",
-    estatus: "",
+    estatus: "Activo",
   });
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);

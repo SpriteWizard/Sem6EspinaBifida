@@ -19,7 +19,7 @@ export default function FiltrosUsuarios({ sendFilters }: FilterProps) {
   const [id, setId] = useState<number | null>(null);
   const [nombre, setNombre] = useState<string>("");
   const [fecha, setFecha] = useState<string>("");
-  const [estatus, setEstatus] = useState<string>("");
+  const [estatus, setEstatus] = useState<string>("Activo");
 
   useEffect(() => {
     sendFilters({ id, nombre, fecha, estatus });
