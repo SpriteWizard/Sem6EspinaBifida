@@ -714,7 +714,6 @@ for each row
 begin
 
   update asociado set fecha_ult_recibo = :new.fecha where id_asociado = :new.id_asociado;
-  commit;
 
 end;
 
