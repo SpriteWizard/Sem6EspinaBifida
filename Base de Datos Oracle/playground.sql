@@ -351,6 +351,17 @@ join ARTICULO i
     on i.ID_ARTICULO = mi.ID_ARTICULO
 where mi.ID_RECIBO = 118;
 
+begin 
+  for element in (select * from estudio)
+  loop
+    if (element.fecha is null) then
+    update estudio set fecha = sysdate;
+    end if;
+  end loop;
+end;
+
+commit;
+
 select 
     r.id_recibo,
     a.NOMBRE || ' ' || a.APELLIDOS as ASOCIADO,
@@ -418,4 +429,277 @@ inner join ASOCIADO a
 
 commit;
 
+update recibo set total_pagado = 0;
+update recibo set descuento = 0;
+
+
+BEGIN
+
+    -- Reset totals
+    UPDATE recibo
+    SET total = 0;
+
+    ----------------------------------------------------------------
+    -- Add consulta aportaciones
+    ----------------------------------------------------------------
+    UPDATE recibo r
+    SET total = (
+        SELECT NVL(SUM(NVL(c.aportacion, 0)), 0)
+        FROM consulta c
+        WHERE c.id_recibo = r.id_recibo
+    );
+
+    ----------------------------------------------------------------
+    -- Add estudio aportaciones
+    ----------------------------------------------------------------
+    UPDATE recibo r
+    SET total = total + (
+        SELECT NVL(SUM(NVL(e.aportacion, 0)), 0)
+        FROM estudio e
+        INNER JOIN consulta c
+            ON c.id_consulta = e.id_consulta
+        WHERE c.id_recibo = r.id_recibo
+    );
+
+    update recibo r set total = total + (
+      select NVL(SUM(NVL(m.cuota_recuperacion * mi.cantidad,0)),0) 
+      from movimiento_inventario mi 
+      inner join articulo m on m.id_articulo = mi.id_articulo
+      where mi.id_recibo = r.id_recibo
+    );
+
+    COMMIT;
+
+END;
+/
+
 select * from recibo;
+
+create or replace trigger actualizarPrecioRecibo
+before update of id_recibo
+on consulta
+for each ROW
+declare
+  total_viejo number;
+  total_pagado_viejo number;
+  total_movimiento number;
+  v_descuento number;
+begin
+
+  if (:new.aportacion is not null) then
+    total_movimiento :=  :new.aportacion;
+  else
+    total_movimiento := 0;
+  end if;
+
+  if (:new.id_recibo = :old.id_recibo) then
+    return;
+  end if;
+
+  select descuento into v_descuento from recibo where id_recibo = :new.id_recibo;
+
+  if ((v_descuento is not null) and (v_descuento > 0)) then
+    RAISE_APPLICATION_ERROR(-20005,'No se pueden modificar recibos con descuento');
+  end if;
+
+  for element in (select * from estudio where id_consulta = :new.id_consulta)
+  loop
+    if (element.aportacion is not null) THEN
+      total_movimiento := total_movimiento + element.aportacion;
+    end if;
+  end loop;
+
+  if :old.id_recibo is null then
+    update recibo set total = total + total_movimiento where id_recibo = :new.id_recibo;
+    return;
+  end if;
+  select total, total_pagado into total_viejo, total_pagado_viejo from recibo where id_recibo = :old.id_recibo;
+
+  if (total_viejo - total_pagado_viejo < total_movimiento) then
+    RAISE_APPLICATION_ERROR(-20001, 'No se puede mover un recibo si ya se pagaron las consultas o los recibos siendo relocalizados');
+    return;
+  end if;
+
+  update recibo set total = total + total_movimiento where id_recibo = :new.id_recibo;
+  update recibo set total = total - total_movimiento where id_recibo = :old.id_recibo;
+  
+  return;
+
+end;
+
+CREATE OR REPLACE TRIGGER cambiosDeAportacionConsulta
+BEFORE UPDATE OF aportacion
+ON consulta
+FOR EACH ROW
+DECLARE
+    diferencia NUMBER;
+    total_viejo NUMBER;
+    total_pagado_viejo NUMBER;
+    v_descuento NUMBER := 0;
+BEGIN
+
+    ----------------------------------------------------------------
+    -- Skip if no real change
+    ----------------------------------------------------------------
+    IF NVL(:NEW.aportacion, 0) = NVL(:OLD.aportacion, 0) THEN
+        RETURN;
+    END IF;
+
+    ----------------------------------------------------------------
+    -- No receipt -> nothing to update
+    ----------------------------------------------------------------
+    IF :OLD.id_recibo IS NULL THEN
+        RETURN;
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Get discount safely
+    ----------------------------------------------------------------
+    BEGIN
+        SELECT NVL(descuento, 0)
+        INTO v_descuento
+        FROM recibo
+        WHERE id_recibo = :OLD.id_recibo;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_descuento := 0;
+    END;
+
+    ----------------------------------------------------------------
+    -- Prevent changes on discounted receipts
+    ----------------------------------------------------------------
+    IF v_descuento > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20005,
+            'No se pueden modificar recibos con descuento'
+        );
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Calculate difference
+    ----------------------------------------------------------------
+    diferencia := NVL(:NEW.aportacion, 0)
+                - NVL(:OLD.aportacion, 0);
+
+    ----------------------------------------------------------------
+    -- Validate paid amount
+    ----------------------------------------------------------------
+    SELECT total, total_pagado
+    INTO total_viejo, total_pagado_viejo
+    FROM recibo
+    WHERE id_recibo = :OLD.id_recibo;
+
+    IF (total_viejo + diferencia) < total_pagado_viejo THEN
+        RAISE_APPLICATION_ERROR(
+            -20002,
+            'No se puede reducir el total debajo del monto pagado'
+        );
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Update receipt
+    ----------------------------------------------------------------
+    UPDATE recibo
+    SET total = total + diferencia
+    WHERE id_recibo = :OLD.id_recibo;
+
+END;
+/
+
+alter table consulta add FECHA_CREACION date;
+
+update consulta set fecha_creacion = sysdate;
+commit;
+
+CREATE OR REPLACE TRIGGER cambiosDeAportacionEstudio
+BEFORE UPDATE OF aportacion
+ON estudio
+FOR EACH ROW
+DECLARE
+    diferencia NUMBER;
+    v_id_recibo NUMBER;
+    total_viejo NUMBER;
+    total_pagado_viejo NUMBER;
+    v_descuento NUMBER := 0;
+BEGIN
+
+    ----------------------------------------------------------------
+    -- Skip if no real change
+    ----------------------------------------------------------------
+    IF NVL(:NEW.aportacion, 0) = NVL(:OLD.aportacion, 0) THEN
+        RETURN;
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Find receipt safely
+    ----------------------------------------------------------------
+    BEGIN
+        SELECT id_recibo
+        INTO v_id_recibo
+        FROM consulta
+        WHERE id_consulta = :OLD.id_consulta;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RETURN;
+    END;
+
+    ----------------------------------------------------------------
+    -- No receipt -> nothing to update
+    ----------------------------------------------------------------
+    IF v_id_recibo IS NULL THEN
+        RETURN;
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Get discount safely
+    ----------------------------------------------------------------
+    BEGIN
+        SELECT NVL(descuento, 0)
+        INTO v_descuento
+        FROM recibo
+        WHERE id_recibo = v_id_recibo;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_descuento := 0;
+    END;
+
+    ----------------------------------------------------------------
+    -- Prevent changes on discounted receipts
+    ----------------------------------------------------------------
+    IF v_descuento > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20005,
+            'No se pueden modificar recibos con descuento'
+        );
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Calculate difference
+    ----------------------------------------------------------------
+    diferencia := NVL(:NEW.aportacion, 0)
+                - NVL(:OLD.aportacion, 0);
+
+    ----------------------------------------------------------------
+    -- Validate paid amount
+    ----------------------------------------------------------------
+    SELECT total, total_pagado
+    INTO total_viejo, total_pagado_viejo
+    FROM recibo
+    WHERE id_recibo = v_id_recibo;
+
+    IF (total_viejo + diferencia) < total_pagado_viejo THEN
+        RAISE_APPLICATION_ERROR(
+            -20003,
+            'No se puede reducir el total debajo del monto pagado'
+        );
+    END IF;
+
+    ----------------------------------------------------------------
+    -- Update receipt
+    ----------------------------------------------------------------
+    UPDATE recibo
+    SET total = total + diferencia
+    WHERE id_recibo = v_id_recibo;
+
+END;
+/

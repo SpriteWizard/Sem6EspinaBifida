@@ -104,10 +104,7 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
         body: JSON.stringify({id_consulta: data.id_consulta, id_recibo: selectedRecibo})
       })
 
-      if (res.ok){
-        alert("Recibo ligado correctaente")
-      }
-      else{
+      if (!res.ok){
         alert("Error al ligar el recibo")
       }
     }

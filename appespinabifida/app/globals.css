@@ -25,3 +25,23 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   overflow-y: scroll;
 }
+
+@media print {
+  .print-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-page-break {
+    break-after: page;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

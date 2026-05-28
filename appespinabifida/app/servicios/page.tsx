@@ -39,9 +39,15 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
 }
 
 function mapServicioFromApi(raw: any): Servicio {
-  const [date, timeWithZ] = String(raw.fecha).split("T");
-  const time = String(timeWithZ ?? "").replace("Z", "");
-  const parsedFecha = Date.parse(String(raw.fecha ?? ""));
+  const fechaCreacionConsulta =
+    raw.fecha_creacion ?? raw.fechaCreacion ?? raw.fechacreacion ?? raw.FECHA_CREACION;
+  const fechaCreacionEstudio =
+    raw.fecha ?? raw.FECHA ?? raw.fecha_creacion ?? raw.fechaCreacion ?? raw.fechacreacion;
+  const rawFechaCreacion =
+    raw.tipo_servicio === "Consulta" ? fechaCreacionConsulta : fechaCreacionEstudio;
+  const rawFechaFallback = rawFechaCreacion ?? raw.fecha ?? raw.FECHA ?? "";
+  const [date] = String(rawFechaFallback).split("T");
+  const parsedFecha = Date.parse(String(rawFechaFallback ?? ""));
   const fechaOrden = Number.isNaN(parsedFecha) ? 0 : parsedFecha;
 
   return {
@@ -67,10 +73,29 @@ function mapServicioFromApi(raw: any): Servicio {
   };
 }
 
-function useServicios() {
-  const [allServicios, setAllServicios] = useState<Servicio[]>([])
+function useServicios(filters: ServicioFilters) {
+  const SERVICIOS_PAGE_SIZE = 5;
+  const [servicios, setServicios] = useState<Servicio[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const queryKey = useMemo(() => JSON.stringify(filters), [filters])
+
+  function buildParams(cursor: string | null) {
+    const params = new URLSearchParams()
+    if (cursor) params.set("cursor", cursor)
+    params.set("limit", String(SERVICIOS_PAGE_SIZE))
+    if (filters.folio) params.set("folio", filters.folio)
+    if (filters.tipo) params.set("tipo", filters.tipo)
+    if (filters.asociado) params.set("asociado", filters.asociado)
+    if (filters.medico) params.set("medico", filters.medico)
+    if (filters.laboratorio) params.set("laboratorio", filters.laboratorio)
+    if (filters.fecha) params.set("fecha", filters.fecha)
+    if (filters.estatus) params.set("estatus", filters.estatus)
+    return params
+  }
 
   useEffect(() => {
     let alive = true;
@@ -79,14 +104,17 @@ function useServicios() {
 
     const fetchServicios = async () => {
       try {
-        const res = await fetch("/api/servicios/obtener");
+        const params = buildParams(null)
+        const res = await fetch(`/api/servicios/obtener?${params.toString()}`);
         if (!res.ok) throw new Error();
 
-        const data = (await res.json()).servicios;
-        const listaServicios = data.map(mapServicioFromApi);
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : data?.servicios ?? []
+        const listaServicios = items.map(mapServicioFromApi);
 
         if (!alive) return;
-        setAllServicios(listaServicios);
+        setServicios(listaServicios);
+        setNextCursor(data?.nextCursor ?? null);
       } catch (error) {
         if (!alive) return;
         setError("No se pudo cargar los servicios.");
@@ -101,9 +129,29 @@ function useServicios() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [queryKey]);
 
-  return { allServicios, loading, error }
+  async function onLoadMore() {
+    if (!nextCursor) return
+    setLoadingMore(true)
+    try {
+      const params = buildParams(nextCursor)
+      const res = await fetch(`/api/servicios/obtener?${params.toString()}`)
+      if (!res.ok) throw new Error()
+
+      const data = await res.json()
+      const items = Array.isArray(data?.items) ? data.items : data?.servicios ?? []
+      const listaServicios = items.map(mapServicioFromApi)
+      setServicios((prev) => [...prev, ...listaServicios])
+      setNextCursor(data?.nextCursor ?? null)
+    } catch {
+      setError('No se pudo cargar más datos.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  return { servicios, nextCursor, loading, loadingMore, error, onLoadMore }
 }
 
 // ─── Filtering ────────────────────────────────────────────────────────────────
@@ -252,8 +300,6 @@ function ServiciosTable({
 
 export default function ServiciosPage() {
   const router = useRouter()
-  const { allServicios, loading, error } = useServicios()
-
   const [folio, setFolio] = useState('')
   const [tipo, setTipo] = useState('Todos')
   const [asociado, setAsociado] = useState('')
@@ -290,24 +336,24 @@ export default function ServiciosPage() {
   const debouncedFolio = useDebouncedValue(folio, 400)
   const debouncedAsociado = useDebouncedValue(asociado, 400)
 
+  const filtrosParaApi = useMemo(() => ({
+    folio: debouncedFolio,
+    tipo,
+    asociado: debouncedAsociado,
+    medico,
+    laboratorio,
+    fecha,
+    estatus,
+  }), [debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus])
+
+  const { servicios, nextCursor, loading, loadingMore, error, onLoadMore } = useServicios(filtrosParaApi)
+
   const medicoOptions = useMemo(
-    () => [...new Set(allServicios.map((s) => s.medico))].sort(),
-    [allServicios],
+    () => [...new Set(servicios.map((s) => s.medico))].sort(),
+    [servicios],
   )
 
-  const filteredServicios = useMemo(() => {
-    const filtered = filterServicios(allServicios, {
-      folio: debouncedFolio,
-      tipo,
-      asociado: debouncedAsociado,
-      medico,
-      laboratorio,
-      fecha,
-      estatus,
-    })
-
-    return filtered
-  }, [allServicios, debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus])
+  const filteredServicios = useMemo(() => servicios, [servicios])
 
   function handleRowClick(s: Servicio) {
     const ruta =
@@ -460,6 +506,15 @@ export default function ServiciosPage() {
           error={error}
           onRowClick={handleRowClick}
         />
+        <div className="flex justify-center p-5">
+          <Button
+            variant="secondary"
+            onClick={onLoadMore}
+            disabled={!nextCursor || loading || loadingMore}
+          >
+            {loadingMore ? 'Cargando…' : 'Cargar más datos'}
+          </Button>
+        </div>
       </div>
 
       <NuevoServicioModal
