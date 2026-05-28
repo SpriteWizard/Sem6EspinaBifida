@@ -23,6 +23,7 @@ interface Servicio {
   medico: string
   laboratorio?: string
   fecha: string
+  fecha_creacion: string
   fechaOrden: number
   estatus: 'Pendiente' | 'En proceso' | 'Completado' | 'Cancelado'
 }
@@ -47,6 +48,7 @@ function mapServicioFromApi(raw: any): Servicio {
     raw.tipo_servicio === "Consulta" ? fechaCreacionConsulta : fechaCreacionEstudio;
   const rawFechaFallback = rawFechaCreacion ?? raw.fecha ?? raw.FECHA ?? "";
   const [date] = String(rawFechaFallback).split("T");
+  const [fechaCreacion, _] = String(rawFechaCreacion).split("T");
   const parsedFecha = Date.parse(String(rawFechaFallback ?? ""));
   const fechaOrden = Number.isNaN(parsedFecha) ? 0 : parsedFecha;
 
@@ -69,6 +71,7 @@ function mapServicioFromApi(raw: any): Servicio {
     laboratorio: raw.tipo_servicio !== 'Consulta' ? raw.laboratorio : undefined,
     fecha: date,
     fechaOrden,
+    fecha_creacion: String(raw.fecha_creacion).split("T")[0],
     estatus: raw.estatus,
   };
 }
@@ -109,6 +112,7 @@ function useServicios(filters: ServicioFilters) {
         if (!res.ok) throw new Error();
 
         const data = await res.json();
+
         const items = Array.isArray(data?.items) ? data.items : data?.servicios ?? []
         const listaServicios = items.map(mapServicioFromApi);
 
@@ -228,7 +232,7 @@ function ServiciosTable({
             <th className="px-4 py-4 text-left text-sm font-semibold">Folio</th>
             <th className="px-4 py-4 text-left text-sm font-semibold">Asociado</th>
             <th className="px-4 py-4 text-left text-sm font-semibold">Médico / Lab.</th>
-            <th className="px-4 py-4 text-left text-sm font-semibold">Fecha</th>
+            <th className="px-4 py-4 text-left text-sm font-semibold">Fecha de Creacion</th>
             <th className="rounded-tr-2xl px-4 py-4 text-left text-sm font-semibold">
               Estatus
             </th>
@@ -279,7 +283,7 @@ function ServiciosTable({
                     ? s.medico
                     : (LABORATORIOS[s.laboratorio ?? ''] ?? s.laboratorio ?? '—')}
                 </td>
-                <td className="px-4 py-5 text-sm text-slate-700">{s.fecha}</td>
+                <td className="px-4 py-5 text-sm text-slate-700">{s.fecha_creacion}</td>
                 <td className="px-4 py-5 text-sm">
                   <span
                     className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${ESTATUS_CLASSES[s.estatus]}`}

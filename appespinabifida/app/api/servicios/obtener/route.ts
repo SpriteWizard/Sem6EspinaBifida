@@ -18,6 +18,7 @@ type estudio_data = {
     aportacion: number,
     ya_aporto: 1 | 0,
     fecha_cita: string,
+    fecha_creacion: string,
     estatus: string,
     resultados: string
 }
@@ -35,7 +36,8 @@ type consulta_data = {
     tratamiento: string,
     aportacion: number,
     ya_aporto: 1 | 0,
-    estatus: string
+    estatus: string,
+    fecha_creacion: string
 }
 
 export async function GET(request: Request){
@@ -71,7 +73,7 @@ export async function GET(request: Request){
         const fechaCreacionEstudio =
             item.fecha ?? item.FECHA ?? item.fecha_creacion ?? item.fechaCreacion ?? item.fechacreacion;
         const rawFecha = tipo === "Consulta" ? fechaCreacionConsulta : fechaCreacionEstudio;
-        const fechaOrden = Date.parse(String(rawFecha ?? ""));
+        const fechaOrden = Date.parse(String(item.fecha_creacion ?? ""));
         const fecha = String(rawFecha ?? "").split("T")[0];
 
         return {
@@ -84,6 +86,7 @@ export async function GET(request: Request){
                 medico: item.medico ?? "",
                 laboratorio: item.laboratorio ?? "",
                 fecha,
+                fecha_creacion: item.fecha_creacion,
                 fechaOrden: Number.isNaN(fechaOrden) ? 0 : fechaOrden,
                 estatus: item.estatus ?? "",
             },
@@ -100,7 +103,7 @@ export async function GET(request: Request){
         ) return false;
         if (medicoFilter !== "Todos" && meta.medico !== medicoFilter) return false;
         if (laboratorioFilter !== "Todos" && meta.laboratorio !== laboratorioFilter) return false;
-        if (fechaFilter && meta.fecha !== fechaFilter) return false;
+        if (fechaFilter && String(meta.fecha_creacion).split("T")[0] !== fechaFilter) return false;
         if (estatusFilter !== "Todos" && meta.estatus !== estatusFilter) return false;
         return true;
     });
