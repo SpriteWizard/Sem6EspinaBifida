@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
+import ImprimirReciboTemplate from "@/components/imprimirRecibo"
 import  Link from "next/link";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
+import { useReactToPrint } from "react-to-print";
 import {
 	Plus,
 	Search,
@@ -583,9 +585,11 @@ function DesgloseModal({
 
 function ReciboDetailModal({
 	recibo,
+	pagos,
 	onClose,
 }: {
 	recibo: Recibo | null;
+	pagos: any;
 	onClose: () => void;
 }) {
 	const [consultaItems, setConsultaItems] = useState<any[]>([]);
@@ -597,6 +601,8 @@ function ReciboDetailModal({
 	const [detailEstudios, setDetailEstudios] = useState<any[]>([]);
 	const [serviciosLoading, setServiciosLoading] = useState(false);
 	const [serviciosError, setServiciosError] = useState<string | null>(null);
+
+	
 
 	const currentReciboId = recibo?.reciboId ?? recibo?.id ?? null;
 
@@ -741,6 +747,130 @@ function ReciboDetailModal({
 		return map;
 	}, [detailEstudios]);
 
+	type MetodoPago =
+	| "efectivo"
+	| "transferencia"
+	| "depósito"
+	| "tarjeta";
+
+	type Pago = {
+	id?: number;
+	fecha: string;
+	monto: number;
+	metodo: MetodoPago;
+	};
+
+	type Producto = {
+	itemId: number;
+	itemName: string;
+	cantidad: number;
+	precioUnitario: number;
+	tipo: "Consulta" | "Estudio" | "Inventario";
+	};
+
+	type Recibo = {
+	id: number;
+	reciboId?: number;
+	asociado: string;
+	fechaEmision: string;
+	fechaLimite: string;
+	montoTotal: number;
+	montoPagado: number;
+	tipoPaciente: "urbano" | "rural";
+	descuentoPct?: number;
+	descuentoMonto?: number;
+	exencionMonto?: number;
+	productos?: Producto[] | null;
+	pagos?: Pago[];
+	};
+
+	function normalizeRecibo(raw: any) {
+		const productos = (raw.productos ?? [])
+			.filter(Boolean)
+			.map((p: any) => ({
+			itemId: Number(p.itemId),
+			itemName: p.itemName ?? "Sin nombre",
+			cantidad: Number(p.cantidad ?? 1),
+			precioUnitario: Number(p.precioUnitario ?? 0),
+			tipo: p.tipo ?? "Inventario",
+			}));
+
+		const subtotal = productos.reduce(
+			(acc: any, p: any) => acc + p.cantidad * p.precioUnitario,
+			0
+		);
+
+		const descuento =
+			raw.descuentoMonto ??
+			subtotal * ((raw.descuentoPct ?? 0) / 100);
+
+		const exencion = raw.exencionMonto ?? 0;
+
+		const total = subtotal - descuento - exencion;
+
+		const montoPagado = Number(raw.montoPagado ?? 0);
+
+		const saldoPendiente = Math.max(total - montoPagado, 0);
+
+		console.log(pagos);
+
+		const pagosRecibo = pagos.filter((e:any) => {
+			return e.idRecibo == raw.id
+		})
+		.map((e: any) => {
+			console.log(e)
+			if (e == null) return;
+			return {
+				id: e.id,
+				fecha: e.fechaPago,
+				monto: e.monto,
+				metodo: e.metodoPago
+			}
+		})
+
+		const estatus =
+			saldoPendiente <= 0 ? "Pagado" : "Pendiente";
+
+		
+
+		return {
+			id: raw.id,
+			reciboId: raw.reciboId,
+			asociado: raw.asociado,
+			fechaEmision: raw.fechaEmision,
+			fechaLimite: raw.fechaLimite,
+
+			tipoPaciente: raw.tipoPaciente,
+
+			productos,
+
+			pagos: pagosRecibo ?? [],
+
+			// cálculos consistentes
+			subtotal,
+			descuento,
+			exencion,
+			montoTotal: total,
+			montoPagado,
+			saldoPendiente,
+			estatus,
+		};
+	}
+
+	const [imprimirData, setImprimirData] = useState<Recibo|null>(null);
+	useEffect(()=>{
+		if (recibo){
+			setImprimirData(normalizeRecibo(recibo))
+		}
+	},[recibo])
+	
+
+	const componentRef = useRef<HTMLDivElement>(null);
+
+	const handlePrint = useReactToPrint({
+		contentRef: componentRef,
+	});
+
 	const estatus = recibo ? derivarEstatus(recibo) : "Pendiente";
 	const saldoPendiente = recibo
 		? Math.max(0, Math.round((recibo.montoTotal - recibo.montoPagado) * 100) / 100)
@@ -752,7 +882,7 @@ function ReciboDetailModal({
 			onClose={onClose}
 			title={recibo ? `Detalle de recibo ${recibo.id}` : "Detalle de recibo"}
 			titleId="recibo-detail-title"
-			className="max-w-5xl overflow-y-auto max-h-[90vh]"
+			className="max-w-5xl overflow-y-auto max-h-[95vh]"
 		>
 			{recibo && (
 				<div className="space-y-4 px-5 py-4">
@@ -942,8 +1072,26 @@ function ReciboDetailModal({
 							</ul>
 						)}
 					</div>
+
+					<div className="flex justify-end mt-6">
+						<Button 
+						variant="secondary"
+						onClick={handlePrint}>
+							Imprimir recibo
+						</Button>
+					</div>
+
 				</div>
 			)}
+
+			{ imprimirData ? (
+			<div className="hidden">
+				<div ref={componentRef}>
+					<ImprimirReciboTemplate recibo={imprimirData}></ImprimirReciboTemplate>
+				</div>
+			</div>) : null
+			}
+
 		</Modal>
 	);
 }
@@ -2233,6 +2381,7 @@ export default function RecibosPage() {
 			/>
 			<ReciboDetailModal
 				recibo={reciboDetalle}
+				pagos={pagos}
 				onClose={() => setReciboDetalle(null)}
 			/>
 			<DesgloseModal
