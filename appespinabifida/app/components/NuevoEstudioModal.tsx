@@ -20,14 +20,6 @@ type TipoEstudio = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LABORATORIOS_MOCK = [
-  { id: 'L01', nombre: 'Lab. Médico Cerrus' },
-  { id: 'L02', nombre: 'Centro de Imagen UDEM' },
-  { id: 'L03', nombre: 'Hospital San José TEC' },
-  { id: 'L04', nombre: 'Laboratorio Clínico Lomas' },
-  { id: 'L05', nombre: 'Diagnóstica del Norte' },
-]
-
 const TITLE_ID = 'nuevo-estudio-modal-title'
 
 function normalizar(s: string) {
@@ -75,6 +67,7 @@ export function NuevoEstudioModal({
   const [ASOCIADOS, setASOCIADOS] = useState<any[]>([])
   const [CONSULTAS, setCONSULTAS] = useState<Consulta[]>([])
   const [TIPOESTUDIO, setTIPOESTUDIO] = useState<TipoEstudio[]>([])
+  const [laboratorios, setLaboratorios] = useState<{ id_laboratorio: number; nombre: string }[]>([])
 
   useEffect(() => {
     if (open && defaultFolioConsulta) {
@@ -125,6 +118,10 @@ export function NuevoEstudioModal({
         alert('No se pudo obtener los tipos de estudio, intente nuevamente más tarde')
         setTIPOESTUDIO([])
       }
+    })
+
+    fetch('/api/laboratorios/lista').then(async (res) => {
+      if (res.ok) setLaboratorios((await res.json()) ?? [])
     })
   }, [open])
 
@@ -180,7 +177,7 @@ export function NuevoEstudioModal({
           id_medico: null,
           id_tipo_estudio: Number(estudio),
           id_consulta: Number(folioConsulta.replace('CON-', '')),
-          laboratorio: laboratorioId,
+          id_laboratorio: Number(laboratorioId),
           aportacion: monto,
           ya_aporto: yaAporto ? 1 : 0,
           fecha_cita: fecha,
@@ -308,8 +305,8 @@ export function NuevoEstudioModal({
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 cursor-pointer"
               >
                 <option value="">Seleccionar laboratorio...</option>
-                {LABORATORIOS_MOCK.map((lab) => (
-                  <option key={lab.id} value={lab.id}>{lab.nombre}</option>
+                {laboratorios.map((lab) => (
+                  <option key={lab.id_laboratorio} value={lab.id_laboratorio}>{lab.nombre}</option>
                 ))}
               </select>
             </div>

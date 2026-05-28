@@ -18,11 +18,15 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify(body),
   });
 
-  const data = await res.json();
+  let data: any = {};
+  try {
+    const text = await res.text();
+    if (text) data = JSON.parse(text);
+  } catch { /* respuesta vacía o no-JSON */ }
 
   if (!res.ok) {
     return Response.json(
-      { status: "failed", reason: data.message ?? "Error al crear laboratorio" },
+      { status: "error", reason: data.reason ?? "Error al crear laboratorio" },
       { status: res.status },
     );
   }

@@ -7,24 +7,18 @@ import { ArrowLeft } from 'lucide-react'
 
 const ESTATUS_OPTIONS = ['Pendiente', 'En proceso', 'Completado', 'Cancelado']
 
-const LABORATORIOS = [
-  { id: 'L01', nombre: 'Lab. Médico Cerrus' },
-  { id: 'L02', nombre: 'Centro de Imagen UDEM' },
-  { id: 'L03', nombre: 'Hospital San José TEC' },
-  { id: 'L04', nombre: 'Laboratorio Clínico Lomas' },
-  { id: 'L05', nombre: 'Diagnóstica del Norte' },
-]
 
 export default function EditarEstudioForm({ data }: { data: any }) {
   const router = useRouter()
 
   const [medicos, setMedicos] = useState<any[]>([])
   const [tiposEstudio, setTiposEstudio] = useState<any[]>([])
+  const [laboratorios, setLaboratorios] = useState<{ id_laboratorio: number; nombre: string }[]>([])
   const [guardando, setGuardando] = useState(false)
 
   const [idTipoEstudio, setIdTipoEstudio] = useState<number>(data.id_tipo_estudio ?? 0)
   const [idMedico, setIdMedico] = useState<number>(data.id_medico ?? 0)
-  const [laboratorio, setLaboratorio] = useState(data.laboratorio ?? '')
+  const [idLaboratorio, setIdLaboratorio] = useState<string>(data.id_laboratorio ? String(data.id_laboratorio) : '')
   const [estatus, setEstatus] = useState(data.estatus ?? 'Pendiente')
   const [fecha, setFecha] = useState(data.fecha ? data.fecha.split('T')[0] : '')
   const [aportacion, setAportacion] = useState(String(data.aportacion ?? ''))
@@ -40,6 +34,10 @@ export default function EditarEstudioForm({ data }: { data: any }) {
     fetch('/api/servicios/obtener/estudios/tipos')
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((d) => setTiposEstudio(d.data ?? []))
+
+    fetch('/api/laboratorios/lista')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setLaboratorios(d ?? []))
   }, [])
 
   async function handleGuardar() {
@@ -57,7 +55,7 @@ export default function EditarEstudioForm({ data }: { data: any }) {
             id_consulta: data.id_consulta,
             id_medico: idMedico,
             id_tipo_estudio: idTipoEstudio,
-            laboratorio,
+            id_laboratorio: Number(idLaboratorio),
             aportacion: Number(String(aportacion).replace(/[^0-9.]/g, '')),
             ya_aporto: yaAporto ? 1 : 0,
             fecha_cita: fechaCita,
@@ -177,7 +175,7 @@ export default function EditarEstudioForm({ data }: { data: any }) {
               <option value={0}>Seleccionar médico...</option>
               {medicos.map((m: any) => (
                 <option key={m.id_medico} value={m.id_medico}>
-                  Dr(a). {m.nombre}
+                  Dr. {m.nombre}
                 </option>
               ))}
             </select>
@@ -212,13 +210,13 @@ export default function EditarEstudioForm({ data }: { data: any }) {
           <div className="flex flex-col gap-1">
             <label className="text-xs text-slate-500">Laboratorio</label>
             <select
-              value={laboratorio}
-              onChange={(e) => setLaboratorio(e.target.value)}
+              value={idLaboratorio}
+              onChange={(e) => setIdLaboratorio(e.target.value)}
               className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 cursor-pointer"
             >
               <option value="">Seleccionar laboratorio...</option>
-              {LABORATORIOS.map((lab) => (
-                <option key={lab.id} value={lab.id}>{lab.nombre}</option>
+              {laboratorios.map((lab) => (
+                <option key={lab.id_laboratorio} value={lab.id_laboratorio}>{lab.nombre}</option>
               ))}
             </select>
           </div>

@@ -5,7 +5,7 @@ function authHeader() {
 }
 
 export async function GET() {
-  const res = await fetch(`${ORDS_BASE}/laboratorios/obtenerLaboratorios`, {
+  const res = await fetch(`${ORDS_BASE}/laboratorios/lista_laboratorios`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",

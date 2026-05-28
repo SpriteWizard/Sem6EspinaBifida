@@ -6,7 +6,7 @@ import { Input } from "./ui/Input";
 import { Modal } from "./ui/Modal";
 
 export type LaboratorioDetalle = {
-  id: string;
+  id_laboratorio: number;
   nombre: string;
   direccion: string;
   telefono: string;
@@ -23,6 +23,7 @@ type ModalLaboratorioProps = {
   open: boolean;
   laboratorio: LaboratorioDetalle;
   onClose: () => void;
+  onSuccess: () => void;
 };
 
 function getStatusLabel(estatus: LaboratorioDetalle["estatus"]): "Activo" | "Inactivo" {
@@ -41,7 +42,7 @@ function isValidEmail(email: string): boolean {
 
 type FieldErrors = Partial<Record<"nombre" | "direccion" | "telefono" | "correo", string>>;
 
-export default function ModalLaboratorio({ open, laboratorio, onClose }: ModalLaboratorioProps) {
+export default function ModalLaboratorio({ open, laboratorio, onClose, onSuccess }: ModalLaboratorioProps) {
   const base = useMemo(() => laboratorio, [laboratorio]);
   const [draft, setDraft] = useState<LaboratorioDetalle>(base);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -91,8 +92,8 @@ export default function ModalLaboratorio({ open, laboratorio, onClose }: ModalLa
     if (res.ok) {
       const data = await res.json();
       if (data.status === "ok") {
-        setIsEditMode(false);
-        window.location.reload();
+        onClose();
+        onSuccess();
         return;
       }
     }
@@ -101,20 +102,14 @@ export default function ModalLaboratorio({ open, laboratorio, onClose }: ModalLa
   }
 
   async function handleToggle() {
-    if (isActive) {
-      const confirmed = window.confirm(
-        `¿Estás seguro de que deseas desactivar el laboratorio "${laboratorio.nombre}"?`,
-      );
-      if (!confirmed) return;
-    }
-
     await fetch("/api/laboratorios/toggleLaboratorio", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: laboratorio.id, estatus: isActive ? 0 : 1 }),
+      body: JSON.stringify({ id_laboratorio: laboratorio.id_laboratorio, estatus: isActive ? 0 : 1 }),
     });
 
-    window.location.reload();
+    onClose();
+    onSuccess();
   }
 
   function readonlyField(label: string, value?: string | null) {
@@ -165,7 +160,7 @@ export default function ModalLaboratorio({ open, laboratorio, onClose }: ModalLa
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs uppercase text-slate-500">ID</p>
-            <p className="text-sm font-medium text-slate-900">{laboratorio.id}</p>
+            <p className="text-sm font-medium text-slate-900">LAB-{laboratorio.id_laboratorio}</p>
           </div>
 
           <div>
@@ -174,7 +169,7 @@ export default function ModalLaboratorio({ open, laboratorio, onClose }: ModalLa
               className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${
                 isActive
                   ? "bg-green-600/10 text-green-600"
-                  : "bg-slate-100 text-slate-500"
+                  : "bg-red-500/10 text-red-500"
               }`}
             >
               {statusLabel}

@@ -149,7 +149,7 @@ export default function UsuariosPage() {
       {activeTab === "laboratorios" && (
         <>
           <FiltrosLaboratorios sendFilters={setFiltrosLaboratorios} />
-          <ListaLaboratorios filtros={filtrosLaboratorios} refreshKey={refreshLaboratorioKey} />
+          <ListaLaboratorios filtros={filtrosLaboratorios} refreshKey={refreshLaboratorioKey} onSuccess={() => setRefreshLaboratorioKey((prev) => prev + 1)} />
           <CreateLaboratorioModal
             open={createLaboratorioOpen}
             onClose={() => setCreateLaboratorioOpen(false)}

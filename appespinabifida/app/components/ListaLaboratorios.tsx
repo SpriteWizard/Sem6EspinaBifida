@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "./ui/Button";
 import ListaTabla from "./ListaTabla";
 import ModalLaboratorio, { type LaboratorioDetalle } from "./ModalLaboratorio";
 import type { FiltrosLaboratoriosValues } from "./FiltrosLaboratorios";
@@ -9,14 +10,16 @@ type Estatus = "Activo" | "Inactivo";
 
 const badgeColors: Record<Estatus, string> = {
   Activo: "bg-green-600/10 text-green-600",
-  Inactivo: "bg-slate-100 text-slate-500",
+  Inactivo: "bg-red-500/10 text-red-500",
 };
 
 const HEADERS = ["ID", "Nombre", "Dirección", "Teléfono", "Estatus"];
+const PAGE_SIZE = 5;
 
 type ListaLaboratoriosProps = {
   filtros: FiltrosLaboratoriosValues;
   refreshKey?: number;
+  onSuccess?: () => void;
 };
 
 function getStatusLabel(estatus: any): Estatus {
@@ -24,10 +27,11 @@ function getStatusLabel(estatus: any): Estatus {
   return "Inactivo";
 }
 
-export default function ListaLaboratorios({ filtros, refreshKey }: ListaLaboratoriosProps) {
+export default function ListaLaboratorios({ filtros, refreshKey, onSuccess }: ListaLaboratoriosProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [rawData, setRawData] = useState<LaboratorioDetalle[]>([]);
   const [data, setData] = useState<LaboratorioDetalle[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     async function loadLaboratorios() {
@@ -44,12 +48,13 @@ export default function ListaLaboratorios({ filtros, refreshKey }: ListaLaborato
   }, [refreshKey]);
 
   useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
     setData(
       rawData.filter((lab) => {
         const idMatch =
           filtros.id == null || filtros.id === 0
             ? true
-            : String(lab.id).includes(String(filtros.id));
+            : String(lab.id_laboratorio).includes(String(filtros.id));
 
         const nombreMatch =
           filtros.nombre === "" ||
@@ -64,12 +69,14 @@ export default function ListaLaboratorios({ filtros, refreshKey }: ListaLaborato
     );
   }, [filtros, rawData]);
 
-  const rows = data.map((lab, i) => {
+  const visible = data.slice(0, visibleCount);
+
+  const rows = visible.map((lab, i) => {
     const label = getStatusLabel(lab.estatus);
     return {
-      key: String(lab.id ?? i),
+      key: String(lab.id_laboratorio ?? i),
       cells: [
-        lab.id ?? "—",
+        `LAB-${lab.id_laboratorio}`,
         lab.nombre ?? "—",
         lab.direccion ?? "—",
         lab.telefono ?? "—",
@@ -84,8 +91,8 @@ export default function ListaLaboratorios({ filtros, refreshKey }: ListaLaborato
   });
 
   const selectedLaboratorio =
-    selectedIndex !== null && selectedIndex < data.length
-      ? data[selectedIndex]
+    selectedIndex !== null && selectedIndex < visible.length
+      ? visible[selectedIndex]
       : null;
 
   return (
@@ -103,11 +110,23 @@ export default function ListaLaboratorios({ filtros, refreshKey }: ListaLaborato
         />
       </div>
 
+      {visibleCount < data.length && (
+        <div className="flex justify-center pt-2">
+          <Button variant="secondary" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+            Cargar más datos
+          </Button>
+        </div>
+      )}
+
       {selectedLaboratorio !== null && selectedIndex !== null && (
         <ModalLaboratorio
           open
           laboratorio={selectedLaboratorio}
           onClose={() => setSelectedIndex(null)}
+          onSuccess={() => {
+            setSelectedIndex(null);
+            onSuccess?.();
+          }}
         />
       )}
     </>
