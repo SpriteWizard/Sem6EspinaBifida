@@ -267,6 +267,17 @@ export function NewMovementModal({
       next.quantity = 'Indica una cantidad válida (mayor a 0).'
     }
 
+    if (movementType === 'out' && selectedItemId !== null && selectedItem) {
+      const requestedQuantity = Math.floor(q)
+      const availableQuantity = Math.max(0, Math.floor(selectedItem.quantity))
+
+      if (requestedQuantity > availableQuantity) {
+        const message = `No hay suficiente stock de ${selectedItem.name}. Disponible: ${availableQuantity}.`
+        next.quantity = message
+        window.alert(message)
+      }
+    }
+
     const trimmedName = itemName.trim()
     const normalizedInputName = normalizeName(trimmedName)
     const hasExactSuggestion = suggestions.some(

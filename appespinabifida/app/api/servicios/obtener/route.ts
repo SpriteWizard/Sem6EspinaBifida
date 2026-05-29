@@ -69,7 +69,7 @@ export async function GET(request: Request){
         const fechaCreacionConsulta =
             item.fecha_creacion ?? item.fechaCreacion ?? item.fechacreacion ?? item.FECHA_CREACION;
         const fechaCreacionEstudio =
-            item.fecha ?? item.FECHA ?? item.fecha_creacion ?? item.fechaCreacion ?? item.fechacreacion;
+            item.FECHA ?? item.fecha ?? item.fecha_cita ?? item.fecha_creacion ?? item.fechaCreacion ?? item.fechacreacion;
         const rawFecha = tipo === "Consulta" ? fechaCreacionConsulta : fechaCreacionEstudio;
         const fechaOrden = Date.parse(String(rawFecha ?? ""));
         const fecha = String(rawFecha ?? "").split("T")[0];
