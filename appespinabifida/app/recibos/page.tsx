@@ -1615,9 +1615,9 @@ function NuevoReciboModal({
 				onClose={handleClose}
 				title="Nuevo recibo"
 				titleId="nuevo-recibo-title"
-				className="flex max-h-[90dvh] max-w-2xl flex-col"
+				className="flex max-h-[90dvh] max-w-4xl flex-col"
 			>
-				<div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-5 py-5">
+				<div className="flex-1 min-h-0 space-y-5 overflow-y-auto px-6 py-6">
 
 				{/* ── Asociado ── */}
 				<div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-200/70">
@@ -1939,7 +1939,7 @@ function NuevoReciboModal({
 				</div>
 
 				{/* ── Resumen de precio ── */}
-				<div className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
+				<div className="rounded-xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200/70 shadow-sm">
 					<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
 						Resumen
 					</p>
@@ -2092,9 +2092,9 @@ function NuevoReciboModal({
 							</span>
 						</div>
 					)}
-					<div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold text-slate-800">
-						<span>Total</span>
-						<span className={exento ? "text-emerald-600" : ""}>
+					<div className="mt-2 flex justify-between border-t border-slate-200 pt-3 items-end">
+						<span className="text-sm font-semibold text-slate-700">Total</span>
+						<span className={cn("text-xl font-bold", exento ? "text-emerald-600" : "text-slate-900")}>
 							{formatCurrency(totalFinal)}
 						</span>
 					</div>
