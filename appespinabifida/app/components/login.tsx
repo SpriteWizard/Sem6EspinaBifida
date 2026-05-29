@@ -9,6 +9,9 @@ export default function Login({error}: any) {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const [showPassword, setShowPassword] = useState(false);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const canSubmit = email.trim().length > 0 && password.trim().length > 0;
 
 	useEffect(() => {
 		if (session?.user) {
@@ -87,6 +90,8 @@ export default function Login({error}: any) {
 								placeholder="Ingresa tu usuario"
 								className="h-full w-full bg-transparent text-base text-[#2B2B2B] placeholder:text-gray-400 focus:outline-none"
 								autoComplete="username"
+								value={email}
+								onChange={(event) => setEmail(event.target.value)}
 							/>
 						</div>
 					</div>
@@ -119,6 +124,8 @@ export default function Login({error}: any) {
 								placeholder="Ingresa tu contraseña"
 								className="h-full w-full bg-transparent text-base text-[#2B2B2B] placeholder:text-gray-400 focus:outline-none"
 								autoComplete="current-password"
+								value={password}
+								onChange={(event) => setPassword(event.target.value)}
 							/>
 							<button
 								type="button"
@@ -170,7 +177,8 @@ export default function Login({error}: any) {
 
 					<button
 						type="submit"
-						className="mt-1 flex h-[52px] w-full items-center justify-center gap-3 rounded-[14px] bg-[#D2D3D5] text-xl font-semibold text-[#202226] shadow-[0_7px_16px_rgba(10,25,44,0.2)] transition hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BFD3EA]"
+						disabled={!canSubmit}
+						className="mt-1 flex h-[52px] w-full items-center justify-center gap-3 rounded-[14px] bg-white text-xl font-semibold text-[#003C64] shadow-[0_7px_16px_rgba(10,25,44,0.2)] transition-colors hover:bg-[#F7F7F7] disabled:bg-[#B9BDC4] disabled:text-[#7C838D] disabled:shadow-[0_7px_16px_rgba(10,25,44,0.10)] disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BFD3EA]"
 					>
 						Iniciar Sesión
 					</button>
