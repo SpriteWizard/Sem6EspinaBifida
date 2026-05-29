@@ -457,7 +457,7 @@ function DesgloseModal({
 		<Modal
 			open={recibo !== null}
 			onClose={onClose}
-			title={recibo ? `Desglose — ${recibo.id}` : "Desglose"}
+			title={recibo ? `Desglose — REC-${recibo.id}` : "Desglose"}
 			titleId="desglose-title"
 			className="max-w-2xl"
 		>
@@ -880,7 +880,7 @@ function ReciboDetailModal({
 		<Modal
 			open={recibo !== null}
 			onClose={onClose}
-			title={recibo ? `Detalle de recibo ${recibo.id}` : "Detalle de recibo"}
+			title={recibo ? `Detalle de recibo REC-${recibo.id}` : "Detalle de recibo"}
 			titleId="recibo-detail-title"
 			className="max-w-5xl overflow-y-auto max-h-[95vh]"
 		>
@@ -893,18 +893,13 @@ function ReciboDetailModal({
 						<div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
 							<div>
 								<p className="text-xs uppercase text-slate-400">Recibo</p>
-								<p className="font-medium text-slate-800">{recibo.id}</p>
-							</div>
-							<div>
-								<p className="text-xs uppercase text-slate-400">Recibo DB</p>
-								<p className="font-medium text-slate-800">
-									{recibo.reciboId ?? "—"}
-								</p>
+								<p className="font-medium text-slate-800">REC-{recibo.id}</p>
 							</div>
 							<div>
 								<p className="text-xs uppercase text-slate-400">Asociado</p>
 								<p className="font-medium text-slate-800">{recibo.asociado}</p>
 							</div>
+							<div />
 							<div>
 								<p className="text-xs uppercase text-slate-400">Fecha emision</p>
 								<p className="text-slate-800">{formatDate(recibo.fechaEmision)}</p>
@@ -2506,7 +2501,7 @@ export default function RecibosPage() {
 												onClick={() => setReciboDetalle(r)}
 											>
 												<td className="px-5 py-4 text-sm font-medium text-slate-800">
-													{r.id}
+													REC-{r.id}
 												</td>
 												<td className="px-5 py-4 text-sm text-slate-800">
 													{r.asociado}
