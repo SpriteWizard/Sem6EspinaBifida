@@ -449,6 +449,7 @@ function DesgloseModal({
 	recibo: Recibo | null;
 	onClose: () => void;
 }) {
+
 	const productos = recibo?.productos ?? [];
 	const subtotoBruto = productos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
 	const tieneDescuento = (recibo?.descuentoPct ?? 0) > 0;
@@ -592,6 +593,11 @@ function ReciboDetailModal({
 	pagos: any;
 	onClose: () => void;
 }) {
+
+	useEffect(()=>{
+		console.log(recibo)
+	},[recibo])
+
 	const [consultaItems, setConsultaItems] = useState<any[]>([]);
 	const [estudioItems, setEstudioItems] = useState<any[]>([]);
 	const [movements, setMovements] = useState<InventoryMovement[]>([]);
@@ -643,84 +649,17 @@ function ReciboDetailModal({
 	}, [currentReciboId]);
 
 	useEffect(() => {
-		if (!currentReciboId) {
-			setDetailConsultas([]);
-			setDetailEstudios([]);
-			setServiciosError(null);
-			setServiciosLoading(false);
-			return;
-		}
-
-		let alive = true;
-		setServiciosLoading(true);
-		setServiciosError(null);
-
-		fetch("/api/servicios/obtener")
-			.then(async (res) => {
-				if (!res.ok) throw new Error("No se pudieron cargar los servicios.");
-				const data = await res.json();
-				const servicios = Array.isArray(data?.servicios) ? data.servicios : [];
-				const consultas = servicios.filter((s: any) => "id_consulta" in s);
-				const estudios = servicios.filter((s: any) => "id_estudio" in s);
-				const consultasPorRecibo = consultas.filter(
-					(c: any) => Number(c?.id_recibo) === Number(currentReciboId),
-				);
-				const consultaIds = new Set(
-					consultasPorRecibo.map((c: any) => Number(c?.id_consulta)).filter(Boolean),
-				);
-				const estudiosPorRecibo = estudios.filter((e: any) => {
-					const idRecibo = Number(e?.id_recibo);
-					if (Number.isFinite(idRecibo) && idRecibo === Number(currentReciboId)) return true;
-					const idConsulta = Number(e?.id_consulta);
-					return consultaIds.has(idConsulta);
-				});
-
-				if (!alive) return;
-				setDetailConsultas(consultasPorRecibo);
-				setDetailEstudios(estudiosPorRecibo);
-			})
-			.catch((error) => {
-				if (!alive) return;
-				setDetailConsultas([]);
-				setDetailEstudios([]);
-				setServiciosError(
-					error instanceof Error ? error.message : "No se pudieron cargar los servicios.",
-				);
-			})
-			.finally(() => {
-				if (!alive) return;
-				setServiciosLoading(false);
-			});
-
-		return () => {
-			alive = false;
-		};
-	}, [currentReciboId]);
-
-	useEffect(() => {
-	
 		const productos = JSON.parse(JSON.stringify(recibo?.productos ?? []));
-		const consultaItems = productos.map((p: any) => {
-			if (p.tipo.includes("Consulta")){
-				return p;
-			}
-			else{
-				return null;
-			}
-		}).filter((v: any): v is any => !!v);
+
+		// Derive consultas / estudios directly from the recibo productos
+		const consultaItems = productos.filter((p: any) => String(p?.tipo ?? "").toLowerCase().includes("consulta"));
 		setConsultaItems(consultaItems);
-		const estudioItems = productos.map((p: any) => {
-			if (p.tipo.includes("Estudio")){
-				return p;
-			}
-			else{
-				return null;
-			}
-		}).filter((v: any): v is any => !!v);
-		console.log(estudioItems);
+
+		const estudioItems = productos.filter((p: any) => String(p?.tipo ?? "").toLowerCase().includes("estudio"));
 		setEstudioItems(estudioItems);
 
-		setServiciosLoading(true);
+		// we derive items immediately from the recibo; don't keep serviciosLoading stuck
+		setServiciosLoading(false);
 	}, [recibo]);
 
 	const consultaPriceLookup = useMemo(() => {
@@ -812,13 +751,10 @@ function ReciboDetailModal({
 
 		const saldoPendiente = Math.max(total - montoPagado, 0);
 
-		console.log(pagos);
-
 		const pagosRecibo = pagos.filter((e:any) => {
 			return e.idRecibo == raw.id
 		})
 		.map((e: any) => {
-			console.log(e)
 			if (e == null) return;
 			return {
 				id: e.id,
@@ -954,9 +890,7 @@ function ReciboDetailModal({
 							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
 								Consultas
 							</p>
-							{serviciosLoading ? (
-								<p className="text-sm text-slate-400">Cargando consultas...</p>
-							) : serviciosError ? (
+							{serviciosError ? (
 								<p className="text-sm text-rose-700">{serviciosError}</p>
 							) : consultaItems.length === 0 ? (
 								<p className="text-sm text-slate-400">Sin consultas.</p>
@@ -995,9 +929,7 @@ function ReciboDetailModal({
 							<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
 								Estudios
 							</p>
-							{serviciosLoading ? (
-								<p className="text-sm text-slate-400">Cargando estudios...</p>
-							) : serviciosError ? (
+							{serviciosError ? (
 								<p className="text-sm text-rose-700">{serviciosError}</p>
 							) : estudioItems.length === 0 ? (
 								<p className="text-sm text-slate-400">Sin estudios.</p>

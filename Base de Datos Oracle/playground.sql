@@ -733,3 +733,44 @@ select * from asociado;
 
 update laboratorio set nombre = 'Laboratorio Maria Luisa' where nombre = 'Lab ABC';
 commit;
+
+ALTER TABLE historial_medico
+ADD (
+    fecha_ult_gral_orina        DATE,
+    fecha_ult_eco_renal         DATE,
+    fecha_ult_est_urodinamico   DATE,
+    fecha_ult_tac_cerebro       DATE,
+    fecha_ult_urocultivo        DATE,
+    fecha_ult_urotac            DATE,
+    fecha_ult_est_uro           DATE,
+    fecha_ult_otros             DATE
+);
+
+create or replace trigger actualizar_fecha_ultimo_estudio
+after insert or update on estudio
+for each row
+begin
+  if :new.id_tipo_estudio = 29 then
+    update historial_medico set fecha_ult_gral_orina = :new.fecha_cita where id_asociado = :new.id_asociado;
+  elsif :new.id_tipo_estudio = 30 then
+    update historial_medico set fecha_ult_eco_renal = :new.fecha_cita where id_asociado = :new.id_asociado;
+  elsif :new.id_tipo_estudio = 31 then
+    update historial_medico set fecha_ult_est_urodinamico = :new.fecha_cita where id_asociado = :new.id_asociado;
+  elsif :new.id_tipo_estudio = 32 then
+    update historial_medico set fecha_ult_tac_cerebro= :new.fecha_cita where id_asociado = :new.id_asociado;
+  elsif :new.id_tipo_estudio = 33 then
+    update historial_medico set fecha_ult_urocultivo = :new.fecha_cita where id_asociado = :new.id_asociado;
+  elsif :new.id_tipo_estudio = 34 then
+    update historial_medico set fecha_ult_urotac = :new.fecha_cita where id_asociado = :new.id_asociado;
+  elsif :new.id_tipo_estudio = 35 then
+    update historial_medico set fecha_ult_est_uro = :new.fecha_cita where id_asociado = :new.id_asociado;
+  else
+    update historial_medico set fecha_ult_otros = :new.fecha_cita where id_asociado = :new.id_asociado;
+  end if;
+end;
+  
+select * from historial_medico where id_asociado = 117;
+
+commit;
+
+select * from asociado;
