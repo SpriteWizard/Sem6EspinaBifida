@@ -110,6 +110,14 @@ export async function GET(request: Request) {
       familiarConDTN:                     Boolean(a.familiar_dtn),
       exposicionToxicosEmbarazo:          Boolean(a.exposicion_toxicos_embarazo),
       descripcionToxinas:                 a.descripcion_toxinas,
+      fechaGralOrina: a.fecha_ult_gral_orina ? splitDate(a.fecha_ult_gral_orina) : "—",
+      fechaEcoRenal: a.fecha_ult_eco_renal ? splitDate(a.fecha_ult_eco_renal) : "—",
+      fechaEstUrodinamico: a.fecha_ult_est_urodinamico ? splitDate(a.fecha_ult_est_urodinamico) : "—",
+      fechaTacCerebro: a.fecha_ult_tac_cerebro ? splitDate(a.fecha_ult_tac_cerebro) : "—",
+      fechaUrocultivo: a.fecha_ult_urocultivo ? splitDate(a.fecha_ult_urocultivo) : "—",
+      fechaUroTac: a.fecha_ult_urotac ? splitDate(a.fecha_ult_urotac) : "—",
+      fechaUltEstUro: a.fecha_ult_est_uro ? splitDate(a.fecha_ult_est_uro) : "—",
+      fechaOtrosEstudios: a.fecha_ult_otros ? splitDate(a.fecha_ult_otros) : "—",
     };
   });
 
