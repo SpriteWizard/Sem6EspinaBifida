@@ -1,22 +1,19 @@
-"use client"
+﻿"use client"
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Plus, Search } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Plus, Search } from "lucide-react"
 
-import { Button } from '../components/ui/Button'
-import { Input } from '../components/ui/Input'
-import { Select } from '../components/ui/Select'
-import { NuevaConsultaModal } from '../components/NuevaConsultaModal'
-import { NuevoEstudioModal } from '../components/NuevoEstudioModal'
-import { NuevoServicioModal } from '../components/NuevoServicioModal'
-import { LABORATORIOS } from '@/lib/servicios-utils'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { Button } from "../components/ui/Button"
+import { Input } from "../components/ui/Input"
+import { Select } from "../components/ui/Select"
+import { NuevaConsultaModal } from "../components/NuevaConsultaModal"
+import { NuevoEstudioModal } from "../components/NuevoEstudioModal"
+import { LABORATORIOS, getLocalTimestamp, normalizeDateString } from "@/lib/servicios-utils"
 
 interface Servicio {
   id: string
-  tipo: 'Consulta' | 'Estudio'
+  tipo: "Consulta" | "Estudio"
   folio: string
   idAsociado: string
   asociado: string
@@ -25,32 +22,40 @@ interface Servicio {
   fecha: string
   fecha_creacion: string
   fechaOrden: number
-  estatus: 'Pendiente' | 'En proceso' | 'Completado' | 'Cancelado'
+  estatus: "Pendiente" | "En proceso" | "Completado" | "Cancelado"
 }
 
-// ─── Hooks ────────────────────────────────────────────────────────────────────
+interface ServicioFilters {
+  folio: string
+  tipo: string
+  asociado: string
+  medico: string
+  laboratorio: string
+  fecha: string
+  estatus: string
+}
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value)
+
   useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(value), delayMs)
-    return () => window.clearTimeout(t)
+    const timer = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(timer)
   }, [value, delayMs])
+
   return debounced
 }
 
 function mapServicioFromApi(raw: any): Servicio {
-  const fechaCreacionConsulta =
-    raw.fecha_creacion ?? raw.fechaCreacion ?? raw.fechacreacion ?? raw.FECHA_CREACION;
-  const fechaCreacionEstudio =
-    raw.fecha ?? raw.FECHA ?? raw.fecha_creacion ?? raw.fechaCreacion ?? raw.fechacreacion;
-  const rawFechaCreacion =
-    raw.tipo_servicio === "Consulta" ? fechaCreacionConsulta : fechaCreacionEstudio;
-  const rawFechaFallback = rawFechaCreacion ?? raw.fecha ?? raw.FECHA ?? "";
-  const [date] = String(rawFechaFallback).split("T");
-  const [fechaCreacion, _] = String(rawFechaCreacion).split("T");
-  const parsedFecha = Date.parse(String(rawFechaFallback ?? ""));
-  const fechaOrden = Number.isNaN(parsedFecha) ? 0 : parsedFecha;
+  const rawFechaConsulta =
+    raw.fecha ?? raw.FECHA ?? raw.fecha_cita ?? raw.fecha_creacion ?? raw.fechaCreacion ?? raw.fechacreacion ?? raw.FECHA_CREACION
+  const rawFechaCreacionEstudio =
+    raw.fecha_creacion ?? raw.fechaCreacion ?? raw.fechacreacion ?? raw.FECHA_CREACION
+  const rawFecha =
+    raw.tipo_servicio === "Consulta" ? rawFechaConsulta : rawFechaCreacionEstudio
+  const rawFechaFallback = rawFecha ?? raw.fecha ?? raw.FECHA ?? ""
+  const date = normalizeDateString(rawFechaFallback)
+  const parsedFecha = getLocalTimestamp(rawFechaFallback)
 
   return {
     id:
@@ -63,21 +68,18 @@ function mapServicioFromApi(raw: any): Servicio {
         ? "CON-" + String(raw.id_consulta)
         : "EST-" + String(raw.id_estudio),
     idAsociado: raw.asociado,
-    asociado:
-      raw.nombre_asociado +
-      " " +
-      raw.apellidos_asociado,
-    medico: raw.medico ? `Dr. ${raw.medico}` : '—',
-    laboratorio: raw.tipo_servicio !== 'Consulta' ? raw.laboratorio : undefined,
+    asociado: `${raw.nombre_asociado ?? ""} ${raw.apellidos_asociado ?? ""}`.trim(),
+    medico: raw.medico ? `Dr. ${raw.medico}` : "—",
+    laboratorio: raw.tipo_servicio !== "Consulta" ? raw.laboratorio : undefined,
     fecha: date,
-    fechaOrden,
-    fecha_creacion: String(raw.fecha_creacion).split("T")[0],
+    fechaOrden: Number.isNaN(parsedFecha) ? 0 : parsedFecha,
+    fecha_creacion: normalizeDateString(raw.fecha_creacion ?? ""),
     estatus: raw.estatus,
-  };
+  }
 }
 
-function useServicios(filters: ServicioFilters) {
-  const SERVICIOS_PAGE_SIZE = 5;
+function useServicios(endpoint: string, filters: ServicioFilters) {
+  const SERVICIOS_PAGE_SIZE = 5
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -101,46 +103,46 @@ function useServicios(filters: ServicioFilters) {
   }
 
   useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError(null);
+    let alive = true
+    setLoading(true)
+    setError(null)
 
     const fetchServicios = async () => {
       try {
         const params = buildParams(null)
-        const res = await fetch(`/api/servicios/obtener?${params.toString()}`);
-        if (!res.ok) throw new Error();
+        const res = await fetch(`${endpoint}?${params.toString()}`)
+        if (!res.ok) throw new Error()
 
-        const data = await res.json();
-
+        const data = await res.json()
         const items = Array.isArray(data?.items) ? data.items : data?.servicios ?? []
-        const listaServicios = items.map(mapServicioFromApi);
+        const listaServicios = items.map(mapServicioFromApi)
 
-        if (!alive) return;
-        setServicios(listaServicios);
-        setNextCursor(data?.nextCursor ?? null);
-      } catch (error) {
-        if (!alive) return;
-        setError("No se pudo cargar los servicios.");
+        if (!alive) return
+        setServicios(listaServicios)
+        setNextCursor(data?.nextCursor ?? null)
+      } catch {
+        if (!alive) return
+        setError("No se pudo cargar los servicios.")
       } finally {
-        if (!alive) return;
-        setLoading(false);
+        if (!alive) return
+        setLoading(false)
       }
-    };
+    }
 
-    fetchServicios();
+    fetchServicios()
 
     return () => {
-      alive = false;
-    };
-  }, [queryKey]);
+      alive = false
+    }
+  }, [endpoint, queryKey])
 
   async function onLoadMore() {
     if (!nextCursor) return
     setLoadingMore(true)
+
     try {
       const params = buildParams(nextCursor)
-      const res = await fetch(`/api/servicios/obtener?${params.toString()}`)
+      const res = await fetch(`${endpoint}?${params.toString()}`)
       if (!res.ok) throw new Error()
 
       const data = await res.json()
@@ -149,7 +151,7 @@ function useServicios(filters: ServicioFilters) {
       setServicios((prev) => [...prev, ...listaServicios])
       setNextCursor(data?.nextCursor ?? null)
     } catch {
-      setError('No se pudo cargar más datos.')
+      setError("No se pudo cargar más datos.")
     } finally {
       setLoadingMore(false)
     }
@@ -158,81 +160,39 @@ function useServicios(filters: ServicioFilters) {
   return { servicios, nextCursor, loading, loadingMore, error, onLoadMore }
 }
 
-// ─── Filtering ────────────────────────────────────────────────────────────────
-
-interface ServicioFilters {
-  folio: string
-  tipo: string
-  asociado: string
-  medico: string
-  laboratorio: string
-  fecha: string
-  estatus: string
+const ESTATUS_CLASSES: Record<Servicio["estatus"], string> = {
+  Pendiente: "bg-amber-100 text-amber-800",
+  "En proceso": "bg-blue-100 text-blue-800",
+  Completado: "bg-emerald-100 text-emerald-800",
+  Cancelado: "bg-rose-100 text-rose-800",
 }
-
-function filterServicios(
-  servicios: Servicio[],
-  filters: ServicioFilters,
-): Servicio[] {
-  const folioTerm = String(filters.folio).toLowerCase().trim()
-  const asociadoTerm = String(filters.asociado).toLowerCase().trim()
-  return servicios.filter((s) => {
-    if (folioTerm && !s.folio.toLowerCase().includes(folioTerm)) return false
-    if (filters.tipo !== 'Todos' && s.tipo !== filters.tipo) return false
-    if (
-      asociadoTerm &&
-      !s.asociado.toLowerCase().includes(asociadoTerm) &&
-      !String(s.idAsociado).toLowerCase().includes(asociadoTerm)
-    )
-      return false
-    if (filters.medico !== 'Todos' && s.medico !== filters.medico) return false
-    if (filters.laboratorio !== 'Todos' && s.laboratorio !== filters.laboratorio) return false
-    if (filters.fecha && s.fecha !== filters.fecha) return false
-    if (filters.estatus !== 'Todos' && s.estatus !== filters.estatus)
-      return false
-    return true
-  })
-}
-
-// ─── Badge class helpers ──────────────────────────────────────────────────────
-
-const TIPO_CLASSES: Record<Servicio['tipo'], string> = {
-  Consulta: 'bg-sky-100 text-sky-800',
-  Estudio: 'bg-violet-100 text-violet-800',
-}
-
-const ESTATUS_CLASSES: Record<Servicio['estatus'], string> = {
-  Pendiente: 'bg-amber-100 text-amber-800',
-  'En proceso': 'bg-blue-100 text-blue-800',
-  Completado: 'bg-emerald-100 text-emerald-800',
-  Cancelado: 'bg-rose-100 text-rose-800',
-}
-
-// ─── Servicios Table ──────────────────────────────────────────────────────────
 
 function ServiciosTable({
   servicios,
   loading,
   error,
   onRowClick,
+  selectedType,
 }: {
   servicios: Servicio[]
   loading: boolean
   error: string | null
   onRowClick: (s: Servicio) => void
+  selectedType: "Consulta" | "Estudio"
 }) {
   return (
     <div className="w-full overflow-x-auto">
       <table className="min-w-[900px] w-full border-collapse">
         <thead>
           <tr className="bg-slate-600 text-white">
-            <th className="rounded-tl-2xl px-4 py-4 text-left text-sm font-semibold">
-              Tipo
-            </th>
-            <th className="px-4 py-4 text-left text-sm font-semibold">Folio</th>
+            <th className="rounded-tl-2xl px-4 py-4 text-left text-sm font-semibold">Folio</th>
             <th className="px-4 py-4 text-left text-sm font-semibold">Asociado</th>
-            <th className="px-4 py-4 text-left text-sm font-semibold">Médico / Lab.</th>
-            <th className="px-4 py-4 text-left text-sm font-semibold">Fecha de Creacion</th>
+            <th className="px-4 py-4 text-left text-sm font-semibold">
+              {selectedType === "Consulta" ? "Médico" : "Laboratorio"}
+            </th>
+            <th className="px-4 py-4 text-left text-sm font-semibold">
+              {selectedType === "Consulta" ? "Fecha" : "Fecha de Creacion"}
+            </th>
             <th className="rounded-tr-2xl px-4 py-4 text-left text-sm font-semibold">
               Estatus
             </th>
@@ -241,19 +201,19 @@ function ServiciosTable({
         <tbody className="divide-y divide-slate-200">
           {loading ? (
             <tr>
-              <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
+              <td className="px-4 py-6 text-sm text-slate-500" colSpan={5}>
                 Cargando…
               </td>
             </tr>
           ) : error ? (
             <tr>
-              <td className="px-4 py-6 text-sm text-rose-700" colSpan={6}>
+              <td className="px-4 py-6 text-sm text-rose-700" colSpan={5}>
                 {error}
               </td>
             </tr>
           ) : servicios.length === 0 ? (
             <tr>
-              <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
+              <td className="px-4 py-6 text-sm text-slate-500" colSpan={5}>
                 Sin resultados.
               </td>
             </tr>
@@ -264,13 +224,6 @@ function ServiciosTable({
                 onClick={() => onRowClick(s)}
                 className="cursor-pointer transition hover:bg-slate-50"
               >
-                <td className="px-4 py-5 text-sm">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${TIPO_CLASSES[s.tipo]}`}
-                  >
-                    {s.tipo}
-                  </span>
-                </td>
                 <td className="px-4 py-5 text-sm font-medium text-slate-800">
                   {s.folio}
                 </td>
@@ -279,11 +232,11 @@ function ServiciosTable({
                   <span className="block text-xs text-slate-400">{s.idAsociado}</span>
                 </td>
                 <td className="px-4 py-5 text-sm text-slate-700">
-                  {s.tipo === 'Consulta'
+                  {s.tipo === "Consulta"
                     ? s.medico
-                    : (LABORATORIOS[s.laboratorio ?? ''] ?? s.laboratorio ?? '—')}
+                    : (LABORATORIOS[s.laboratorio ?? ""] ?? s.laboratorio ?? "—")}
                 </td>
-                <td className="px-4 py-5 text-sm text-slate-700">{s.fecha_creacion}</td>
+                <td className="px-4 py-5 text-sm text-slate-700">{s.fecha}</td>
                 <td className="px-4 py-5 text-sm">
                   <span
                     className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${ESTATUS_CLASSES[s.estatus]}`}
@@ -300,83 +253,90 @@ function ServiciosTable({
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default function ServiciosPage() {
   const router = useRouter()
-  const [folio, setFolio] = useState('')
-  const [tipo, setTipo] = useState('Todos')
-  const [asociado, setAsociado] = useState('')
-  const [medico, setMedico] = useState('Todos')
-  const [laboratorio, setLaboratorio] = useState('Todos')
-  const [fecha, setFecha] = useState('')
-  const [estatus, setEstatus] = useState('Todos')
-  const [nuevoServicioOpen, setNuevoServicioOpen] = useState(false)
+  const [selectedType, setSelectedType] = useState<"Consulta" | "Estudio">("Consulta")
+  const [folio, setFolio] = useState("")
+  const [asociado, setAsociado] = useState("")
+  const [medico, setMedico] = useState("Todos")
+  const [laboratorio, setLaboratorio] = useState("Todos")
+  const [fecha, setFecha] = useState("")
+  const [estatus, setEstatus] = useState("Todos")
   const [nuevaConsultaOpen, setNuevaConsultaOpen] = useState(false)
   const [nuevoEstudioOpen, setNuevoEstudioOpen] = useState(false)
 
   const closeNuevaConsulta = useCallback(() => setNuevaConsultaOpen(false), [])
   const closeNuevoEstudio = useCallback(() => setNuevoEstudioOpen(false), [])
 
-  const [laboratorios, setLaboratorios] = useState<Record<string, string>>({})
-
-  const hasActiveFilters =
-    folio !== '' ||
-    tipo !== 'Todos' ||
-    asociado !== '' ||
-    medico !== 'Todos' ||
-    laboratorio !== 'Todos' ||
-    fecha !== '' ||
-    estatus !== 'Todos'
-
-  function clearFilters() {
-    setFolio('')
-    setTipo('Todos')
-    setAsociado('')
-    setMedico('Todos')
-    setLaboratorio('Todos')
-    setFecha('')
-    setEstatus('Todos')
-  }
-
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/laboratorios/lista");
-      if (res.ok) {
-        const data = await res.json();
-        const laboratorios = Object.fromEntries(
-          data.map((lab: any) => [`L0${lab.id_laboratorio}`, lab.nombre]),
-        )
-        setLaboratorios(laboratorios)
-      }
-    })();
-  }, [])
-
   const debouncedFolio = useDebouncedValue(folio, 400)
   const debouncedAsociado = useDebouncedValue(asociado, 400)
 
-  const filtrosParaApi = useMemo(() => ({
-    folio: debouncedFolio,
-    tipo,
-    asociado: debouncedAsociado,
-    medico,
-    laboratorio,
-    fecha,
-    estatus,
-  }), [debouncedFolio, tipo, debouncedAsociado, medico, laboratorio, fecha, estatus])
-
-  const { servicios, nextCursor, loading, loadingMore, error, onLoadMore } = useServicios(filtrosParaApi)
-
-  const medicoOptions = useMemo(
-    () => [...new Set(servicios.map((s) => s.medico))].sort(),
-    [servicios],
+  const filtrosParaApi: ServicioFilters = useMemo(
+    () => ({
+      folio: debouncedFolio,
+      tipo: selectedType,
+      asociado: debouncedAsociado,
+      medico,
+      laboratorio,
+      fecha,
+      estatus,
+    }),
+    [debouncedFolio, selectedType, debouncedAsociado, medico, laboratorio, fecha, estatus],
   )
 
-  const filteredServicios = useMemo(() => servicios, [servicios])
+  const endpoint =
+    selectedType === "Consulta"
+      ? "/api/servicios/obtener/consultas"
+      : "/api/servicios/obtener/estudios"
+
+  const { servicios, nextCursor, loading, loadingMore, error, onLoadMore } =
+    useServicios(endpoint, filtrosParaApi)
+
+  const [allMedicos, setAllMedicos] = useState<string[]>([])
+
+  useEffect(() => {
+    const fetchAllMedicos = async () => {
+      try {
+        const params = new URLSearchParams()
+        params.set("limit", "1000")
+        params.set("tipo", selectedType)
+        const res = await fetch(`${endpoint}?${params.toString()}`)
+        if (!res.ok) throw new Error()
+
+        const data = await res.json()
+        const items = Array.isArray(data?.items) ? data.items : data?.servicios ?? []
+        const uniqueMedicos = [...new Set(items.map((item: any) => item.medico ?? "").filter(Boolean))]
+        setAllMedicos((uniqueMedicos.sort().map((m) => {return String(m)})))
+      } catch {
+        setAllMedicos([])
+      }
+    }
+
+    fetchAllMedicos()
+  }, [endpoint, selectedType])
+
+  const medicoOptions = allMedicos
+
+  const hasActiveFilters =
+    folio !== "" ||
+    asociado !== "" ||
+    medico !== "Todos" ||
+    laboratorio !== "Todos" ||
+    fecha !== "" ||
+    estatus !== "Todos"
+
+  function clearFilters() {
+    setFolio("")
+    setAsociado("")
+    setMedico("Todos")
+    setLaboratorio("Todos")
+    setFecha("")
+    setEstatus("Todos")
+  }
 
   function handleRowClick(s: Servicio) {
     const ruta =
-      s.tipo === 'Consulta'
+      s.tipo === "Consulta"
         ? `/servicios/${s.id}/detalle-consulta`
         : `/servicios/${s.id}/detalle-estudio`
     router.push(ruta)
@@ -384,22 +344,43 @@ export default function ServiciosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-800">
-          Servicios
-        </h1>
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-800">
+            Servicios
+          </h1>
+        </div>
+
           <Button
             variant="secondary"
             leftIcon={<Plus className="h-4 w-4" />}
-            onClick={() => setNuevoServicioOpen(true)}
+            onClick={() =>
+              selectedType === "Consulta"
+                ? setNuevaConsultaOpen(true)
+                : setNuevoEstudioOpen(true)
+            }
           >
-            Nuevo servicio
+            Nuevo {selectedType.toLowerCase()}
           </Button>
-        </div>
       </div>
 
-      {/* Filters */}
+      <div className="flex gap-1 rounded-xl bg-slate-100 p-1 w-min">
+        {(["Consulta", "Estudio"] as const).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setSelectedType(type)}
+            className={`rounded-lg px-5 py-2 text-sm font-medium transition-all ${
+              selectedType === type
+                ? "bg-white text-slate-800 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
       <div className="rounded-2xl bg-white/70 p-4 shadow-sm ring-1 ring-slate-200/70">
         {hasActiveFilters && (
           <div className="mb-3 flex justify-end">
@@ -412,118 +393,139 @@ export default function ServiciosPage() {
             </button>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {/* Folio — fila completa */}
-          <div className="relative md:col-span-3">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={folio}
-              onChange={(e) => setFolio(e.target.value)}
-              placeholder="Buscar por folio..."
-              aria-label="Buscar por folio"
-              className="pl-9"
-            />
-          </div>
 
-          {/* Asociado */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {/* First row: Asociado and ID - 2 filters taking up full width */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={asociado}
               onChange={(e) => setAsociado(e.target.value)}
-              placeholder="Nombre o ID de asociado..."
-              aria-label="Buscar por nombre o ID de asociado"
+              placeholder="Buscar por nombre de asociado..."
+              aria-label="Buscar por nombre de asociado"
               className="pl-9"
             />
           </div>
 
-          {/* Tipo de servicio */}
           <div className="relative">
-            <Select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              aria-label="Filtrar por tipo de servicio"
-            >
-              <option value="Todos">Todos los tipos</option>
-              <option value="Consulta">Consulta</option>
-              <option value="Estudio">Estudio</option>
-            </Select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              ▼
-            </span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={folio}
+              onChange={(e) => setFolio(e.target.value)}
+              placeholder={selectedType === "Consulta" ? "Buscar por ID consulta..." : "Buscar por ID estudio..."}
+              aria-label={selectedType === "Consulta" ? "Buscar por ID consulta" : "Buscar por ID estudio"}
+              className="pl-9"
+            />
           </div>
 
-          {/* Fecha */}
-          <Input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            aria-label="Filtrar por fecha"
-          />
+          {/* Second row: 3 filters */}
+          {selectedType === "Consulta" ? (
+            <>
+              <div className="relative md:col-span-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="relative">
+                    <Select
+                      value={medico}
+                      onChange={(e) => setMedico(e.target.value)}
+                      aria-label="Filtrar por médico"
+                    >
+                      <option value="Todos">Todos los médicos</option>
+                      {medicoOptions.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </Select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      ▼
+                    </span>
+                  </div>
 
-          {/* Médico */}
-          <div className="relative">
-            <Select
-              value={medico}
-              onChange={(e) => setMedico(e.target.value)}
-              aria-label="Filtrar por médico"
-            >
-              <option value="Todos">Todos los médicos</option>
-              {medicoOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </Select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              ▼
-            </span>
-          </div>
+                  <Input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    aria-label="Filtrar por fecha"
+                  />
 
-          {/* Laboratorio */}
-          <div className="relative">
-            <Select
-              value={laboratorio}
-              onChange={(e) => setLaboratorio(e.target.value)}
-              aria-label="Filtrar por laboratorio"
-            >
-              <option value="Todos">Todos los laboratorios</option>
-              {Object.entries(laboratorios).map(([id, nombre]) => (
-                <option key={id} value={nombre}>{nombre}</option>
-              ))}
-            </Select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              ▼
-            </span>
-          </div>
+                  <div className="relative">
+                    <Select
+                      value={estatus}
+                      onChange={(e) => setEstatus(e.target.value)}
+                      aria-label="Filtrar por estatus"
+                    >
+                      <option value="Todos">Todos los estatus</option>
+                      <option value="Pendiente">Pendiente</option>
+                      <option value="En proceso">En proceso</option>
+                      <option value="Completado">Completado</option>
+                      <option value="Cancelado">Cancelado</option>
+                    </Select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      ▼
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="relative md:col-span-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="relative">
+                    <Select
+                      value={laboratorio}
+                      onChange={(e) => setLaboratorio(e.target.value)}
+                      aria-label="Filtrar por laboratorio"
+                    >
+                      <option value="Todos">Todos los laboratorios</option>
+                      {Object.entries(LABORATORIOS).map(([id, nombre]) => (
+                        <option key={id} value={nombre}>
+                          {nombre}
+                        </option>
+                      ))}
+                    </Select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      ▼
+                    </span>
+                  </div>
 
-          {/* Estatus */}
-          <div className="relative">
-            <Select
-              value={estatus}
-              onChange={(e) => setEstatus(e.target.value)}
-              aria-label="Filtrar por estatus"
-            >
-              <option value="Todos">Todos los estatus</option>
-              <option value="Pendiente">Pendiente</option>
-              <option value="En proceso">En proceso</option>
-              <option value="Completado">Completado</option>
-              <option value="Cancelado">Cancelado</option>
-            </Select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              ▼
-            </span>
-          </div>
+                  <Input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    aria-label="Filtrar por fecha"
+                  />
+
+                  <div className="relative">
+                    <Select
+                      value={estatus}
+                      onChange={(e) => setEstatus(e.target.value)}
+                      aria-label="Filtrar por estatus"
+                    >
+                      <option value="Todos">Todos los estatus</option>
+                      <option value="Pendiente">Pendiente</option>
+                      <option value="En proceso">En proceso</option>
+                      <option value="Completado">Completado</option>
+                      <option value="Cancelado">Cancelado</option>
+                    </Select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      ▼
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Table */}
       <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
         <ServiciosTable
-          servicios={filteredServicios}
+          servicios={servicios}
           loading={loading}
           error={error}
           onRowClick={handleRowClick}
+                  selectedType={selectedType}
         />
         <div className="flex justify-center p-5">
           <Button
@@ -531,17 +533,11 @@ export default function ServiciosPage() {
             onClick={onLoadMore}
             disabled={!nextCursor || loading || loadingMore}
           >
-            {loadingMore ? 'Cargando…' : 'Cargar más datos'}
+            {loadingMore ? "Cargando…" : "Cargar más datos"}
           </Button>
         </div>
       </div>
 
-      <NuevoServicioModal
-        open={nuevoServicioOpen}
-        onClose={() => setNuevoServicioOpen(false)}
-        onSelectConsulta={() => setNuevaConsultaOpen(true)}
-        onSelectEstudio={() => setNuevoEstudioOpen(true)}
-      />
       <NuevaConsultaModal
         open={nuevaConsultaOpen}
         onClose={closeNuevaConsulta}
