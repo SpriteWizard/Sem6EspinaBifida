@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     }
   })
 
-  const filtrados = enriched.filter(({ meta }) => {
+  const filtrados = enriched.filter(({ meta }: { meta: any }) => {
     if (folioFilter && !meta.folio.toLowerCase().includes(folioFilter)) return false
     if (tipoFilter !== "Todos" && meta.tipo !== tipoFilter) return false
     if (
@@ -86,9 +86,9 @@ export async function GET(request: Request) {
     return true
   })
 
-  filtrados.sort((a, b) => b.meta.fechaOrden - a.meta.fechaOrden)
+  filtrados.sort((a: any, b: any) => b.meta.fechaOrden - a.meta.fechaOrden)
 
-  const paged = filtrados.slice(cursor, cursor + limit).map((entry) => entry.item)
+  const paged = filtrados.slice(cursor, cursor + limit).map((entry: any) => entry.item)
   const nextCursor = cursor + limit < filtrados.length ? String(cursor + limit) : null
 
   return Response.json({ items: paged, nextCursor })
