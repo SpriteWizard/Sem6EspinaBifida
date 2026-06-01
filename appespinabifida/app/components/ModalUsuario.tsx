@@ -88,6 +88,11 @@ export default function ModalUsuario({ open, usuario, onClose }: ModalUsuarioPro
     window.location.reload();
   }
 
+  function toUpperFirst(text: string): string {
+    if (!text) return "";
+    return text[0].toUpperCase() + text.slice(1);
+  }
+
   return (
     <Modal open={open} onClose={onClose} titleId="usuario-modal-title" title={`Usuario: ${usuario.nombre}${usuario.apellidos ? ` ${usuario.apellidos}` : ''}`}>
       <div className="space-y-4 px-5 py-4">
@@ -144,11 +149,12 @@ export default function ModalUsuario({ open, usuario, onClose }: ModalUsuarioPro
                 onChange={(e) => updateDraft("rol", e.target.value)}
               >
                 <option value="superadmin">Superadmin</option>
-                <option value="admin_tabla">Admin tabla</option>
+                <option value="admin">Admin</option>
                 <option value="secretaria">Secretaria</option>
+                <option value="CEO">Director</option>
               </Select>
             ) : (
-              <p className="text-sm font-medium text-slate-900">{usuario.rol}</p>
+              <p className="text-sm font-medium text-slate-900">{toUpperFirst(usuario.rol == "CEO" ? "Director" : usuario.rol)}</p>
             )}
           </div>
 
