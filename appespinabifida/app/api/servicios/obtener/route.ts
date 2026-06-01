@@ -102,6 +102,7 @@ export async function GET(request: Request){
             !meta.asociadoId.toLowerCase().includes(asociadoFilter)
         ) return false;
         if (medicoFilter !== "Todos" && meta.medico !== medicoFilter) return false;
+        console.log(laboratorioFilter," - ", meta.laboratorio);
         if (laboratorioFilter !== "Todos" && meta.laboratorio !== laboratorioFilter) return false;
         if (fechaFilter && String(meta.fecha_creacion).split("T")[0] !== fechaFilter) return false;
         if (estatusFilter !== "Todos" && meta.estatus !== estatusFilter) return false;

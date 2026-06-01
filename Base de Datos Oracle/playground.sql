@@ -730,3 +730,6 @@ begin
 end;
 
 select * from asociado;
+
+update laboratorio set nombre = 'Laboratorio Maria Luisa' where nombre = 'Lab ABC';
+commit;

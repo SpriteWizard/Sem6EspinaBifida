@@ -318,6 +318,8 @@ export default function ServiciosPage() {
   const closeNuevaConsulta = useCallback(() => setNuevaConsultaOpen(false), [])
   const closeNuevoEstudio = useCallback(() => setNuevoEstudioOpen(false), [])
 
+  const [laboratorios, setLaboratorios] = useState<Record<string, string>>({})
+
   const hasActiveFilters =
     folio !== '' ||
     tipo !== 'Todos' ||
@@ -336,6 +338,19 @@ export default function ServiciosPage() {
     setFecha('')
     setEstatus('Todos')
   }
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/laboratorios/lista");
+      if (res.ok) {
+        const data = await res.json();
+        const laboratorios = Object.fromEntries(
+          data.map((lab: any) => [`L0${lab.id_laboratorio}`, lab.nombre]),
+        )
+        setLaboratorios(laboratorios)
+      }
+    })();
+  }, [])
 
   const debouncedFolio = useDebouncedValue(folio, 400)
   const debouncedAsociado = useDebouncedValue(asociado, 400)
@@ -473,8 +488,8 @@ export default function ServiciosPage() {
               aria-label="Filtrar por laboratorio"
             >
               <option value="Todos">Todos los laboratorios</option>
-              {Object.entries(LABORATORIOS).map(([id, nombre]) => (
-                <option key={id} value={id}>{nombre}</option>
+              {Object.entries(laboratorios).map(([id, nombre]) => (
+                <option key={id} value={nombre}>{nombre}</option>
               ))}
             </Select>
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
