@@ -21,6 +21,7 @@ export function Topbar() {
   let NAV_ITEMS: Array<{ href: string; label: string }> = []
   if (role === 'superadmin') {
     NAV_ITEMS = [
+      { href: '/dashboard', label: 'Inicio' },
       { href: '/recibos', label: 'Recibos' },
       { href: '/asociados', label: 'Asociados' },
       { href: '/servicios', label: 'Servicios' },
@@ -30,11 +31,13 @@ export function Topbar() {
     ]
   } else if (role === 'ceo') {
     NAV_ITEMS = [
+      { href: '/dashboard', label: 'Inicio' },
       { href: '/inventory', label: 'Inventario' },
       { href: '/metricas', label: 'Métricas' },
     ]
   } else if (role === 'admin') {
     NAV_ITEMS = [
+      { href: '/dashboard', label: 'Inicio' },
       { href: '/recibos', label: 'Recibos' },
       { href: '/asociados', label: 'Asociados' },
       { href: '/servicios', label: 'Servicios' },
@@ -42,6 +45,7 @@ export function Topbar() {
     ]
   } else {
     NAV_ITEMS = [
+      { href: '/dashboard', label: 'Inicio' },
       { href: '/recibos', label: 'Recibos' },
       { href: '/asociados', label: 'Asociados' },
       { href: '/servicios', label: 'Servicios' },
@@ -61,7 +65,7 @@ export function Topbar() {
           </div>
         </div>
 
-        <nav className="absolute left-1/2 hidden w-full -translate-x-1/2 items-center justify-center gap-3 overflow-x-auto px-2 md:flex md:max-w-[60%]">
+        <nav className="absolute left-1/2 hidden w-full -translate-x-1/2 items-center justify-center gap-3 px-2 md:flex md:max-w-[60%]">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
