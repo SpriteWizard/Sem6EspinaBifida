@@ -774,3 +774,20 @@ select * from historial_medico where id_asociado = 117;
 commit;
 
 select * from asociado;
+
+
+BEGIN
+    FOR t IN (
+        SELECT trigger_name
+        FROM user_triggers
+    ) LOOP
+        EXECUTE IMMEDIATE
+            'ALTER TRIGGER "' || t.trigger_name || '" COMPILE';
+    END LOOP;
+END;
+/
+
+SELECT trigger_name,
+       status
+FROM user_triggers
+WHERE status <> 'ENABLED';
