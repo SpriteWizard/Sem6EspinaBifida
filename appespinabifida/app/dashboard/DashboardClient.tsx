@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Badge } from '../components/ui/Badge';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -134,13 +134,55 @@ export function DashboardClient() {
   const [fecha, setFecha] = useState(todayISO());
 
   // TODO backend: reemplazar con useEffect + fetch(`/api/dashboard?fecha=${fecha}`)
-  const data = useMemo(() => getMockData(fecha), [fecha]);
+
+  const [baseData, setbaseData] = useState<DashboardData>(EMPTY_DATA);
+  const [data, setData] = useState<DashboardData>(EMPTY_DATA);
+  const [preregistros, setPreregistros] = useState<Preregistro[]>([]);
 
   const recibosPendientes = data.recibos.filter((r) => r.montoPagado < r.montoTotal);
 
+  function formatDate(dateStr: string) {
+    const [year, month, day] = dateStr.split("-");
+    return `${month}/${day}/${year}`;
+  }
+
   // Preregistros NO dependen de la fecha — son todos los pendientes de aprobación
   // TODO backend: reemplazar con useEffect + fetch('/api/preregistros/pendientes')
-  const preregistros = MOCK_PREREGISTROS_PENDIENTES;
+  useEffect(() => {
+    (async()=> {
+      const res = await fetch('/api/asociados/preRegistro/lista');
+      if (res.ok) {
+        const data = (await res.json()).items;
+        const preregistros = data.map((p: any) => {
+          return {
+          id: p.id,
+          nombre: p.nombre,
+          fechaSolicitud: p.fechaSolicitud
+        }});
+        setPreregistros(preregistros);
+      }
+    })();
+
+    (async()=>{
+      const res = await fetch("/api/inicio/obtener")
+      if (res.ok){
+        const data = await res.json();
+        console.log(data);
+        console.log(formatDate(fecha))
+        if (data.message == "Success"){
+          setData(data.data[formatDate(fecha)]);
+          setbaseData(data.data);
+        }
+        setData( EMPTY_DATA);
+      }
+    })()
+  }, []);
+
+  useEffect(() => {
+    const filteredData = (baseData as any)[formatDate(fecha)];
+    console.log(filteredData)
+    if (filteredData != null) setData(filteredData);
+  },[fecha])
 
   return (
     <main className="min-h-screen px-4 py-4 sm:px-8">
@@ -337,10 +379,6 @@ export function DashboardClient() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MOCK DATA — reemplazar con llamadas al API cuando el backend esté listo
 // ═══════════════════════════════════════════════════════════════════════════════
-
-function getMockData(fecha: string): DashboardData {
-  return MOCK_BY_DATE[fecha] ?? EMPTY_DATA;
-}
 
 const EMPTY_DATA: DashboardData = {
   consultas: [],
