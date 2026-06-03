@@ -15,7 +15,7 @@ export default function Login({error}: any) {
 
 	useEffect(() => {
 		if (session?.user) {
-			router.replace("/recibos");
+			router.replace("/dashboard");
 		}
 	}, [session, router]);
 
