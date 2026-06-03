@@ -65,7 +65,7 @@ export function Topbar() {
           </div>
         </div>
 
-        <nav className="absolute left-1/2 hidden w-full -translate-x-1/2 items-center justify-center gap-3 px-2 md:flex md:max-w-[60%]">
+        <nav className="hidden flex-1 items-center justify-center gap-3 px-2 md:flex">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
