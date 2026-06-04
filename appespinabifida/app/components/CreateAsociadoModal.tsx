@@ -529,7 +529,7 @@ export default function CreateAsociadoModal({ open, onClose }: { open: boolean; 
                     <Select value={form.estado} onChange={(e) => update("estado", e.target.value)}>
                       <option value="">— Selecciona —</option>
                       {ESTADOS_MEXICO.map((est) => (
-                        <option key={est} value={est}>{est}</option>
+                        <option key={est} value={est.toLowerCase()}>{est}</option>
                       ))}
                     </Select>
                   </div>

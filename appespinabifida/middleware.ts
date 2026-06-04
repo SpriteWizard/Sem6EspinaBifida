@@ -36,6 +36,10 @@ export default withAuth(function middleware(req) {
 				return token.role === "superadmin" || token.role === "admin" || token.role === "secretaria"
 			}
 
+			if (req.nextUrl.pathname.startsWith("/dashboard")){
+				return token.role === "superadmin" || token.role === "admin" || token.role === "secretaria" || token.role === "CEO"
+			}
+
 			return true;
 		}
 	}

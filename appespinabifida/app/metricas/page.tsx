@@ -334,7 +334,8 @@ function MapaEstados({ data }: { data: PorEstadoData }) {
   const lookup = new Map<string, number>()
   for (const f of data.filas) {
     if (f.estado !== "Sin estado") {
-      lookup.set(resolveEstado(f.estado), f.total)
+      
+      lookup.set(f.estado, f.total)
     }
   }
 

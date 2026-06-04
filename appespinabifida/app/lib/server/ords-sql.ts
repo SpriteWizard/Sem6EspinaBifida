@@ -30,7 +30,7 @@ export async function runSQL<T = Record<string, unknown>>(sql: string): Promise<
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
     body: JSON.stringify({ statementText: sql, offset: 0, limit: 2000 }),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) throw new Error(`ORDS SQL → ${res.status}`)
   const data = await res.json()

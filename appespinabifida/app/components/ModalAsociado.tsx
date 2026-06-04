@@ -408,6 +408,20 @@ export default function ModalAsociado({
     onClose();
   }
 
+  function namecase(text: string): string {
+    return text
+      .toLowerCase()
+      .split(/\s+/)
+      .map((word) => {
+        if (word === "de" || word === "la") {
+          return word;
+        }
+
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(" ");
+  }
+
   const d = draft;
 
   return (
@@ -706,7 +720,7 @@ export default function ModalAsociado({
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Estado</span>
                         <Select value={d.estado} onChange={(e) => updateDraft("estado", e.target.value)}>
                           <option value="">— Selecciona —</option>
-                          {ESTADOS_MEXICO.map((est) => <option key={est} value={est}>{est}</option>)}
+                          {ESTADOS_MEXICO.map((est) => <option key={est} value={est.toLowerCase()}>{est}</option>)}
                         </Select>
                       </div>
                       <div>
@@ -717,7 +731,7 @@ export default function ModalAsociado({
                   ) : (
                     <>
                       <Field label="Ciudad">{d.ciudad}</Field>
-                      <Field label="Estado">{d.estado}</Field>
+                      <Field label="Estado">{namecase(d.estado)}</Field>
                       <Field label="CP">{d.cp}</Field>
                     </>
                   )}

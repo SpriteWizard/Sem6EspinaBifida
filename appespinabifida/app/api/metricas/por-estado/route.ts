@@ -26,10 +26,22 @@ ORDER BY total DESC`
 
   try {
     const rows = await runSQL<Row>(SQL)
-    const filas = rows.map((r) => ({
-      estado: String(r.estado),
+    const filas = rows.map((r) => {
+
+      let estado = String(r.estado).toLowerCase();
+      if (estado === "ciudad de méxico") estado = "distrito federal";
+      if (estado === "coahuila de zaragoza") estado = "coahuila";
+      if (estado === "estado de méxico") estado = "mexico";
+      if (estado === "michoacán de ocampo") estado = "michoacan";
+      if (estado === "nuevo león") estado = "nuevo leon";
+      if (estado === "querétaro") estado = "queretaro";
+      if (estado === "san luis potosí") estado = "san luis potosi";
+      if (estado === "yucatán") estado = "yucatan";
+
+      return {
+      estado: estado,
       total: Number(r.total),
-    }))
+    }})
     const total_nacional = filas.reduce((s, f) => s + f.total, 0)
     return Response.json({ filas, total_nacional } satisfies PorEstadoData)
   } catch (err) {
