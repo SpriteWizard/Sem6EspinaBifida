@@ -412,7 +412,7 @@ export default function ModalAsociado({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/40" aria-hidden />
 
       <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl xl:max-w-6xl">
 
@@ -456,7 +456,7 @@ export default function ModalAsociado({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="shrink-0 ml-4 w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
             aria-label="Cerrar"
           >

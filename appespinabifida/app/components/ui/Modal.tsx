@@ -40,7 +40,6 @@ export function Modal({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
         return
       }
       if (e.key !== 'Tab' || !panel) return
@@ -89,7 +88,6 @@ export function Modal({
       <div
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
         aria-hidden
-        onClick={onClose}
       />
       <div
         ref={panelRef}
