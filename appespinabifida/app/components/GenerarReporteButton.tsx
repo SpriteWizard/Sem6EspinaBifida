@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { FileText, X } from "lucide-react"
 import HalfLogoSrc from "../assets/HalfLogo.png"
-import { generarReportePDF, MOCK_REPORTE_DATA } from "../lib/pdf/reporte"
+import { generarReportePDF } from "../lib/pdf/reporte"
+import type { ReporteData } from "../lib/pdf/reporte"
 
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
@@ -56,9 +57,13 @@ export default function GenerarReporteButton() {
   async function handleGenerar() {
     setIsGenerating(true)
     try {
-      const logoBase64 = await loadImageAsBase64(HalfLogoSrc.src)
-      // TODO: replace MOCK_REPORTE_DATA with fetch(`/api/metricas/reporte?from=${dateFrom}&to=${dateTo}`)
-      const blobUrl = await generarReportePDF(dateFrom, dateTo, MOCK_REPORTE_DATA, logoBase64)
+      const [logoBase64, res] = await Promise.all([
+        loadImageAsBase64(HalfLogoSrc.src),
+        fetch(`/api/metricas/reporte?from=${dateFrom}&to=${dateTo}`),
+      ])
+      if (!res.ok) throw new Error(`Error al obtener datos del reporte (${res.status})`)
+      const data: ReporteData = await res.json()
+      const blobUrl = await generarReportePDF(dateFrom, dateTo, data, logoBase64)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl(blobUrl)
       setShowModal(false)

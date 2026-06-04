@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react"
 import { getSession } from "next-auth/react"
-import { AlertTriangle, BarChart3, CalendarDays, Loader2, Table2 } from "lucide-react"
 import {
-  Bar, BarChart, CartesianGrid, Cell, Label,
-  Legend, Line, LineChart, Pie, PieChart,
+  AlertTriangle, Baby, BarChart3, CalendarDays,
+  Loader2, MapPin, Scale, Table2, TrendingUp,
+  UserPlus, Users,
+} from "lucide-react"
+import {
+  Bar, BarChart, CartesianGrid,
+  Legend, Line, LineChart,
   ReferenceLine, ResponsiveContainer, Tooltip,
   XAxis, YAxis,
 } from "recharts"
@@ -18,14 +22,20 @@ import type {
 import GenerarReporteButton from "../components/GenerarReporteButton"
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
-const CP = "#3b82f6"   // blue-500  — NL, mexicanos, primary series
-const CN = "#94a3b8"   // slate-400 — foráneo, extranjeros, neutral series
-const CA = "#f59e0b"   // amber-500 — hombres (M/H charts)
+const CP = "#3b82f6"
+const CN = "#94a3b8"
+const CA = "#f59e0b"
 const AXIS = { fontSize: 11, fill: "#94a3b8" }
 const GRID = "#f1f5f9"
 const CHART_H = 260
 
-// ── Stage abbreviations for chart X-axis ──────────────────────────────────────
+// ── Shared chart config ───────────────────────────────────────────────────────
+const CHART_MARGIN = { top: 8, right: 8, left: -22, bottom: 0 }
+const BAR_GAP = "28%"
+const BAR_R: [number, number, number, number] = [3, 3, 0, 0]
+const BAR_ANIM = { isAnimationActive: true as const, animationDuration: 600 }
+const LEGEND = { iconType: "square" as const, iconSize: 10, wrapperStyle: { fontSize: 12, paddingTop: 8 } }
+
 const ABBR: Record<string, string> = {
   "Primera infancia": "0–5",
   "Infancia":         "6–11",
@@ -75,37 +85,36 @@ function DateRangePicker({
   }
 
   function applyCustom() {
-    if (custom.start && custom.end && custom.start <= custom.end) {
-      onChange(custom)
-    }
+    if (custom.start && custom.end && custom.start <= custom.end) onChange(custom)
   }
 
   const today = toIso(new Date())
-
   const PRESETS: { key: Preset; label: string }[] = [
-    { key: "today", label: "Hoy" },
-    { key: "7d",    label: "Últimos 7 días" },
-    { key: "30d",   label: "Últimos 30 días" },
-    { key: "custom", label: "Rango personalizado" },
+    { key: "today",  label: "Hoy" },
+    { key: "7d",     label: "7 días" },
+    { key: "30d",    label: "30 días" },
+    { key: "custom", label: "Personalizado" },
   ]
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3">
       <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-      {PRESETS.map(({ key, label }) => (
-        <button
-          key={key}
-          onClick={() => select(key)}
-          className={cn(
-            "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-            preset === key
-              ? "bg-[#163b61] text-white shadow-sm"
-              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-800",
-          )}
-        >
-          {label}
-        </button>
-      ))}
+      <div className="flex gap-1.5">
+        {PRESETS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => select(key)}
+            className={cn(
+              "rounded-full px-3.5 py-1.5 text-sm font-medium transition-all",
+              preset === key
+                ? "bg-[#163b61] text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {preset === "custom" && (
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -113,21 +122,21 @@ function DateRangePicker({
             value={custom.start}
             max={custom.end || today}
             onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#163b61]"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#163b61]/30"
           />
-          <span className="text-sm text-slate-400">–</span>
+          <span className="text-slate-300">→</span>
           <input
             type="date"
             value={custom.end}
             min={custom.start}
             max={today}
             onChange={(e) => setCustom((c) => ({ ...c, end: e.target.value }))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#163b61]"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#163b61]/30"
           />
           <button
             onClick={applyCustom}
             disabled={!custom.start || !custom.end || custom.start > custom.end}
-            className="rounded-lg bg-[#163b61] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1e4f82] disabled:opacity-40"
+            className="rounded-full bg-[#163b61] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#1e4f82] disabled:opacity-40"
           >
             Aplicar
           </button>
@@ -141,7 +150,7 @@ function DateRangePicker({
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-md">
       {label && <p className="mb-1.5 text-xs font-semibold text-slate-600">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p key={i} className="flex items-center gap-1.5 text-sm tabular-nums" style={{ color: p.color }}>
@@ -153,43 +162,168 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   )
 }
 
-// ── KPI strip ─────────────────────────────────────────────────────────────────
-function KpiItem({ label, value }: { label: string; value: number | string | null }) {
+// ── KPI computation helpers ───────────────────────────────────────────────────
+const PEDIATRIC_STAGES = ["Primera infancia", "Infancia", "Adolescencia"]
+
+function computeKpis(
+  porEtapa: PorEtapaSexoData | null,
+  porCurp: PorCurpData | null,
+  registrosMes: RegistrosMesData | null,
+) {
+  const total = porEtapa?.totales.total ?? null
+
+  const nuevos = registrosMes
+    ? registrosMes.filas.reduce((s, f) => s + f.registros, 0)
+    : null
+
+  const pct_pediatrico =
+    porEtapa && porEtapa.totales.total > 0
+      ? Math.round(
+          (porEtapa.filas
+            .filter((f) => PEDIATRIC_STAGES.includes(f.etapa))
+            .reduce((s, f) => s + f.total, 0) /
+            porEtapa.totales.total) *
+            100,
+        )
+      : null
+
+  const razon_mh =
+    porEtapa && porEtapa.totales.hombre > 0
+      ? (porEtapa.totales.mujer / porEtapa.totales.hombre).toFixed(1)
+      : null
+
+  const pct_foraneo =
+    porCurp && porCurp.totales.total > 0
+      ? Math.round((porCurp.totales.curp_foraneo / porCurp.totales.total) * 100)
+      : null
+
+  const etapa_prevalente =
+    porEtapa
+      ? (() => {
+          const valid = porEtapa.filas.filter((f) => f.etapa !== "Sin clasificar")
+          if (!valid.length) return null
+          const top = valid.reduce((a, b) => (b.total > a.total ? b : a))
+          const pct =
+            porEtapa.totales.total > 0
+              ? Math.round((top.total / porEtapa.totales.total) * 100)
+              : 0
+          return { etapa: top.etapa as string, pct }
+        })()
+      : null
+
+  return { total, nuevos, pct_pediatrico, razon_mh, pct_foraneo, etapa_prevalente }
+}
+
+// ── KPI card ──────────────────────────────────────────────────────────────────
+type AccentKey = "indigo" | "emerald" | "violet" | "amber" | "sky" | "rose"
+
+const ACCENT: Record<AccentKey, { bg: string; text: string; strip: string }> = {
+  indigo:  { bg: "bg-indigo-50",  text: "text-indigo-600",  strip: "bg-indigo-400" },
+  emerald: { bg: "bg-emerald-50", text: "text-emerald-600", strip: "bg-emerald-400" },
+  violet:  { bg: "bg-violet-50",  text: "text-violet-600",  strip: "bg-violet-400" },
+  amber:   { bg: "bg-amber-50",   text: "text-amber-600",   strip: "bg-amber-400" },
+  sky:     { bg: "bg-sky-50",     text: "text-sky-600",     strip: "bg-sky-400" },
+  rose:    { bg: "bg-rose-50",    text: "text-rose-600",    strip: "bg-rose-400" },
+}
+
+interface KpiCardProps {
+  icon: React.ComponentType<{ className?: string }>
+  value: string | number | null
+  label: string
+  subtext: string
+  accent: AccentKey
+}
+
+function KpiCard({ icon: Icon, value, label, subtext, accent }: KpiCardProps) {
+  const { bg, text } = ACCENT[accent]
   return (
-    <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200/70">
-      <p className="text-sm font-medium text-slate-600">{label}</p>
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
+      <div className={cn("mb-3 inline-flex rounded-xl p-2.5", bg)}>
+        <Icon className={cn("h-5 w-5", text)} />
+      </div>
       {value !== null ? (
-        <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-800">{value}</p>
+        <p className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{value}</p>
       ) : (
-        <div className="mt-2 h-7 w-16 animate-pulse rounded bg-slate-100" />
+        <div className="h-8 w-20 animate-pulse rounded-lg bg-slate-100" />
+      )}
+      <p className="mt-1.5 text-sm font-semibold text-slate-700">{label}</p>
+      {value !== null ? (
+        <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{subtext}</p>
+      ) : (
+        <div className="mt-1 h-3 w-28 animate-pulse rounded bg-slate-100" />
       )}
     </div>
   )
 }
 
 function KpiStrip({
-  etapa, residencia, nacimiento, registros,
+  porEtapa,
+  porCurp,
+  registrosMes,
 }: {
-  etapa: PorEtapaSexoData | null
-  residencia: PorResidenciaData | null
-  nacimiento: PorNacimientoData | null
-  registros: RegistrosMesData | null
+  porEtapa: PorEtapaSexoData | null
+  porCurp: PorCurpData | null
+  registrosMes: RegistrosMesData | null
 }) {
-  const total = etapa?.totales.total ?? null
-  const pctNl = residencia
-    ? `${Math.round((residencia.totales.nl / (residencia.totales.total || 1)) * 100)}%`
-    : null
-  const pctMex = nacimiento
-    ? `${Math.round((nacimiento.totales.mexicanos / (nacimiento.totales.total || 1)) * 100)}%`
-    : null
-  const prom = registros?.promedio_anual ?? null
+  const { total, nuevos, pct_pediatrico, razon_mh, pct_foraneo, etapa_prevalente } =
+    computeKpis(porEtapa, porCurp, registrosMes)
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <KpiItem label="Total sujetos de derecho" value={total} />
-      <KpiItem label="% Viven en N.L." value={pctNl} />
-      <KpiItem label="% Mexicanos" value={pctMex} />
-      <KpiItem label="Prom. registros / mes" value={prom} />
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+      <KpiCard
+        icon={Users}
+        value={total !== null ? total.toLocaleString("es-MX") : null}
+        label="Total registrados"
+        subtext="Sujetos de derecho en el padrón"
+        accent="indigo"
+      />
+      <KpiCard
+        icon={UserPlus}
+        value={nuevos !== null ? nuevos.toLocaleString("es-MX") : null}
+        label="Nuevos en el período"
+        subtext="Registros en el intervalo seleccionado"
+        accent="emerald"
+      />
+      <KpiCard
+        icon={Baby}
+        value={pct_pediatrico !== null ? `${pct_pediatrico}%` : null}
+        label="Pacientes pediátricos"
+        subtext="Menores de 18 años (0–17)"
+        accent="violet"
+      />
+      <KpiCard
+        icon={Scale}
+        value={razon_mh !== null ? razon_mh : null}
+        label="Razón M / H"
+        subtext="Mujeres por cada hombre registrado"
+        accent="amber"
+      />
+      <KpiCard
+        icon={MapPin}
+        value={pct_foraneo !== null ? `${pct_foraneo}%` : null}
+        label="CURP foráneo"
+        subtext="Sujetos originarios de otro estado"
+        accent="sky"
+      />
+      <KpiCard
+        icon={TrendingUp}
+        value={etapa_prevalente?.etapa ?? null}
+        label="Etapa más prevalente"
+        subtext={etapa_prevalente ? `${etapa_prevalente.pct}% del padrón` : "Etapa con mayor concentración"}
+        accent="rose"
+      />
+    </div>
+  )
+}
+
+// ── Section label ─────────────────────────────────────────────────────────────
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+        {label}
+      </span>
+      <div className="flex-1 border-t border-slate-200" />
     </div>
   )
 }
@@ -218,9 +352,7 @@ function ChartSkeleton() {
 }
 
 function MapSkeleton() {
-  return (
-    <div className="animate-pulse rounded-xl bg-slate-100" style={{ height: 380 }} />
-  )
+  return <div className="animate-pulse rounded-xl bg-slate-100" style={{ height: 380 }} />
 }
 
 function CardError({ message }: { message: string }) {
@@ -246,7 +378,13 @@ function MetricTable({ headers, rows, totals }: TableProps) {
         <thead>
           <tr className="bg-slate-100">
             {headers.map((h, i) => (
-              <th key={i} className={cn("px-3 py-2 font-medium text-slate-600", i === 0 ? "text-left" : "text-right")}>
+              <th
+                key={i}
+                className={cn(
+                  "px-3 py-2 font-medium text-slate-600",
+                  i === 0 ? "text-left" : "text-right",
+                )}
+              >
                 {h}
               </th>
             ))}
@@ -254,9 +392,19 @@ function MetricTable({ headers, rows, totals }: TableProps) {
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={ri} className={cn("border-t border-slate-100", row.dim ? "text-slate-400" : "text-slate-700")}>
+            <tr
+              key={ri}
+              className={cn("border-t border-slate-100", row.dim ? "text-slate-400" : "text-slate-700")}
+            >
               {row.cells.map((cell, ci) => (
-                <td key={ci} className={cn("px-3 py-1.5", ci === 0 ? "text-left" : "text-right tabular-nums", row.dim && "italic")}>
+                <td
+                  key={ci}
+                  className={cn(
+                    "px-3 py-1.5",
+                    ci === 0 ? "text-left" : "text-right tabular-nums",
+                    row.dim && "italic",
+                  )}
+                >
                   {cell}
                 </td>
               ))}
@@ -265,7 +413,13 @@ function MetricTable({ headers, rows, totals }: TableProps) {
           {totals && (
             <tr className="border-t-2 border-slate-200 bg-slate-50">
               {totals.map((cell, ci) => (
-                <td key={ci} className={cn("px-3 py-2 font-semibold text-slate-800", ci === 0 ? "text-left" : "text-right tabular-nums")}>
+                <td
+                  key={ci}
+                  className={cn(
+                    "px-3 py-2 font-semibold text-slate-800",
+                    ci === 0 ? "text-left" : "text-right tabular-nums",
+                  )}
+                >
                   {cell}
                 </td>
               ))}
@@ -278,10 +432,8 @@ function MetricTable({ headers, rows, totals }: TableProps) {
 }
 
 // ── Choropleth map ────────────────────────────────────────────────────────────
-
-// blue-100 (#dbeafe = 219,234,254) → blue-800 (#1e40af = 30,64,175)
 function interpolateBlue(count: number, max: number): string {
-  if (count === 0) return "#e2e8f0" // slate-200: no data
+  if (count === 0) return "#e2e8f0"
   const t = Math.min(count / max, 1)
   const r = Math.round(219 - 189 * t)
   const g = Math.round(234 - 170 * t)
@@ -297,7 +449,6 @@ function normEstado(s: string): string {
     .toLowerCase()
 }
 
-// Maps common DB state name variants to the canonical normalized form used in the TopoJSON
 const ESTADO_ALIASES: Record<string, string> = {
   "nl": "nuevo leon",
   "n.l.": "nuevo leon",
@@ -318,48 +469,51 @@ function resolveEstado(name: string): string {
 
 const GEO_URL = "/geo/mexico-states.json"
 
-interface MapTooltip {
-  name: string
-  total: number
-  pct: number
-  x: number
-  y: number
-}
+interface MapTooltip { name: string; total: number; pct: number; x: number; y: number }
 
 function MapaEstados({ data }: { data: PorEstadoData }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<MapTooltip | null>(null)
   const [focusedInfo, setFocusedInfo] = useState<Omit<MapTooltip, "x" | "y"> | null>(null)
+  // Track hovered state by resolved name so all sub-polygons of a state highlight together.
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  // Small debounce prevents flicker when the cursor moves between sub-polygons of the same state.
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const lookup = new Map<string, number>()
   for (const f of data.filas) {
-    if (f.estado !== "Sin estado") {
-      
-      lookup.set(f.estado, f.total)
-    }
+    if (f.estado !== "Sin estado") lookup.set(resolveEstado(f.estado), f.total)
   }
-
   const max = Math.max(...Array.from(lookup.values()), 1)
 
-  function getCount(topoName: string | null): number {
+  function getCount(topoName: string | null) {
     if (!topoName) return 0
     return lookup.get(resolveEstado(topoName)) ?? 0
   }
 
-  function getPct(count: number): number {
+  function getPct(count: number) {
     return data.total_nacional > 0 ? Math.round((count / data.total_nacional) * 100) : 0
   }
 
-  function handleMouseMove(e: React.MouseEvent<SVGPathElement>, name: string, count: number) {
+  function handleEnter(e: React.MouseEvent<SVGPathElement>, name: string, count: number) {
+    if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null }
+    setHoveredKey(resolveEstado(name))
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
-    setTooltip({
-      name,
-      total: count,
-      pct: getPct(count),
-      x: e.clientX - rect.left + 12,
-      y: e.clientY - rect.top - 12,
-    })
+    setTooltip({ name, total: count, pct: getPct(count), x: e.clientX - rect.left + 12, y: e.clientY - rect.top - 12 })
+  }
+
+  function handleMove(e: React.MouseEvent<SVGPathElement>, name: string, count: number) {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setTooltip((t) => t ? { ...t, x: e.clientX - rect.left + 12, y: e.clientY - rect.top - 12 } : t)
+  }
+
+  function handleLeave() {
+    leaveTimer.current = setTimeout(() => {
+      setHoveredKey(null)
+      setTooltip(null)
+    }, 40)
   }
 
   return (
@@ -372,17 +526,16 @@ function MapaEstados({ data }: { data: PorEstadoData }) {
           width={900}
           height={520}
         >
+          {/* Fill layer — all states, uniform white border */}
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
               geographies.map((geo) => {
                 const name: string = geo.properties.name ?? ""
+                const key = resolveEstado(name)
                 const count = getCount(name)
                 const pct = getPct(count)
+                const isHovered = !!name && key === hoveredKey
                 const fill = interpolateBlue(count, max)
-                const ariaLabel = name
-                  ? `${name}: ${count} sujetos (${pct}% del total nacional)`
-                  : "Estado no identificado"
-
                 return (
                   <Geography
                     key={geo.rsmKey}
@@ -390,44 +543,52 @@ function MapaEstados({ data }: { data: PorEstadoData }) {
                     fill={fill}
                     stroke="#ffffff"
                     strokeWidth={0.6}
-                    aria-label={ariaLabel}
+                    aria-label={name ? `${name}: ${count} sujetos (${pct}% del total nacional)` : "Estado no identificado"}
                     style={{
-                      default: { outline: "none" },
-                      hover: {
-                        outline: "none",
-                        opacity: 0.78,
-                        cursor: "pointer",
-                        stroke: "#1e40af",
-                        strokeWidth: "1",
-                      },
+                      default: { outline: "none", opacity: isHovered ? 0.8 : 1, cursor: name ? "pointer" : "default" },
+                      hover:   { outline: "none" },
                       pressed: { outline: "none" },
                     }}
-                    onMouseMove={(e) => {
-                      if (name) handleMouseMove(e as unknown as React.MouseEvent<SVGPathElement>, name, count)
-                    }}
-                    onMouseLeave={() => setTooltip(null)}
-                    onFocus={() => {
-                      if (name) setFocusedInfo({ name, total: count, pct: getPct(count) })
-                    }}
+                    onMouseEnter={(e) => { if (name) handleEnter(e as unknown as React.MouseEvent<SVGPathElement>, name, count) }}
+                    onMouseMove={(e)  => { if (name) handleMove(e as unknown as React.MouseEvent<SVGPathElement>, name, count) }}
+                    onMouseLeave={handleLeave}
+                    onFocus={() => { if (name) setFocusedInfo({ name, total: count, pct: getPct(count) }) }}
                     onBlur={() => setFocusedInfo(null)}
                   />
                 )
               })
             }
           </Geographies>
-        </ComposableMap>
 
-        {/* Mouse tooltip */}
+          {/* Hover stroke layer — painted last so no fill ever occludes it */}
+          {hoveredKey && (
+            <Geographies geography={GEO_URL}>
+              {({ geographies }) =>
+                geographies
+                  .filter((geo) => resolveEstado(geo.properties.name ?? "") === hoveredKey)
+                  .map((geo) => (
+                    <Geography
+                      key={`hl-${geo.rsmKey}`}
+                      geography={geo}
+                      fill="transparent"
+                      stroke="#1e40af"
+                      strokeWidth={1.5}
+                      style={{
+                        default: { outline: "none", pointerEvents: "none" },
+                        hover:   { outline: "none" },
+                        pressed: { outline: "none" },
+                      }}
+                    />
+                  ))
+              }
+            </Geographies>
+          )}
+        </ComposableMap>
         {tooltip && (
           <div
             role="tooltip"
-            className="pointer-events-none absolute z-10 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md"
-            style={{
-              left: tooltip.x,
-              top: tooltip.y,
-              transform: "translate(0, -100%)",
-              maxWidth: 200,
-            }}
+            className="pointer-events-none absolute z-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-md"
+            style={{ left: tooltip.x, top: tooltip.y, transform: "translate(0, -100%)", maxWidth: 200 }}
           >
             <p className="text-sm font-semibold text-slate-800">{tooltip.name}</p>
             <p className="mt-0.5 text-sm tabular-nums text-slate-600">
@@ -437,8 +598,6 @@ function MapaEstados({ data }: { data: PorEstadoData }) {
           </div>
         )}
       </div>
-
-      {/* Keyboard focus info strip */}
       <div className="mt-1 h-5" aria-live="polite" aria-atomic="true">
         {focusedInfo && (
           <p className="text-xs text-slate-500">
@@ -447,19 +606,14 @@ function MapaEstados({ data }: { data: PorEstadoData }) {
           </p>
         )}
       </div>
-
-      {/* Legend */}
-      <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-4 rounded" style={{ background: "#e2e8f0" }} />
           <span>Sin datos</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span>1</span>
-          <div
-            className="h-3 w-28 rounded"
-            style={{ background: "linear-gradient(to right, #dbeafe, #1e40af)" }}
-          />
+          <div className="h-3 w-28 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #1e40af)" }} />
           <span>{max.toLocaleString("es-MX")}</span>
         </div>
       </div>
@@ -468,20 +622,19 @@ function MapaEstados({ data }: { data: PorEstadoData }) {
 }
 
 // ── Charts ────────────────────────────────────────────────────────────────────
-
 function CurpChart({ data }: { data: PorCurpData }) {
   const rows = toChartRows(data.filas)
   return (
-    <div aria-label="Gráfica de CURP N.L. vs foráneos por etapa de vida">
+    <div aria-label="CURP N.L. vs foráneos por etapa de vida">
       <ResponsiveContainer width="100%" height={CHART_H}>
-        <BarChart data={rows} margin={{ top: 8, right: 8, left: -24, bottom: 0 }} barCategoryGap="30%">
+        <BarChart data={rows} margin={CHART_MARGIN} barCategoryGap={BAR_GAP}>
           <CartesianGrid vertical={false} stroke={GRID} />
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
-          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-          <Bar dataKey="curp_nl"    name="CURP N.L."     fill={CP} radius={[3, 3, 0, 0]} isAnimationActive={true} animationDuration={600} />
-          <Bar dataKey="curp_foraneo" name="CURP Foráneos" fill={CN} radius={[3, 3, 0, 0]} isAnimationActive={true} animationDuration={600} />
+          <Legend {...LEGEND} />
+          <Bar dataKey="curp_nl"      name="CURP N.L."     fill={CP} radius={BAR_R} {...BAR_ANIM} />
+          <Bar dataKey="curp_foraneo" name="CURP Foráneos" fill={CN} radius={BAR_R} {...BAR_ANIM} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -491,16 +644,16 @@ function CurpChart({ data }: { data: PorCurpData }) {
 function ResidenciaChart({ data }: { data: PorResidenciaData }) {
   const rows = toChartRows(data.filas)
   return (
-    <div aria-label="Gráfica de residencia N.L. vs otros estados por etapa de vida">
+    <div aria-label="Residencia N.L. vs otros estados por etapa de vida">
       <ResponsiveContainer width="100%" height={CHART_H}>
-        <BarChart data={rows} margin={{ top: 8, right: 8, left: -24, bottom: 0 }} barCategoryGap="30%">
+        <BarChart data={rows} margin={CHART_MARGIN} barCategoryGap={BAR_GAP}>
           <CartesianGrid vertical={false} stroke={GRID} />
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
-          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-          <Bar dataKey="nl"    name="Viven en N.L."    fill={CP} stackId="s" isAnimationActive={true} animationDuration={600} />
-          <Bar dataKey="otros" name="Viven otros Edos." fill={CN} stackId="s" radius={[3, 3, 0, 0]} isAnimationActive={true} animationDuration={600} />
+          <Legend {...LEGEND} />
+          <Bar dataKey="nl"    name="Viven en N.L."     fill={CP} radius={BAR_R} {...BAR_ANIM} />
+          <Bar dataKey="otros" name="Viven otros Edos." fill={CN} radius={BAR_R} {...BAR_ANIM} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -508,38 +661,19 @@ function ResidenciaChart({ data }: { data: PorResidenciaData }) {
 }
 
 function NacimientoChart({ data }: { data: PorNacimientoData }) {
-  const items = [
-    { name: "Mexicanos",   value: data.totales.mexicanos,  fill: CP },
-    { name: "Extranjeros", value: data.totales.extranjeros, fill: CN },
-  ]
-  const pctMex = data.totales.total
-    ? Math.round((data.totales.mexicanos / data.totales.total) * 100)
-    : 0
+  const rows = toChartRows(data.filas)
   return (
-    <div aria-label="Gráfica de distribución de nacimiento: mexicanos vs extranjeros">
+    <div aria-label="Nacionalidad de nacimiento por etapa de vida">
       <ResponsiveContainer width="100%" height={CHART_H}>
-        <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-          <Pie
-            data={items}
-            cx="50%" cy="45%"
-            innerRadius={64} outerRadius={92}
-            dataKey="value"
-            paddingAngle={3}
-            isAnimationActive={true}
-            animationDuration={600}
-          >
-            {items.map((entry, i) => (
-              <Cell key={i} fill={entry.fill} stroke="none" />
-            ))}
-            <Label
-              value={`${pctMex}%`}
-              position="center"
-              style={{ fontSize: 22, fontWeight: 600, fill: "#1e293b" }}
-            />
-          </Pie>
-          <Tooltip content={<ChartTooltip />} />
-          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-        </PieChart>
+        <BarChart data={rows} margin={CHART_MARGIN} barCategoryGap={BAR_GAP}>
+          <CartesianGrid vertical={false} stroke={GRID} />
+          <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
+          <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
+          <Legend {...LEGEND} />
+          <Bar dataKey="mexicanos"   name="Mexicanos"   fill={CP} radius={BAR_R} {...BAR_ANIM} />
+          <Bar dataKey="extranjeros" name="Extranjeros" fill={CN} radius={BAR_R} {...BAR_ANIM} />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   )
@@ -550,14 +684,14 @@ function SexoChart({ data, ariaLabel }: { data: PorEtapaSexoData; ariaLabel: str
   return (
     <div aria-label={ariaLabel}>
       <ResponsiveContainer width="100%" height={CHART_H}>
-        <BarChart data={rows} margin={{ top: 8, right: 8, left: -24, bottom: 0 }} barCategoryGap="30%">
+        <BarChart data={rows} margin={CHART_MARGIN} barCategoryGap={BAR_GAP}>
           <CartesianGrid vertical={false} stroke={GRID} />
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
-          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-          <Bar dataKey="mujer"  name="Mujeres"  fill={CP} radius={[3, 3, 0, 0]} isAnimationActive={true} animationDuration={600} />
-          <Bar dataKey="hombre" name="Hombres"  fill={CA} radius={[3, 3, 0, 0]} isAnimationActive={true} animationDuration={600} />
+          <Legend {...LEGEND} />
+          <Bar dataKey="mujer"  name="Mujeres" fill={CP} radius={BAR_R} {...BAR_ANIM} />
+          <Bar dataKey="hombre" name="Hombres" fill={CA} radius={BAR_R} {...BAR_ANIM} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -576,13 +710,14 @@ function MesChart({ data }: { data: RegistrosMesData }) {
     return { ...f, label }
   })
   return (
-    <div aria-label={`Gráfica de registros por mes ${data.anio}`}>
+    <div aria-label={`Registros por mes ${data.anio}`}>
       <ResponsiveContainer width="100%" height={CHART_H}>
-        <LineChart data={rows} margin={{ top: 8, right: 24, left: -24, bottom: 0 }}>
+        <LineChart data={rows} margin={CHART_MARGIN}>
           <CartesianGrid vertical={false} stroke={GRID} />
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#e2e8f0" }} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: GRID }} />
+          <Legend {...LEGEND} />
           <ReferenceLine
             y={data.promedio_anual}
             stroke={CN}
@@ -590,15 +725,11 @@ function MesChart({ data }: { data: RegistrosMesData }) {
             label={{ value: `Prom: ${data.promedio_anual}`, position: "insideTopRight", fontSize: 10, fill: CN }}
           />
           <Line
-            type="monotone"
-            dataKey="registros"
-            name="Registros"
-            stroke={CP}
-            strokeWidth={2}
+            type="monotone" dataKey="registros" name="Registros"
+            stroke={CP} strokeWidth={2}
             dot={{ r: 3, fill: CP, strokeWidth: 0 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
-            isAnimationActive={true}
-            animationDuration={600}
+            {...BAR_ANIM}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -606,26 +737,40 @@ function MesChart({ data }: { data: RegistrosMesData }) {
   )
 }
 
-// ── Card with chart/table toggle ──────────────────────────────────────────────
+// ── Metric card ───────────────────────────────────────────────────────────────
 function MetricCard({
-  title, loading, error, chart, table,
+  title, summary, accent, loading, error, chart, table,
 }: {
   title: string
+  summary?: string | null
+  accent: AccentKey
   loading: boolean
   error: string | null
   chart: React.ReactNode
   table: React.ReactNode
 }) {
   const [view, setView] = useState<"chart" | "table">("chart")
+  const { text, strip } = ACCENT[accent]
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-      <div className="flex items-center gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</h2>
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
+      {/* accent strip */}
+      <div className={cn("h-[3px] w-full shrink-0", strip)} />
+
+      {/* header */}
+      <div className="flex items-start gap-2 px-5 pt-4 pb-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold leading-snug text-slate-700">{title}</h2>
+          {loading ? (
+            <div className="mt-1.5 h-3 w-28 animate-pulse rounded bg-slate-100" />
+          ) : summary ? (
+            <p className={cn("mt-1 text-xs font-medium tabular-nums", text)}>{summary}</p>
+          ) : null}
+        </div>
         {!loading && !error && (
           <button
             onClick={() => setView((v) => (v === "chart" ? "table" : "chart"))}
-            className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             aria-label={view === "chart" ? "Ver tabla" : "Ver gráfica"}
           >
             {view === "chart" ? (
@@ -637,15 +782,18 @@ function MetricCard({
         )}
       </div>
 
-      {loading ? (
-        view === "chart" ? <ChartSkeleton /> : <TableSkeleton />
-      ) : error ? (
-        <CardError message={error} />
-      ) : view === "chart" ? (
-        chart
-      ) : (
-        table
-      )}
+      {/* chart / table area */}
+      <div className="flex-1 border-t border-slate-100 bg-slate-50/50 p-5">
+        {loading ? (
+          view === "chart" ? <ChartSkeleton /> : <TableSkeleton />
+        ) : error ? (
+          <CardError message={error} />
+        ) : view === "chart" ? (
+          chart
+        ) : (
+          table
+        )}
+      </div>
     </div>
   )
 }
@@ -705,158 +853,220 @@ export default function MetricasPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-8">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-800">Métricas</h1>
-          <p className="mt-1 text-sm text-slate-500">Sujetos de derecho — resumen estadístico</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Métricas</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Estadísticas del padrón · Espina Bífida N.L.
+          </p>
         </div>
         <GenerarReporteButton />
       </div>
 
-      {/* Date range picker */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Intervalo de tiempo
+      {/* ── Date picker ── */}
+      <div className="rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-200/70">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+          Período de análisis
         </p>
         <DateRangePicker range={dateRange} onChange={setDateRange} />
       </div>
 
-      {/* Choropleth map — main visual */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <div className="mb-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Distribución geográfica
-          </h2>
-          <p className="mt-0.5 text-xs text-slate-400">
-            Sujetos de derecho por estado de residencia
-          </p>
+      {/* ── Mapa ── */}
+      <section aria-label="Distribución geográfica">
+        <SectionLabel label="Distribución geográfica" />
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
+          <div className="h-[3px] w-full bg-indigo-400" />
+          <div className="px-5 pt-4 pb-3.5">
+            <p className="text-sm font-semibold text-slate-700">Por estado de residencia</p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Sujetos de derecho registrados en cada entidad federativa
+            </p>
+          </div>
+          <div className="border-t border-slate-100 bg-slate-50/50 p-5">
+            {porEstado.loading ? (
+              <MapSkeleton />
+            ) : porEstado.error ? (
+              <CardError message={porEstado.error} />
+            ) : porEstado.data ? (
+              <MapaEstados data={porEstado.data} />
+            ) : null}
+          </div>
         </div>
-        {porEstado.loading ? (
-          <MapSkeleton />
-        ) : porEstado.error ? (
-          <CardError message={porEstado.error} />
-        ) : porEstado.data ? (
-          <MapaEstados data={porEstado.data} />
-        ) : null}
-      </div>
+      </section>
 
-      {/* KPI strip */}
-      <KpiStrip
-        etapa={porEtapa.data}
-        residencia={porResidencia.data}
-        nacimiento={porNacimiento.data}
-        registros={registrosMes.data}
-      />
-
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-
-        {/* M1 — Por CURP */}
-        <MetricCard
-          title="Sujetos de derecho por CURP"
-          loading={porCurp.loading} error={porCurp.error}
-          chart={porCurp.data ? <CurpChart data={porCurp.data} /> : null}
-          table={porCurp.data ? (
-            <MetricTable
-              headers={["Etapa de vida", "CURP N.L.", "CURP Foráneos", "Total"]}
-              rows={porCurp.data.filas.map((f) => ({ cells: [f.etapa, f.curp_nl, f.curp_foraneo, f.total], dim: f.etapa === "Sin clasificar" }))}
-              totals={["Total", porCurp.data.totales.curp_nl, porCurp.data.totales.curp_foraneo, porCurp.data.totales.total]}
-            />
-          ) : null}
+      {/* ── KPIs ── */}
+      <section aria-label="Indicadores clave">
+        <SectionLabel label="Indicadores clave" />
+        <KpiStrip
+          porEtapa={porEtapa.data}
+          porCurp={porCurp.data}
+          registrosMes={registrosMes.data}
         />
+      </section>
 
-        {/* M2 — Por residencia */}
-        <MetricCard
-          title="Sujetos de derecho por lugar de residencia"
-          loading={porResidencia.loading} error={porResidencia.error}
-          chart={porResidencia.data ? <ResidenciaChart data={porResidencia.data} /> : null}
-          table={porResidencia.data ? (
-            <MetricTable
-              headers={["Etapa de vida", "Viven en N.L.", "Viven otros Edos.", "Total"]}
-              rows={porResidencia.data.filas.map((f) => ({ cells: [f.etapa, f.nl, f.otros, f.total], dim: f.etapa === "Sin clasificar" }))}
-              totals={["Total", porResidencia.data.totales.nl, porResidencia.data.totales.otros, porResidencia.data.totales.total]}
-            />
-          ) : null}
-        />
+      {/* ── Metric cards ── */}
+      <section aria-label="Análisis detallado">
+        <SectionLabel label="Análisis detallado" />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
 
-        {/* M3 — Por nacimiento */}
-        <MetricCard
-          title="Sujetos de derecho por nacimiento"
-          loading={porNacimiento.loading} error={porNacimiento.error}
-          chart={porNacimiento.data ? <NacimientoChart data={porNacimiento.data} /> : null}
-          table={porNacimiento.data ? (
-            <MetricTable
-              headers={["Etapa de vida", "Mexicanos", "Nac. Extranj.", "Total"]}
-              rows={porNacimiento.data.filas.map((f) => ({ cells: [f.etapa, f.mexicanos, f.extranjeros, f.total], dim: f.etapa === "Sin clasificar" }))}
-              totals={["Total", porNacimiento.data.totales.mexicanos, porNacimiento.data.totales.extranjeros, porNacimiento.data.totales.total]}
-            />
-          ) : null}
-        />
+          <MetricCard
+            title="Tipo de CURP por etapa de vida"
+            accent="sky"
+            summary={porCurp.data
+              ? `${porCurp.data.totales.curp_nl} N.L. · ${porCurp.data.totales.curp_foraneo} foráneos`
+              : null}
+            loading={porCurp.loading} error={porCurp.error}
+            chart={porCurp.data ? <CurpChart data={porCurp.data} /> : null}
+            table={porCurp.data ? (
+              <MetricTable
+                headers={["Etapa de vida", "CURP N.L.", "CURP Foráneos", "Total"]}
+                rows={porCurp.data.filas.map((f) => ({
+                  cells: [f.etapa, f.curp_nl, f.curp_foraneo, f.total],
+                  dim: f.etapa === "Sin clasificar",
+                }))}
+                totals={["Total", porCurp.data.totales.curp_nl, porCurp.data.totales.curp_foraneo, porCurp.data.totales.total]}
+              />
+            ) : null}
+          />
 
-        {/* M4 — Por etapa de vida */}
-        <MetricCard
-          title="Sujetos de derecho por etapa de vida"
-          loading={porEtapa.loading} error={porEtapa.error}
-          chart={porEtapa.data ? <SexoChart data={porEtapa.data} ariaLabel="Gráfica de sujetos de derecho por etapa de vida y sexo" /> : null}
-          table={porEtapa.data ? (
-            <MetricTable
-              headers={["Etapa de vida", "Total", "M", "H"]}
-              rows={porEtapa.data.filas.map((f) => ({ cells: [f.etapa, f.total, f.mujer, f.hombre], dim: f.etapa === "Sin clasificar" }))}
-              totals={["Total", porEtapa.data.totales.total, porEtapa.data.totales.mujer, porEtapa.data.totales.hombre]}
-            />
-          ) : null}
-        />
+          <MetricCard
+            title="Lugar de residencia por etapa de vida"
+            accent="emerald"
+            summary={porResidencia.data
+              ? `${porResidencia.data.totales.nl} en N.L. · ${porResidencia.data.totales.otros} otros estados`
+              : null}
+            loading={porResidencia.loading} error={porResidencia.error}
+            chart={porResidencia.data ? <ResidenciaChart data={porResidencia.data} /> : null}
+            table={porResidencia.data ? (
+              <MetricTable
+                headers={["Etapa de vida", "Viven en N.L.", "Viven otros Edos.", "Total"]}
+                rows={porResidencia.data.filas.map((f) => ({
+                  cells: [f.etapa, f.nl, f.otros, f.total],
+                  dim: f.etapa === "Sin clasificar",
+                }))}
+                totals={["Total", porResidencia.data.totales.nl, porResidencia.data.totales.otros, porResidencia.data.totales.total]}
+              />
+            ) : null}
+          />
 
-        {/* M5 — CURP N.L. */}
-        <MetricCard
-          title="Sujetos de derecho por CURP N.L."
-          loading={curpNl.loading} error={curpNl.error}
-          chart={curpNl.data ? <SexoChart data={curpNl.data} ariaLabel="Gráfica de sujetos con CURP N.L. por etapa y sexo" /> : null}
-          table={curpNl.data ? (
-            <MetricTable
-              headers={["Etapa de vida", "Total", "M", "H"]}
-              rows={curpNl.data.filas.map((f) => ({ cells: [f.etapa, f.total, f.mujer, f.hombre], dim: f.etapa === "Sin clasificar" }))}
-              totals={["Total", curpNl.data.totales.total, curpNl.data.totales.mujer, curpNl.data.totales.hombre]}
-            />
-          ) : null}
-        />
+          <MetricCard
+            title="Nacionalidad de nacimiento"
+            accent="violet"
+            summary={porNacimiento.data
+              ? `${porNacimiento.data.totales.mexicanos} mexicanos · ${porNacimiento.data.totales.extranjeros} extranjeros`
+              : null}
+            loading={porNacimiento.loading} error={porNacimiento.error}
+            chart={porNacimiento.data ? <NacimientoChart data={porNacimiento.data} /> : null}
+            table={porNacimiento.data ? (
+              <MetricTable
+                headers={["Etapa de vida", "Mexicanos", "Nac. Extranj.", "Total"]}
+                rows={porNacimiento.data.filas.map((f) => ({
+                  cells: [f.etapa, f.mexicanos, f.extranjeros, f.total],
+                  dim: f.etapa === "Sin clasificar",
+                }))}
+                totals={["Total", porNacimiento.data.totales.mexicanos, porNacimiento.data.totales.extranjeros, porNacimiento.data.totales.total]}
+              />
+            ) : null}
+          />
 
-        {/* M6 — CURP foráneos */}
-        <MetricCard
-          title="Sujetos de derecho foráneos"
-          loading={curpForaneo.loading} error={curpForaneo.error}
-          chart={curpForaneo.data ? <SexoChart data={curpForaneo.data} ariaLabel="Gráfica de sujetos con CURP foráneo por etapa y sexo" /> : null}
-          table={curpForaneo.data ? (
-            <MetricTable
-              headers={["Etapa de vida", "Total", "M", "H"]}
-              rows={curpForaneo.data.filas.map((f) => ({ cells: [f.etapa, f.total, f.mujer, f.hombre], dim: f.etapa === "Sin clasificar" }))}
-              totals={["Total", curpForaneo.data.totales.total, curpForaneo.data.totales.mujer, curpForaneo.data.totales.hombre]}
-            />
-          ) : null}
-        />
+          <MetricCard
+            title="Distribución por etapa de vida y sexo"
+            accent="amber"
+            summary={porEtapa.data
+              ? `${porEtapa.data.totales.total} total · ${porEtapa.data.totales.mujer} M · ${porEtapa.data.totales.hombre} H`
+              : null}
+            loading={porEtapa.loading} error={porEtapa.error}
+            chart={porEtapa.data ? (
+              <SexoChart data={porEtapa.data} ariaLabel="Sujetos de derecho por etapa de vida y sexo" />
+            ) : null}
+            table={porEtapa.data ? (
+              <MetricTable
+                headers={["Etapa de vida", "Total", "M", "H"]}
+                rows={porEtapa.data.filas.map((f) => ({
+                  cells: [f.etapa, f.total, f.mujer, f.hombre],
+                  dim: f.etapa === "Sin clasificar",
+                }))}
+                totals={["Total", porEtapa.data.totales.total, porEtapa.data.totales.mujer, porEtapa.data.totales.hombre]}
+              />
+            ) : null}
+          />
 
-        {/* M7 — Registros por mes */}
-        <MetricCard
-          title={`Registros por mes${registrosMes.data ? ` (${registrosMes.data.anio})` : ""}`}
-          loading={registrosMes.loading} error={registrosMes.error}
-          chart={registrosMes.data ? <MesChart data={registrosMes.data} /> : null}
-          table={registrosMes.data ? (
-            <MetricTable
-              headers={["Mes", "Registros"]}
-              rows={registrosMes.data.filas.map((f) => ({
-                cells: [
-                  new Date(Number(f.mes.split("-")[0]), Number(f.mes.split("-")[1]) - 1, 1)
-                    .toLocaleDateString("es-MX", { month: "long", year: "numeric" }),
-                  f.registros,
-                ],
-              }))}
-              totals={["Promedio mensual", registrosMes.data.promedio_anual]}
-            />
-          ) : null}
-        />
+          <MetricCard
+            title="CURP N.L. — etapa de vida y sexo"
+            accent="indigo"
+            summary={curpNl.data
+              ? `${curpNl.data.totales.total} total · ${curpNl.data.totales.mujer} M · ${curpNl.data.totales.hombre} H`
+              : null}
+            loading={curpNl.loading} error={curpNl.error}
+            chart={curpNl.data ? (
+              <SexoChart data={curpNl.data} ariaLabel="Sujetos con CURP N.L. por etapa y sexo" />
+            ) : null}
+            table={curpNl.data ? (
+              <MetricTable
+                headers={["Etapa de vida", "Total", "M", "H"]}
+                rows={curpNl.data.filas.map((f) => ({
+                  cells: [f.etapa, f.total, f.mujer, f.hombre],
+                  dim: f.etapa === "Sin clasificar",
+                }))}
+                totals={["Total", curpNl.data.totales.total, curpNl.data.totales.mujer, curpNl.data.totales.hombre]}
+              />
+            ) : null}
+          />
 
-      </div>
+          <MetricCard
+            title="CURP foráneo — etapa de vida y sexo"
+            accent="rose"
+            summary={curpForaneo.data
+              ? `${curpForaneo.data.totales.total} total · ${curpForaneo.data.totales.mujer} M · ${curpForaneo.data.totales.hombre} H`
+              : null}
+            loading={curpForaneo.loading} error={curpForaneo.error}
+            chart={curpForaneo.data ? (
+              <SexoChart data={curpForaneo.data} ariaLabel="Sujetos con CURP foráneo por etapa y sexo" />
+            ) : null}
+            table={curpForaneo.data ? (
+              <MetricTable
+                headers={["Etapa de vida", "Total", "M", "H"]}
+                rows={curpForaneo.data.filas.map((f) => ({
+                  cells: [f.etapa, f.total, f.mujer, f.hombre],
+                  dim: f.etapa === "Sin clasificar",
+                }))}
+                totals={["Total", curpForaneo.data.totales.total, curpForaneo.data.totales.mujer, curpForaneo.data.totales.hombre]}
+              />
+            ) : null}
+          />
+
+          <MetricCard
+            title={`Registros por mes${registrosMes.data ? ` · ${registrosMes.data.anio}` : ""}`}
+            accent="emerald"
+            summary={registrosMes.data
+              ? `Promedio: ${registrosMes.data.promedio_anual} registros/mes`
+              : null}
+            loading={registrosMes.loading} error={registrosMes.error}
+            chart={registrosMes.data ? <MesChart data={registrosMes.data} /> : null}
+            table={registrosMes.data ? (
+              <MetricTable
+                headers={["Mes", "Registros"]}
+                rows={registrosMes.data.filas.map((f) => ({
+                  cells: [
+                    new Date(
+                      Number(f.mes.split("-")[0]),
+                      Number(f.mes.split("-")[1]) - 1,
+                      1,
+                    ).toLocaleDateString("es-MX", { month: "long", year: "numeric" }),
+                    f.registros,
+                  ],
+                }))}
+                totals={["Promedio mensual", registrosMes.data.promedio_anual]}
+              />
+            ) : null}
+          />
+
+        </div>
+      </section>
+
     </div>
   )
 }
