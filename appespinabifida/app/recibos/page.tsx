@@ -862,7 +862,7 @@ function ReciboDetailModal({
 							</div>
 							<div>
 								<p className="text-xs uppercase text-slate-400">Exento</p>
-								<p className="text-slate-800">{recibo.exento ? "Si" : "No"}</p>
+								<p className="text-slate-800">{recibo.montoTotal == 0 ? "Si" : "No"}</p>
 							</div>
 							<div>
 								<p className="text-xs uppercase text-slate-400">Total</p>
