@@ -721,9 +721,11 @@ function ReciboDetailModal({
 	exencionMonto?: number;
 	productos?: Producto[] | null;
 	pagos?: Pago[];
+	descuento: number;
 	};
 
 	function normalizeRecibo(raw: any) {
+		const exento = raw.montoTotal === 0;
 		const productos = (raw.productos ?? [])
 			.filter(Boolean)
 			.map((p: any) => ({
@@ -790,6 +792,7 @@ function ReciboDetailModal({
 			montoPagado,
 			saldoPendiente,
 			estatus,
+			exento
 		};
 	}
 

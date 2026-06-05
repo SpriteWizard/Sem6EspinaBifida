@@ -19,7 +19,7 @@ export default function ListItemEstudio({ data }: { data: any }) {
           {data.nombre}
         </Link>
         <div className="mt-0.5 text-xs text-slate-500">
-          EST-{data.id_estudio} · Solicitado el {data.fecha}
+          EST-{data.id_estudio} · Solicitado el {data.fecha.split("T")[0]}
         </div>
       </div>
       <span
