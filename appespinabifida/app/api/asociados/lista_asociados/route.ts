@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       vigenciaHasta:        splitDate(a.vigencia_hasta),
       estatus:              sentenceCase(a.activo),
       telefonos:            telephone_list.map((t: any) => t.telefono),
-      telCasa:              telephone_list.find((t: any) => t.tipo === "casa")?.telefono ?? "",
+      telCasa:              a.telefono_casa,
       telTrabajo:           telephone_list.find((t: any) => t.tipo === "trabajo")?.telefono ?? "",
       telCel:               telephone_list.find((t: any) => t.tipo === "cel")?.telefono ?? "",
       contactoEmergencia: {

@@ -106,7 +106,7 @@ export default function CreateMedicoModal({ open, onClose, onSuccess }: CreateMe
 
   return (
     <Modal open={open} onClose={onClose} titleId="create-medico-modal" title="Registrar médico">
-      <div className="space-y-4 px-5 py-4">
+      <div className="space-y-4 px-5 py-4 max-h-[80vh] overflow-y-auto">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Nombre *</label>
           <Input

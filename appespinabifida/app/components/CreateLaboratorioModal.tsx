@@ -105,7 +105,7 @@ export default function CreateLaboratorioModal({ open, onClose, onSuccess }: Cre
 
   return (
     <Modal open={open} onClose={onClose} titleId="create-laboratorio-modal" title="Registrar laboratorio">
-      <div className="space-y-4 px-5 py-4">
+      <div className="space-y-4 px-5 py-4 max-h-[80vh] overflow-y-auto">
         {/* Campos requeridos */}
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Nombre *</label>

@@ -105,7 +105,7 @@ export default function CreateUsuarioModal({ open, onClose, onSuccess }: CreateU
 
   return (
     <Modal open={open} onClose={onClose} titleId="create-user-modal" title="Crear nuevo usuario">
-      <div className="space-y-4 px-5 py-4">
+      <div className="space-y-4 px-5 py-4 max-h-[80vh] overflow-y-auto">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Nombres</label>
           <Input
