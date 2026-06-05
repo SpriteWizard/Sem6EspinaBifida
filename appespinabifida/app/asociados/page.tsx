@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import Filtros from "../components/Filtros";
@@ -20,7 +21,10 @@ interface Filters {
 }
 
 export default function Asociados() {
-  const [activeTab, setActiveTab] = useState<Tab>("asociados");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>(
+    searchParams.get("preregistro") ? "preregistro" : "asociados"
+  );
   const [filtros, setFiltros] = useState<Filters>({
     id: 0,
     nombre: "",

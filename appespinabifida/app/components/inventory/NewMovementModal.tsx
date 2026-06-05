@@ -61,6 +61,7 @@ type Props = {
   initial?: InventoryMovement | null
   viewOnly?: boolean
   fixedMovementType?: MovementType
+  preselectedItem?: { id: number; name: string }
 }
 
 function todayISO() {
@@ -110,6 +111,7 @@ export function NewMovementModal({
   initial,
   viewOnly,
   fixedMovementType,
+  preselectedItem,
 }: Props) {
   const resolvedSubmitMode = submitMode ?? 'create'
   const [movementType, setMovementType] = useState<MovementType>('in')
@@ -143,6 +145,7 @@ export function NewMovementModal({
   const [asociados, setAsociados] = useState<AsociadoMini[]>([])
   const [asociadosLoading, setAsociadosLoading] = useState(false)
 
+  const [stockErrorMsg, setStockErrorMsg] = useState<string | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -204,9 +207,9 @@ export function NewMovementModal({
     setShowComodatoAsociadoDropdown(false)
     setMovementType(fixedMovementType ?? 'in')
     setItemType('')
-    setSelectedItemId(null)
+    setSelectedItemId(preselectedItem?.id ?? null)
     setSelectedItem(null)
-    setItemName('')
+    setItemName(preselectedItem?.name ?? '')
     setNewItemDescription('')
     setNewItemUnidad('pieza')
     setNewItemProveedor('')
@@ -215,7 +218,7 @@ export function NewMovementModal({
     setDate(todayISO())
     setQuantity('')
     setNotes('')
-  }, [open, initial, fixedMovementType])
+  }, [open, initial, fixedMovementType, preselectedItem])
 
   useEffect(() => {
     if (!open || asociados.length > 0) return
@@ -384,7 +387,7 @@ export function NewMovementModal({
       if (requestedQuantity > availableQuantity) {
         const message = `No hay suficiente stock de ${selectedItem.name}. Disponible: ${availableQuantity}.`
         next.quantity = message
-        window.alert(message)
+        setStockErrorMsg(message)
       }
     }
 
@@ -1117,6 +1120,23 @@ export function NewMovementModal({
             </Button>
             <Button type="button" variant="destructive" onClick={confirmDisableComodato}>
               Desactivar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={stockErrorMsg !== null}
+        titleId="stock-error-modal-title"
+        title="Stock insuficiente"
+        onClose={() => setStockErrorMsg(null)}
+        className="max-w-sm"
+      >
+        <div className="px-5 py-4">
+          <p className="text-sm text-slate-700">{stockErrorMsg}</p>
+          <div className="mt-4 flex justify-end">
+            <Button type="button" variant="secondary" onClick={() => setStockErrorMsg(null)}>
+              Entendido
             </Button>
           </div>
         </div>

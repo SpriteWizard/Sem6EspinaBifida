@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
 
 import { Button } from '../../components/ui/Button'
@@ -28,6 +28,8 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
 
 export default function InventoryMovementsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const consumedSalidaRef = useRef(false)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 350)
 
@@ -45,9 +47,9 @@ export default function InventoryMovementsPage() {
   const [error, setError] = useState<string | null>(null)
   const [newMovementOpen, setNewMovementOpen] = useState(false)
   const [viewOnly, setViewOnly] = useState(false)
-  const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(
-    null,
-  )
+  const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(null)
+  const [preselectedItem, setPreselectedItem] = useState<{ id: number; name: string } | undefined>(undefined)
+  const [fixedMovementType, setFixedMovementType] = useState<MovementType | undefined>(undefined)
 
   const movementTypeSelectValue = movementType === 'all' ? '' : movementType
   const movementTypeIsPlaceholder = movementType === 'all'
@@ -56,6 +58,18 @@ export default function InventoryMovementsPage() {
     () => `${movementType}__${dateFrom}__${dateTo}__${debouncedSearch}`,
     [movementType, dateFrom, dateTo, debouncedSearch],
   )
+
+  useEffect(() => {
+    if (consumedSalidaRef.current) return
+    const entradaId = searchParams.get('entrada')
+    const entradaNombre = searchParams.get('nombre')
+    if (!entradaId || !entradaNombre) return
+    consumedSalidaRef.current = true
+    setPreselectedItem({ id: Number(entradaId), name: entradaNombre })
+    setFixedMovementType('in')
+    setNewMovementOpen(true)
+    router.replace('/inventory/movimientos')
+  }, [searchParams])
 
   useEffect(() => {
     let alive = true
@@ -261,11 +275,15 @@ export default function InventoryMovementsPage() {
           setNewMovementOpen(false)
           setViewOnly(false)
           setEditingMovement(null)
+          setPreselectedItem(undefined)
+          setFixedMovementType(undefined)
         }}
         itemTypes={itemTypes}
         onCreated={handleCreated}
         initial={editingMovement}
         viewOnly={viewOnly}
+        preselectedItem={preselectedItem}
+        fixedMovementType={fixedMovementType}
       />
     </div>
   )
