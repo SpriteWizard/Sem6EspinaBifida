@@ -10,7 +10,6 @@ export function buildDateFilter(startDate: string | null, endDate: string | null
   const parts: string[] = []
   if (startDate) parts.push(`a.FECHA_ALTA >= TO_DATE('${startDate}', 'YYYY-MM-DD')`)
   if (endDate)   parts.push(`a.FECHA_ALTA < TO_DATE('${endDate}', 'YYYY-MM-DD') + 1`)
-  console.log('Date filter:', parts.join(' AND '))
   return parts.length ? `AND ${parts.join('\n    AND ')}` : ''
 }
 
