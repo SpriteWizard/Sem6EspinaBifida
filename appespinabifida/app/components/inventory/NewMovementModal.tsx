@@ -171,57 +171,6 @@ export function NewMovementModal({
   }, [open, initial, fixedMovementType, preselectedItem])
 
   useEffect(() => {
-    if (!open || asociados.length > 0) return
-
-    let alive = true
-    setAsociadosLoading(true)
-
-    fetch('/api/asociados/lista_asociados/mini')
-      .then((res) => {
-        if (!res.ok) throw new Error('No se pudo cargar la lista de asociados.')
-        return res.json() as Promise<unknown>
-      })
-      .then((data) => {
-        if (!alive) return
-
-        const rows = Array.isArray(data) ? data : []
-        const mapped = rows
-          .map(parseAsociadoMini)
-          .filter((asociado): asociado is AsociadoMini => asociado !== null)
-
-        setAsociados(mapped)
-      })
-      .catch(() => {
-        if (!alive) return
-        setAsociados([])
-      })
-      .finally(() => {
-        if (!alive) return
-        setAsociadosLoading(false)
-      })
-
-    return () => {
-      alive = false
-    }
-  }, [open, asociados.length])
-
-  useEffect(() => {
-    if (!open) return
-
-    function handler(e: MouseEvent) {
-      if (
-        comodatoAsociadoRef.current &&
-        !comodatoAsociadoRef.current.contains(e.target as Node)
-      ) {
-        setShowComodatoAsociadoDropdown(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  useEffect(() => {
     if (!open) return
 
     const query = itemName.trim()

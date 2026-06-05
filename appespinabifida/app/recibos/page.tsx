@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
 import ImprimirReciboTemplate from "@/components/imprimirRecibo"
 import  Link from "next/link";
@@ -2093,7 +2093,7 @@ function NuevoReciboModal({
 	);
 }
 
-export default function RecibosPage() {
+function RecibosContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
@@ -2519,5 +2519,13 @@ export default function RecibosPage() {
 				</div>
 			</div>
 		</>
+	);
+}
+
+export default function RecibosPage() {
+	return (
+		<Suspense>
+			<RecibosContent />
+		</Suspense>
 	);
 }

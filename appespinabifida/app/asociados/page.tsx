@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
@@ -20,7 +20,7 @@ interface Filters {
   estatus: string
 }
 
-export default function Asociados() {
+function AsociadosContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(
     searchParams.get("preregistro") ? "preregistro" : "asociados"
@@ -98,5 +98,13 @@ export default function Asociados() {
         </>
       )}
     </div>
+  );
+}
+
+export default function Asociados() {
+  return (
+    <Suspense>
+      <AsociadosContent />
+    </Suspense>
   );
 }

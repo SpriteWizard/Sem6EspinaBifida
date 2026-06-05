@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
 
@@ -26,7 +26,7 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   return debounced
 }
 
-export default function InventoryMovementsPage() {
+function InventoryMovementsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const consumedSalidaRef = useRef(false)
@@ -286,6 +286,14 @@ export default function InventoryMovementsPage() {
         fixedMovementType={fixedMovementType}
       />
     </div>
+  )
+}
+
+export default function InventoryMovementsPage() {
+  return (
+    <Suspense>
+      <InventoryMovementsContent />
+    </Suspense>
   )
 }
 
