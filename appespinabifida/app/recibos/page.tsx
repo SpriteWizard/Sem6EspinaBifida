@@ -1141,6 +1141,19 @@ function NuevoReciboModal({
 		return ref || undefined;
 	}, [asociadoSeleccionadoId, listaNuevaConsulta]);
 
+	useEffect(() => {
+		if (descuentoPct == 100){
+			setExento(true);
+			setDescuentoPct(0);
+		}
+	},[descuentoPct]);
+
+	useEffect(() => {
+		if (exento){
+			setDescuentoPct(0);
+		}
+	},[exento]);
+
 	const filteredAsociados = useMemo(() => {
 		const q = asociadoSearch.trim().toLowerCase();
 		if (!q) return asociados.slice(0, 8);
