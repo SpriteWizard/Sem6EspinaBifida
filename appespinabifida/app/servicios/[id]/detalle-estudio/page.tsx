@@ -23,6 +23,16 @@ export default async function DetalleEstudioPage({
   }
   const data = await res.json();
 
+  function formatDateToMMDDYYYY(isoDate: string) {
+    const date = new Date(isoDate);
+
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+
+    return `${year}-${month}-${day}`;
+  }
+
   return (
     <div className="space-y-6">
 
@@ -58,7 +68,7 @@ export default async function DetalleEstudioPage({
               nombreAsociado={data.nombre_asociado ?? ""}
               apellidosAsociado={data.apellidos_asociado ?? ""}
               tipoEstudio={data.tipo_estudio ?? ""}
-              fecha={data.fecha ?? ""}
+              fecha={data.fecha ? formatDateToMMDDYYYY(data.fecha) : ""}
               medicoEstudio={data.medico_estudio ?? ""}
             />
           </div>
@@ -104,7 +114,7 @@ export default async function DetalleEstudioPage({
           </div>
           <div>
             <span className="mb-0.5 block text-xs text-slate-500">Fecha de solicitud</span>
-            <span className="text-sm text-slate-800">{parseFechaHora(data.fecha).fecha}</span>
+            <span className="text-sm text-slate-800">{formatDateToMMDDYYYY(data.fecha)}</span>
           </div>
           <div>
             <span className="mb-0.5 block text-xs text-slate-500">
@@ -160,7 +170,7 @@ export default async function DetalleEstudioPage({
               {data.tipo_consulta} · CON-{data.id_consulta}
             </div>
             <div className="text-xs text-slate-500">
-              {data.fecha_consulta} · {data.medico_consulta}
+              {formatDateToMMDDYYYY(data.fecha_consulta)} · {data.medico_consulta}
             </div>
           </div>
           <Link

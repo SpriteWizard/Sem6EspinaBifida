@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   findSimilarInventoryItemsByName,
@@ -46,11 +46,6 @@ type DraftPayload = {
   unitPrice: number
 }
 
-type AsociadoMini = {
-  id: string
-  nombre: string
-}
-
 type Props = {
   open: boolean
   onClose: () => void
@@ -78,27 +73,6 @@ function normalizeName(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function parseAsociadoMini(value: unknown): AsociadoMini | null {
-  if (!isRecord(value)) return null
-
-  const rawId = value.id_asociado ?? value.id
-  const nombre = typeof value.nombre === 'string' ? value.nombre.trim() : ''
-  const apellidos =
-    typeof value.apellidos === 'string' ? value.apellidos.trim() : ''
-  const displayName = [nombre, apellidos].filter(Boolean).join(' ').trim()
-
-  if (rawId === undefined || rawId === null || !displayName) return null
-
-  return {
-    id: `ASC-${String(rawId)}`,
-    nombre: displayName,
-  }
 }
 
 export function NewMovementModal({
@@ -131,10 +105,6 @@ export function NewMovementModal({
   const [comodatoAQuien, setComodatoAQuien] = useState('')
   const [comodatoTiempo, setComodatoTiempo] = useState('')
   const [comodatoCondiciones, setComodatoCondiciones] = useState('')
-  const [comodatoAsociadoSeleccionado, setComodatoAsociadoSeleccionado] =
-    useState<AsociadoMini | null>(null)
-  const [showComodatoAsociadoDropdown, setShowComodatoAsociadoDropdown] =
-    useState(false)
   const [showDisableComodatoConfirm, setShowDisableComodatoConfirm] = useState(false)
   const [allowSimilarCreate, setAllowSimilarCreate] = useState(false)
 
@@ -142,29 +112,13 @@ export function NewMovementModal({
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [similarMatches, setSimilarMatches] = useState<InventoryItem[]>([])
   const [stockHelpOpen, setStockHelpOpen] = useState(false)
-  const [asociados, setAsociados] = useState<AsociadoMini[]>([])
-  const [asociadosLoading, setAsociadosLoading] = useState(false)
 
   const [stockErrorMsg, setStockErrorMsg] = useState<string | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const comodatoAsociadoRef = useRef<HTMLDivElement>(null)
 
   const itemTypeOptions = useMemo(() => itemTypes, [itemTypes])
-  const filteredComodatoAsociados = useMemo(() => {
-    const q = normalizeName(comodatoAQuien)
-    if (!q) return asociados.slice(0, 8)
-
-    return asociados
-      .filter((asociado) => {
-        return (
-          normalizeName(asociado.nombre).includes(q) ||
-          normalizeName(asociado.id).includes(q)
-        )
-      })
-      .slice(0, 8)
-  }, [asociados, comodatoAQuien])
 
   useEffect(() => {
     if (!open) return
@@ -176,8 +130,6 @@ export function NewMovementModal({
     setSuggestions([])
     setStockHelpOpen(false)
     setShowDisableComodatoConfirm(false)
-    setComodatoAsociadoSeleccionado(null)
-    setShowComodatoAsociadoDropdown(false)
 
     if (initial) {
       setMovementType(fixedMovementType ?? initial.movementType)
@@ -203,8 +155,6 @@ export function NewMovementModal({
     setComodatoAQuien('')
     setComodatoTiempo('')
     setComodatoCondiciones('')
-    setComodatoAsociadoSeleccionado(null)
-    setShowComodatoAsociadoDropdown(false)
     setMovementType(fixedMovementType ?? 'in')
     setItemType('')
     setSelectedItemId(preselectedItem?.id ?? null)
@@ -324,8 +274,6 @@ export function NewMovementModal({
       setComodatoAQuien('')
       setComodatoTiempo('')
       setComodatoCondiciones('')
-      setComodatoAsociadoSeleccionado(null)
-      setShowComodatoAsociadoDropdown(false)
     }
   }, [movementType, open])
 
@@ -358,8 +306,6 @@ export function NewMovementModal({
     setComodatoAQuien('')
     setComodatoTiempo('')
     setComodatoCondiciones('')
-    setComodatoAsociadoSeleccionado(null)
-    setShowComodatoAsociadoDropdown(false)
     setEsComodato(false)
     setShowDisableComodatoConfirm(false)
   }
@@ -491,13 +437,6 @@ export function NewMovementModal({
       comodatoTiempo: undefined,
       comodatoCondiciones: undefined,
     }))
-  }
-
-  function handleSelectComodatoAsociado(asociado: AsociadoMini) {
-    setComodatoAsociadoSeleccionado(asociado)
-    setComodatoAQuien(asociado.nombre)
-    setShowComodatoAsociadoDropdown(false)
-    setErrors((prev) => ({ ...prev, comodatoAQuien: undefined }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -975,61 +914,14 @@ export function NewMovementModal({
                     <label className="mb-1 block text-sm font-medium text-slate-700">
                       ¿A quién se lo prestaste?
                     </label>
-                    <div ref={comodatoAsociadoRef} className="relative">
-                      <Input
-                        disabled={viewOnly}
-                        value={comodatoAQuien}
-                        onChange={(e) => {
-                          setComodatoAQuien(e.target.value)
-                          setComodatoAsociadoSeleccionado(null)
-                          setShowComodatoAsociadoDropdown(true)
-                          setErrors((prev) => ({
-                            ...prev,
-                            comodatoAQuien: undefined,
-                          }))
-                        }}
-                        onFocus={() => {
-                          if (!viewOnly) setShowComodatoAsociadoDropdown(true)
-                        }}
-                        placeholder="Buscar por nombre o ID"
-                        aria-invalid={Boolean(errors.comodatoAQuien)}
-                      />
-
-                      {showComodatoAsociadoDropdown &&
-                      filteredComodatoAsociados.length > 0 ? (
-                        <ul className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-                          {filteredComodatoAsociados.map((asociado) => (
-                            <li key={asociado.id}>
-                              <button
-                                type="button"
-                                className="flex w-full flex-col px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
-                                onClick={() => handleSelectComodatoAsociado(asociado)}
-                              >
-                                <span className="font-medium text-slate-800">
-                                  {asociado.nombre}
-                                </span>
-                                <span className="mt-0.5 text-xs text-slate-500">
-                                  ID: {asociado.id}
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                    {asociadosLoading ? (
-                      <p className="mt-1 text-xs text-slate-500">Buscando asociados…</p>
-                    ) : null}
-                    {comodatoAsociadoSeleccionado ? (
-                      <div className="mt-2 rounded-lg bg-white px-3 py-2 ring-1 ring-emerald-200">
-                        <p className="text-sm font-medium text-slate-800">
-                          {comodatoAsociadoSeleccionado.nombre}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          ID: {comodatoAsociadoSeleccionado.id}
-                        </p>
-                      </div>
-                    ) : null}
+                    <Input                      disabled={viewOnly}                      value={comodatoAQuien}
+                      onChange={(e) => {
+                        setComodatoAQuien(e.target.value)
+                        setErrors((prev) => ({ ...prev, comodatoAQuien: undefined }))
+                      }}
+                      placeholder="Nombre o identificación"
+                      aria-invalid={Boolean(errors.comodatoAQuien)}
+                    />
                     {errors.comodatoAQuien ? (
                       <p className="mt-1 text-sm text-rose-700">{errors.comodatoAQuien}</p>
                     ) : null}
