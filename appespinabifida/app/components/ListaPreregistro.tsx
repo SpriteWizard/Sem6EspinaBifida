@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import ListaTabla from "./ListaTabla";
 import ModalPreregistro from "./ModalPreregistro";
 import { Button } from "./ui/Button";
@@ -52,6 +53,9 @@ type ListaPreregistroProps = {
 };
 
 export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const consumedRef = useRef(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [items, setItems] = useState<PreregistroDetalle[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -88,6 +92,17 @@ export default function ListaPreregistro({ filtros }: ListaPreregistroProps) {
 
     return () => { cancelled = true; };
   }, [filtros]);
+
+  useEffect(() => {
+    const id = searchParams.get("preregistro");
+    if (!id || consumedRef.current || items.length === 0) return;
+    const idx = items.findIndex((p) => String(p.id) === id);
+    if (idx !== -1) {
+      consumedRef.current = true;
+      setSelectedIndex(idx);
+      router.replace("/asociados");
+    }
+  }, [items, searchParams]);
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;

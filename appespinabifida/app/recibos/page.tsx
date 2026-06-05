@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSession } from "next-auth/react";
 import ImprimirReciboTemplate from "@/components/imprimirRecibo"
 import  Link from "next/link";
 import type { Session } from "next-auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
 import {
 	Plus,
@@ -2093,8 +2093,9 @@ function NuevoReciboModal({
 	);
 }
 
-export default function RecibosPage() {
+function RecibosContent() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const [sessionLoaded, setSessionLoaded] = useState<Session | null>(null);
 	const [loading, setLoading] = useState(true);
 	const RECIBOS_PAGE_SIZE = 5;
@@ -2185,6 +2186,24 @@ export default function RecibosPage() {
 			}, 1);
 		}
 	}, [recibos]);
+
+	const consumedDesgloseRef = useRef(false);
+
+	useEffect(() => {
+		const desgloseId = searchParams.get("desglose");
+
+		if (consumedDesgloseRef.current) return;
+		if (!desgloseId) return;
+		if (!recibos.length) return;
+
+		const found = recibos.find((r) => r.id === Number(desgloseId));
+
+		if (found) {
+			consumedDesgloseRef.current = true;
+			setReciboActivo(found);
+			setTimeout(() => { router.replace("/recibos"); }, 1);
+		}
+	}, [recibos, searchParams]);
 
 
 	useEffect(() => {
@@ -2401,7 +2420,7 @@ export default function RecibosPage() {
 										Pagado / Total
 									</th>
 									<th className="rounded-tr-2xl px-5 py-4 text-center text-sm font-semibold">
-										Desglose
+										Pagos
 									</th>
 								</tr>
 							</thead>
@@ -2500,5 +2519,13 @@ export default function RecibosPage() {
 				</div>
 			</div>
 		</>
+	);
+}
+
+export default function RecibosPage() {
+	return (
+		<Suspense>
+			<RecibosContent />
+		</Suspense>
 	);
 }

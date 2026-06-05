@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Info } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -22,7 +24,7 @@ function formatMoneda(n: number) {
   return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 }
 
-function estatusRecibo(pagado: number, total: number) {
+function estatusRecibo(pagado: number, _total: number) {
   if (pagado <= 0) return { label: 'Pendiente', variant: 'failed' as const };
   return { label: 'Parcial', variant: 'warning' as const };
 }
@@ -84,7 +86,6 @@ export interface Preregistro {
 export interface DashboardData {
   consultas: Consulta[];
   recibos: Recibo[];
-  inventario: ArticuloInventario[];
   membresias: Membresia[];
 }
 
@@ -96,11 +97,19 @@ const MAX_ROWS = 5;
 // py-2.5 (10+10) + text-sm line-height (~20px) = ~40px por fila
 const SCROLL_MAX_H = 'max-h-[260px]';
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-white shadow-md ring-1 ring-slate-200/70">
-      <div className="rounded-t-2xl border-b border-slate-200 bg-slate-50 px-4 py-2">
+      <div className="rounded-t-2xl border-b border-slate-200 bg-slate-50 px-4 py-2 flex items-center gap-2">
         <span className="text-sm font-semibold text-slate-600">{title}</span>
+        {hint && (
+          <div className="relative group">
+            <Info className="h-3.5 w-3.5 text-slate-400 cursor-default" />
+            <div className="absolute left-0 top-5 z-20 w-56 rounded-lg bg-slate-800 px-3 py-2 text-xs text-white shadow-lg hidden group-hover:block">
+              {hint}
+            </div>
+          </div>
+        )}
       </div>
       {children}
     </div>
@@ -131,6 +140,7 @@ function EmptyRow({ cols }: { cols: number }) {
 // ─── componente principal ─────────────────────────────────────────────────────
 
 export function DashboardClient() {
+  const router = useRouter();
   const [fecha, setFecha] = useState(todayISO());
 
   // TODO backend: reemplazar con useEffect + fetch(`/api/dashboard?fecha=${fecha}`)
@@ -138,6 +148,7 @@ export function DashboardClient() {
   const [baseData, setbaseData] = useState<DashboardData>(EMPTY_DATA);
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [preregistros, setPreregistros] = useState<Preregistro[]>([]);
+  const [inventario, setInventario] = useState<ArticuloInventario[]>([]);
 
   const recibosPendientes = data.recibos.filter((r) => r.montoPagado < r.montoTotal);
 
@@ -151,7 +162,7 @@ export function DashboardClient() {
   // TODO backend: reemplazar con useEffect + fetch('/api/preregistros/pendientes')
   useEffect(() => {
     (async()=> {
-      const res = await fetch('/api/asociados/preRegistro/lista');
+      const res = await fetch('/api/asociados/preRegistro/lista?estatus=Pendiente&limit=100');
       if (res.ok) {
         const data = (await res.json()).items;
         const preregistros = data.map((p: any) => {
@@ -171,15 +182,26 @@ export function DashboardClient() {
         if (data.message == "Success"){
           setbaseData(data.data);
         }
-        setData( EMPTY_DATA);
+        setData(EMPTY_DATA);
       }
-    })()
+    })();
+
   }, []);
 
   useEffect(() => {
-    const filteredData = (baseData as any)[formatDate(fecha)];
+    const allDates = baseData as any;
+    const filteredData = allDates[formatDate(fecha)];
     if (filteredData != null) setData(filteredData);
     else setData(EMPTY_DATA);
+
+    const firstDate = Object.keys(allDates)[0];
+    if (firstDate) {
+      const order: Record<string, number> = { low_stock: 0, out_of_stock: 1 };
+      const sorted = [...(allDates[firstDate].inventario ?? [])].sort(
+        (a, b) => (order[a.status] ?? 2) - (order[b.status] ?? 2)
+      );
+      setInventario(sorted);
+    }
   },[fecha,baseData])
 
   return (
@@ -201,7 +223,7 @@ export function DashboardClient() {
         </header>
 
         {/* Fila 1: Consultas del día */}
-        <SectionCard title="Consultas del día">
+        <SectionCard title="Consultas del día" hint="Haz clic en una consulta para ver su detalle.">
           <TableWrapper count={data.consultas.length}>
             <table className="w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -220,11 +242,11 @@ export function DashboardClient() {
                   data.consultas.map((c) => {
                     const est = estatusConsulta(c.estatus);
                     return (
-                      <tr key={c.id} className="h-11 cursor-pointer transition hover:bg-slate-50">
+                      <tr key={c.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/servicios/${c.id}/detalle-consulta`)}>
                         <td className="px-4 py-2.5 text-slate-700">{c.hora}</td>
                         <td className="px-4 py-2.5 font-medium text-slate-800">{c.asociado}</td>
                         <td className="px-4 py-2.5 text-slate-700">{c.servicio}</td>
-                        <td className="px-4 py-2.5 text-slate-700">{c.medico}</td>
+                        <td className="px-4 py-2.5 text-slate-700">Dr. {c.medico}</td>
                         <td className="px-4 py-2.5">
                           <Badge variant={est.variant}>{est.label}</Badge>
                         </td>
@@ -239,7 +261,7 @@ export function DashboardClient() {
 
         {/* Fila 2: Recibos | Inventario */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <SectionCard title="Recibos por vencer">
+          <SectionCard title="Recibos por vencer" hint="Haz clic en un recibo para ir a registrar su pago.">
             <TableWrapper count={recibosPendientes.length}>
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -257,7 +279,7 @@ export function DashboardClient() {
                     recibosPendientes.map((r) => {
                       const est = estatusRecibo(r.montoPagado, r.montoTotal);
                       return (
-                        <tr key={r.id} className="h-11 cursor-pointer transition hover:bg-slate-50">
+                        <tr key={r.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/recibos?desglose=${r.id}`)}>
                           <td className="px-4 py-2.5 text-slate-700">REC-{r.id}</td>
                           <td className="px-4 py-2.5 font-medium text-slate-800">{r.asociado}</td>
                           <td className="px-4 py-2.5 text-slate-700">{formatMoneda(r.montoTotal)}</td>
@@ -273,8 +295,8 @@ export function DashboardClient() {
             </TableWrapper>
           </SectionCard>
 
-          <SectionCard title="Alertas de inventario">
-            <TableWrapper count={data.inventario.length}>
+          <SectionCard title="Alertas de inventario" hint="Haz clic en un artículo para registrar una entrada de inventario.">
+            <TableWrapper count={inventario.length}>
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-600 text-white">
                   <tr>
@@ -285,13 +307,13 @@ export function DashboardClient() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {data.inventario.length === 0 ? (
+                  {inventario.length === 0 ? (
                     <EmptyRow cols={4} />
                   ) : (
-                    data.inventario.map((i) => {
+                    inventario.map((i) => {
                       const est = estatusStock(i.status);
                       return (
-                        <tr key={i.id} className="h-11 cursor-pointer transition hover:bg-slate-50">
+                        <tr key={i.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/inventory/movimientos?entrada=${i.id}&nombre=${encodeURIComponent(i.name)}`)}>
                           <td className="px-4 py-2.5 font-medium text-slate-800">{i.name}</td>
                           <td className="px-4 py-2.5 text-slate-700">{i.categoryName}</td>
                           <td className="px-4 py-2.5 text-slate-700">{i.quantity} / {i.stockMinimo}</td>
@@ -326,7 +348,7 @@ export function DashboardClient() {
                     <EmptyRow cols={4} />
                   ) : (
                     data.membresias.map((m) => (
-                      <tr key={m.id} className="h-11 cursor-pointer transition hover:bg-slate-50">
+                      <tr key={m.id} className="h-11">
                         <td className="px-4 py-2.5 text-slate-700">{m.folio}</td>
                         <td className="px-4 py-2.5 font-medium text-slate-800">{m.nombre}</td>
                         <td className="px-4 py-2.5 text-slate-700">{m.telefono}</td>
@@ -339,7 +361,7 @@ export function DashboardClient() {
             </TableWrapper>
           </SectionCard>
 
-          <SectionCard title="Preregistros pendientes">
+          <SectionCard title="Preregistros pendientes" hint="Haz clic en un preregistro para aceptarlo o rechazarlo.">
             <TableWrapper count={preregistros.length}>
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -354,7 +376,7 @@ export function DashboardClient() {
                     <EmptyRow cols={3} />
                   ) : (
                     preregistros.map((p) => (
-                      <tr key={p.id} className="h-11 cursor-pointer transition hover:bg-slate-50">
+                      <tr key={p.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/asociados?preregistro=${p.id}`)}>
                         <td className="px-4 py-2.5 font-medium text-slate-800">{p.nombre}</td>
                         <td className="px-4 py-2.5 text-slate-700">{p.fechaSolicitud}</td>
                         <td className="px-4 py-2.5">
@@ -374,124 +396,8 @@ export function DashboardClient() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MOCK DATA — reemplazar con llamadas al API cuando el backend esté listo
-// ═══════════════════════════════════════════════════════════════════════════════
-
 const EMPTY_DATA: DashboardData = {
   consultas: [],
   recibos: [],
-  inventario: [],
   membresias: [],
-};
-
-// Preregistros pendientes: lista global, no depende de la fecha seleccionada.
-// TODO backend: reemplazar con GET /api/preregistros/pendientes
-const MOCK_PREREGISTROS_PENDIENTES: Preregistro[] = [
-  { id: 'PRE-001', nombre: 'Carlos Mendoza Ruiz',   fechaSolicitud: '2026-05-29' },
-  { id: 'PRE-002', nombre: 'Daniela Flores Vega',   fechaSolicitud: '2026-05-30' },
-  { id: 'PRE-003', nombre: 'Joaquín Torres Ávila',  fechaSolicitud: '2026-05-30' },
-  { id: 'PRE-004', nombre: 'Paola Ríos Herrera',    fechaSolicitud: '2026-05-31' },
-  { id: 'PRE-005', nombre: 'Simón Aguilera Díaz',   fechaSolicitud: '2026-05-31' },
-  { id: 'PRE-006', nombre: 'Valeria Ortega Cruz',   fechaSolicitud: '2026-06-01' },
-  { id: 'PRE-007', nombre: 'Emilio Navarro Gil',    fechaSolicitud: '2026-06-01' },
-  { id: 'PRE-008', nombre: 'Sofía Medina Leal',     fechaSolicitud: '2026-06-01' },
-  { id: 'PRE-009', nombre: 'Ana Beatriz Ortega',    fechaSolicitud: '2026-06-01' },
-  { id: 'PRE-010', nombre: 'Luis Fernando Ríos',    fechaSolicitud: '2026-06-02' },
-  { id: 'PRE-011', nombre: 'Gabriela Soto Peña',    fechaSolicitud: '2026-06-02' },
-];
-
-const MOCK_BY_DATE: Record<string, DashboardData> = {
-  '2026-06-01': {
-    consultas: [
-      { id: 901, hora: '09:00', asociado: 'Diego Salinas',    servicio: 'Consulta neurología',    medico: 'Dr. Pérez',      estatus: 'Completado' },
-      { id: 902, hora: '10:30', asociado: 'Valentina Reyes',  servicio: 'Terapia física',          medico: 'Dr. Morales',    estatus: 'En proceso' },
-      { id: 903, hora: '12:00', asociado: 'Mateo Cárdenas',   servicio: 'Consulta urología',       medico: 'Dr. Hernández',  estatus: 'Pendiente'  },
-      { id: 904, hora: '13:00', asociado: 'Renata Escobar',   servicio: 'Terapia ocupacional',     medico: 'Lic. Ramírez',   estatus: 'Pendiente'  },
-      { id: 905, hora: '14:30', asociado: 'Tomás Guerrero',   servicio: 'Consulta neurología',     medico: 'Dr. Pérez',      estatus: 'Pendiente'  },
-      { id: 906, hora: '15:00', asociado: 'Camila Núñez',     servicio: 'Valoración psicológica',  medico: 'Lic. Torres',    estatus: 'Cancelado'  },
-      { id: 907, hora: '16:30', asociado: 'Rodrigo Fuentes',  servicio: 'Terapia física',          medico: 'Dr. Morales',    estatus: 'Pendiente'  },
-    ],
-    recibos: [
-      { id: 5012, asociado: 'Pedro Hernández',  montoTotal: 1200, montoPagado: 0,   fechaLimite: '2026-06-01' },
-      { id: 5018, asociado: 'Ana Gómez Salas',  montoTotal: 850,  montoPagado: 400, fechaLimite: '2026-06-01' },
-      { id: 5019, asociado: 'Jorge Castillo',   montoTotal: 2100, montoPagado: 0,   fechaLimite: '2026-06-01' },
-      { id: 5020, asociado: 'Rebeca Salinas',   montoTotal: 600,  montoPagado: 200, fechaLimite: '2026-06-01' },
-      { id: 5021, asociado: 'Fernando Delgado', montoTotal: 1500, montoPagado: 750, fechaLimite: '2026-06-01' },
-      { id: 5022, asociado: 'Mariana Ibáñez',   montoTotal: 900,  montoPagado: 0,   fechaLimite: '2026-06-01' },
-    ],
-    inventario: [
-      { id: 14, name: 'Sondas Foley 14F',        categoryName: 'Insumo médico', quantity: 0,  stockMinimo: 20, status: 'out_of_stock' },
-      { id: 22, name: 'Guantes nitrilo M',        categoryName: 'Protección',    quantity: 3,  stockMinimo: 30, status: 'low_stock'    },
-      { id: 31, name: 'Gasas estériles 10x10',    categoryName: 'Curación',      quantity: 8,  stockMinimo: 25, status: 'low_stock'    },
-      { id: 45, name: 'Cateterismo intermitente', categoryName: 'Insumo médico', quantity: 0,  stockMinimo: 15, status: 'out_of_stock' },
-      { id: 52, name: 'Alcohol isopropílico',     categoryName: 'Higiene',       quantity: 2,  stockMinimo: 10, status: 'low_stock'    },
-      { id: 60, name: 'Jeringas 5ml',             categoryName: 'Insumo médico', quantity: 4,  stockMinimo: 50, status: 'low_stock'    },
-      { id: 71, name: 'Vendas elásticas 10cm',    categoryName: 'Curación',      quantity: 5,  stockMinimo: 40, status: 'low_stock'    },
-    ],
-    membresias: [
-      { id: '142', nombre: 'María Fernanda López', folio: 'ASO-142', telefono: '81 1234 5678', vigenciaHasta: '2026-06-01' },
-      { id: '87',  nombre: 'Juan Carlos Ramírez',  folio: 'ASO-087', telefono: '81 9876 5432', vigenciaHasta: '2026-06-01' },
-      { id: '55',  nombre: 'Elena Vargas Mora',    folio: 'ASO-055', telefono: '81 5566 7788', vigenciaHasta: '2026-06-01' },
-      { id: '201', nombre: 'Ricardo Peña Castro',  folio: 'ASO-201', telefono: '81 2233 4455', vigenciaHasta: '2026-06-01' },
-      { id: '178', nombre: 'Claudia Soto Reyes',   folio: 'ASO-178', telefono: '81 6677 8800', vigenciaHasta: '2026-06-01' },
-      { id: '34',  nombre: 'Ernesto Luna Vega',    folio: 'ASO-034', telefono: '81 9988 7766', vigenciaHasta: '2026-06-01' },
-    ],
-  },
-
-  '2026-06-02': {
-    consultas: [
-      { id: 910, hora: '08:30', asociado: 'Roberto Fuentes',   servicio: 'Terapia ocupacional',    medico: 'Lic. Ramírez', estatus: 'Completado' },
-      { id: 911, hora: '11:00', asociado: 'Isabella Castillo', servicio: 'Consulta neurología',    medico: 'Dr. Pérez',    estatus: 'En proceso' },
-      { id: 912, hora: '13:30', asociado: 'Emilio Vargas',     servicio: 'Valoración psicológica', medico: 'Lic. Torres',  estatus: 'Pendiente'  },
-      { id: 913, hora: '15:00', asociado: 'Fernanda Cruz',     servicio: 'Terapia física',         medico: 'Dr. Morales',  estatus: 'Pendiente'  },
-    ],
-    recibos: [
-      { id: 5031, asociado: 'Marco Leal',    montoTotal: 1800, montoPagado: 900, fechaLimite: '2026-06-02' },
-      { id: 5032, asociado: 'Karla Mendoza', montoTotal: 500,  montoPagado: 0,   fechaLimite: '2026-06-02' },
-      { id: 5033, asociado: 'Armando Vega',  montoTotal: 2400, montoPagado: 0,   fechaLimite: '2026-06-02' },
-    ],
-    inventario: [
-      { id: 31, name: 'Gasas estériles 10x10',    categoryName: 'Curación',      quantity: 8, stockMinimo: 25, status: 'low_stock'    },
-      { id: 45, name: 'Cateterismo intermitente', categoryName: 'Insumo médico', quantity: 0, stockMinimo: 15, status: 'out_of_stock' },
-      { id: 52, name: 'Alcohol isopropílico',     categoryName: 'Higiene',       quantity: 2, stockMinimo: 10, status: 'low_stock'    },
-    ],
-    membresias: [
-      { id: '203', nombre: 'Sofía Martínez Ruiz', folio: 'ASO-203', telefono: '81 4455 6677', vigenciaHasta: '2026-06-02' },
-      { id: '117', nombre: 'Omar Jiménez Peña',   folio: 'ASO-117', telefono: '81 3322 1100', vigenciaHasta: '2026-06-02' },
-    ],
-  },
-
-  '2026-06-03': {
-    consultas: [
-      { id: 920, hora: '09:00', asociado: 'Lucía Mendoza',   servicio: 'Terapia física',         medico: 'Dr. Morales',   estatus: 'Completado' },
-      { id: 921, hora: '10:00', asociado: 'Andrés Peña',     servicio: 'Consulta urología',      medico: 'Dr. Hernández', estatus: 'Cancelado'  },
-      { id: 922, hora: '11:30', asociado: 'Natalia Ríos',    servicio: 'Consulta neurología',    medico: 'Dr. Pérez',     estatus: 'Completado' },
-      { id: 923, hora: '13:00', asociado: 'Carlos Ibarra',   servicio: 'Terapia ocupacional',    medico: 'Lic. Ramírez',  estatus: 'En proceso' },
-      { id: 924, hora: '14:30', asociado: 'Patricia Luna',   servicio: 'Valoración psicológica', medico: 'Lic. Torres',   estatus: 'Pendiente'  },
-      { id: 925, hora: '16:00', asociado: 'Héctor Guzmán',   servicio: 'Terapia física',         medico: 'Dr. Morales',   estatus: 'Pendiente'  },
-      { id: 926, hora: '17:00', asociado: 'Irene Castañeda', servicio: 'Consulta neurología',    medico: 'Dr. Pérez',     estatus: 'Pendiente'  },
-    ],
-    recibos: [
-      { id: 5040, asociado: 'Héctor Guzmán',   montoTotal: 3200, montoPagado: 0,    fechaLimite: '2026-06-03' },
-      { id: 5041, asociado: 'Irene Castañeda', montoTotal: 750,  montoPagado: 375,  fechaLimite: '2026-06-03' },
-      { id: 5042, asociado: 'Pablo Montoya',   montoTotal: 1100, montoPagado: 0,    fechaLimite: '2026-06-03' },
-      { id: 5043, asociado: 'Ximena Rueda',    montoTotal: 1800, montoPagado: 900,  fechaLimite: '2026-06-03' },
-      { id: 5044, asociado: 'Bernardo Lara',   montoTotal: 600,  montoPagado: 0,    fechaLimite: '2026-06-03' },
-      { id: 5045, asociado: 'Cecilia Mora',    montoTotal: 2500, montoPagado: 1000, fechaLimite: '2026-06-03' },
-    ],
-    inventario: [
-      { id: 14, name: 'Sondas Foley 14F', categoryName: 'Insumo médico', quantity: 0, stockMinimo: 20, status: 'out_of_stock' },
-      { id: 60, name: 'Jeringas 5ml',     categoryName: 'Insumo médico', quantity: 4, stockMinimo: 50, status: 'low_stock'    },
-    ],
-    membresias: [
-      { id: '310', nombre: 'Héctor Guzmán Torres', folio: 'ASO-310', telefono: '81 7788 9900', vigenciaHasta: '2026-06-03' },
-      { id: '88',  nombre: 'Laura Aguilar',         folio: 'ASO-088', telefono: '81 3344 5566', vigenciaHasta: '2026-06-03' },
-      { id: '99',  nombre: 'Jorge Navarro',         folio: 'ASO-099', telefono: '81 6677 8899', vigenciaHasta: '2026-06-03' },
-      { id: '412', nombre: 'Sandra Cuevas',         folio: 'ASO-412', telefono: '81 1122 3344', vigenciaHasta: '2026-06-03' },
-      { id: '77',  nombre: 'Roberto Leal Díaz',     folio: 'ASO-077', telefono: '81 9900 1122', vigenciaHasta: '2026-06-03' },
-      { id: '258', nombre: 'Alejandra Quintero',    folio: 'ASO-258', telefono: '81 4433 2211', vigenciaHasta: '2026-06-03' },
-      { id: '333', nombre: 'Martín Espinoza',       folio: 'ASO-333', telefono: '81 8877 6655', vigenciaHasta: '2026-06-03' },
-    ],
-  },
 };
