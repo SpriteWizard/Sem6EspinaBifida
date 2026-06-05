@@ -28,11 +28,11 @@ type Recibo = {
   montoTotal: number;
   montoPagado: number;
   tipoPaciente: "urbano" | "rural";
-  descuentoPct?: number;
-  descuentoMonto?: number;
+  descuento: number;
   exencionMonto?: number;
   productos?: Producto[] | null;
   pagos?: Pago[];
+  exento?: boolean;
 };
 
 type Props = {
@@ -53,6 +53,7 @@ const formatDate = (date: string) =>
   }).format(new Date(date));
 
 export default function ImprimirReciboTemplate({ recibo }: Props) {
+
   const subtotal =
     recibo.productos?.reduce(
       (acc, item) => acc + item.cantidad * item.precioUnitario,
@@ -60,10 +61,9 @@ export default function ImprimirReciboTemplate({ recibo }: Props) {
     ) || 0;
 
   const descuento =
-    recibo.descuentoMonto ??
-    subtotal * ((recibo.descuentoPct || 0) / 100);
+    recibo.descuento
 
-  const exencion = recibo.exencionMonto || 0;
+  const exencion = recibo.exento ? subtotal : 0;
 
   const total = subtotal - descuento - exencion;
 

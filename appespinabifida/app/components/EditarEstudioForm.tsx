@@ -4,11 +4,22 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { fetchArraySize } from 'oracledb'
 
 const ESTATUS_OPTIONS = ['Pendiente', 'En proceso', 'Completado', 'Cancelado']
 
 
 export default function EditarEstudioForm({ data }: { data: any }) {
+
+  function formatDateToMMDDYYYY(isoDate: string) {
+    const date = new Date(isoDate);
+
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+
+    return `${year}-${month}-${day}`;
+  }
   const router = useRouter()
 
   const [medicos, setMedicos] = useState<any[]>([])
@@ -20,12 +31,12 @@ export default function EditarEstudioForm({ data }: { data: any }) {
   const [idMedico, setIdMedico] = useState<number>(data.id_medico ?? 0)
   const [idLaboratorio, setIdLaboratorio] = useState<string>(data.id_laboratorio ? String(data.id_laboratorio) : '')
   const [estatus, setEstatus] = useState(data.estatus ?? 'Pendiente')
-  const [fecha, setFecha] = useState(data.fecha ? data.fecha.split('T')[0] : '')
+  const [fecha, setFecha] = useState(data.fecha ? formatDateToMMDDYYYY(data.fecha) : '')
   const [aportacion, setAportacion] = useState(String(data.aportacion ?? ''))
   const [yaAporto, setYaAporto] = useState(data.ya_aporto === 1)
   const [nota, setNota] = useState(data.nota ?? '')
   const [resultados, setResultados] = useState(data.resultados ?? '')
-
+  console.log(data)
   useEffect(() => {
     fetch('/api/medicos/lista_medicos')
       .then((r) => (r.ok ? r.json() : []))
@@ -39,6 +50,11 @@ export default function EditarEstudioForm({ data }: { data: any }) {
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setLaboratorios(d ?? []))
   }, [])
+
+  useEffect(() => {
+    console.log(fecha)
+
+  },[fecha])
 
   async function handleGuardar() {
     setGuardando(true)
