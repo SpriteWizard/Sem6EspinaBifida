@@ -2003,11 +2003,6 @@ function NuevoReciboModal({
 							) : null}
 						</div>
 					)}
-					{(servicios.length > 0 || listaNuevaConsulta.length > 0 || listaNuevoEstudio.length > 0 || draftMovements.length > 0) && (
-						<p className="mt-2 text-xs text-slate-500">
-							Se ejecutaran cuando crees el recibo.
-						</p>
-					)}
 					{/* Discount row */}
 					{!exento && (
 						<div className="flex items-center justify-between py-1 text-sm text-slate-500">
