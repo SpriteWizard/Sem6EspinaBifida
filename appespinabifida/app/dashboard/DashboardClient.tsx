@@ -142,6 +142,7 @@ export function DashboardClient() {
   const recibosPendientes = data.recibos.filter((r) => r.montoPagado < r.montoTotal);
 
   function formatDate(dateStr: string) {
+    if (dateStr.includes("/")) return dateStr; // ya está en formato MM/DD/YYYY
     const [year, month, day] = dateStr.split("-");
     return `${month}/${day}/${year}`;
   }
@@ -167,10 +168,7 @@ export function DashboardClient() {
       const res = await fetch("/api/inicio/obtener")
       if (res.ok){
         const data = await res.json();
-        console.log(data);
-        console.log(formatDate(fecha))
         if (data.message == "Success"){
-          setData(data.data[formatDate(fecha)]);
           setbaseData(data.data);
         }
         setData( EMPTY_DATA);
@@ -180,9 +178,9 @@ export function DashboardClient() {
 
   useEffect(() => {
     const filteredData = (baseData as any)[formatDate(fecha)];
-    console.log(filteredData)
     if (filteredData != null) setData(filteredData);
-  },[fecha])
+    else setData(EMPTY_DATA);
+  },[fecha,baseData])
 
   return (
     <main className="min-h-screen px-4 py-4 sm:px-8">

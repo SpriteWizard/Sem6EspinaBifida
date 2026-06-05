@@ -82,7 +82,7 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
             aportacion: Number(String(aportacion).replace(/[^0-9.]/g, '')),
             ya_aporto: yaAporto ? 1 : 0,
             estatus,
-            fecha_cita: fechaCita,
+            fecha: fechaCita,
           },
         }),
       })

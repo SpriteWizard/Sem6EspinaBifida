@@ -27,7 +27,8 @@ type consulta_data = {
     tratamiento: string,
     aportacion: number,
     ya_aporto: 1 | 0,
-    estatus: string
+    estatus: string,
+    fecha: string
 }
 
 export async function PUT(request: Request){
