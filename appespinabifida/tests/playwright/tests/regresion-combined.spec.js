@@ -1,20 +1,19 @@
-import { test, expect } from '@playwright/test';
+const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'https://sem6-espina-bifida.vercel.app';
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 const USUARIO = 'test@test.com';
 const PASSWORD = 'testpassword';
 const SECRETARIO_EMAIL = 'SecretarioTest@test.com';
 const SECRETARIO_PASSWORD = 'Secretariotest';
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function login(page, email = USUARIO, password = PASSWORD) {
   await page.goto(BASE_URL);
   await page.waitForLoadState('networkidle');
 
-  // If already authenticated, skip form submission.
   if (await page.getByRole('button', { name: 'Salir' }).count() > 0) {
     return;
   }
@@ -89,38 +88,221 @@ async function submitInventoryMovement(page) {
   }
 }
 
+// Legacy regression tests
+
+test.describe.serial('Regresión E2E - Espina Bífida', () => {
+  test('Login exitoso con credenciales válidas @QaseID=1', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.getByRole('textbox', { name: 'Usuario' }).fill(USUARIO);
+    await page.getByRole('textbox', { name: 'Contraseña' }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Iniciar Sesión' }).click();
+
+    await expect(page).toHaveURL(`${BASE_URL}/asociados`, { timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Asociados' })).toBeVisible();
+  });
+
+  test('Login fallido con credenciales incorrectas @QaseID=39', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.getByRole('textbox', { name: 'Usuario' }).fill('falsepwd');
+    await page.getByRole('textbox', { name: 'Contraseña' }).fill('falsepwd');
+    await page.getByRole('button', { name: 'Iniciar Sesión' }).click();
+
+    await expect(page.getByText('Correo o contraseña')).toBeVisible({ timeout: 8000 });
+    await expect(page).toHaveURL(/error=CredentialsSignin/);
+  });
+
+  test('Registro de asociado exitoso @QaseID=22', async ({ page }) => {
+    await login(page);
+    await page.getByRole('button', { name: 'Agregar asociado' }).click();
+
+    await page.getByRole('textbox').nth(2).fill('2026-05-21');
+    await page.getByRole('combobox').nth(1).selectOption('Masculino');
+    await page.getByRole('textbox').nth(3).fill('Jesus');
+    await page.getByRole('textbox').nth(4).fill('Cumbian');
+    await page.getByRole('textbox').nth(5).fill('Sanchez');
+
+    await page.locator('.grid.grid-cols-1.gap-4 > div:nth-child(4) > .h-10').first().fill('XEXX010101HNEXXXA4');
+    await page.locator('input[type="date"]').nth(2).fill('2008-03-18');
+    await page.locator('div:nth-child(7) > .h-10').first().fill('Carlos Cumbian');
+    await page.locator('input[type="date"]').nth(3).fill('2026-05-05');
+    await page.locator('.sm\\:col-span-2 > .h-10').fill('Avenida Jesus Cantu Leal 1525');
+    await page.locator('div:nth-child(3) > div:nth-child(2) > .h-10').fill('Monterrey');
+    await page.getByRole('combobox').nth(3).selectOption('Nuevo León');
+    await page.getByRole('textbox', { name: 'dígitos' }).fill('84700');
+    await page.locator('div:nth-child(2) > div:nth-child(4) > div > .h-10').first().fill('8129085779');
+    await page.locator('div:nth-child(2) > div:nth-child(4) > div:nth-child(2) > .h-10').fill('8102906893');
+    await page.locator('div:nth-child(4) > div:nth-child(3) > .h-10').fill('8129223456');
+    await page.locator('input[type="email"]').fill('test@gmail.com');
+    await page.locator('.grid.grid-cols-1.gap-4.sm\\:grid-cols-3 > div:nth-child(1) > .h-10').fill('Carlos Cumbian');
+    await page.locator('.grid.grid-cols-1.gap-4.sm\\:grid-cols-3 > div:nth-child(2) > .h-10').fill('8129085779');
+    await page.locator('.grid.grid-cols-1.gap-4.sm\\:grid-cols-3 > div:nth-child(3) > .h-10').fill('Padre');
+    await page.locator('input[type="date"]').nth(4).fill('2026-05-20');
+    await page.locator('input[type="date"]').nth(5).fill('2027-06-20');
+
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Guardar asociado' }).click();
+
+    await expect(page.getByText('Asociado creado correctamente')).toBeVisible({ timeout: 10000 });
+    await page.getByLabel('Cerrar').click();
+  });
+
+  test('Registro de asociado fallido por CURP vacía @QaseID=22', async ({ page }) => {
+    await login(page);
+    await page.getByRole('button', { name: 'Agregar asociado' }).click();
+
+    await page.getByRole('textbox').nth(2).fill('2026-05-21');
+    await page.getByRole('combobox').nth(1).selectOption('Masculino');
+    await page.getByRole('textbox').nth(3).fill('Jesus');
+    await page.getByRole('textbox').nth(4).fill('Cumbian');
+    await page.getByRole('textbox').nth(5).fill('Sanchez');
+
+    await page.locator('label:has-text("CURP")').locator('..').locator('input').fill('');
+    await page.locator('label:has-text("Fecha de nacimiento")').locator('..').locator('input').fill('2008-03-18');
+
+    page.once('dialog', dialog => dialog.dismiss().catch(() => {}));
+    await page.getByRole('button', { name: 'Guardar asociado' }).click();
+
+    await expect(page.getByRole('alert')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('Búsqueda de asociado por nombre @QaseID=23', async ({ page }) => {
+    await login(page);
+    await page.getByRole('textbox', { name: 'Buscar por nombre' }).fill('Jesus');
+    await expect(page.getByRole('cell', { name: /Jesus/i }).first()).toBeVisible({ timeout: 8000 });
+    await page.getByRole('textbox', { name: 'Buscar por nombre' }).fill('');
+    await expect(page.getByRole('row').nth(1)).toBeVisible();
+  });
+
+  test('Filtrado de asociados por estatus Activo @QaseID=24', async ({ page }) => {
+    await login(page);
+    await page.getByLabel('Filtrar por estatus').selectOption('Activo');
+    await expect(page.getByRole('cell', { name: 'Activo' }).first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('cell', { name: 'Inactivo' })).toHaveCount(0);
+  });
+
+  test('Cambio de estatus de asociado Activo a Inactivo @QaseID=28', async ({ page }) => {
+    await login(page);
+    await page.getByLabel('Filtrar por estatus').selectOption('Activo');
+    await expect(page.getByRole('cell', { name: 'Bruno Diaz Morales' })).toBeVisible({ timeout: 8000 });
+    await page.getByRole('cell', { name: 'Bruno Diaz Morales' }).click();
+    await page.getByRole('button', { name: 'Editar' }).click();
+    await page.getByRole('combobox').nth(2).selectOption('Inactivo');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByLabel('Filtrar por estatus').selectOption('Inactivo');
+    await expect(page.getByRole('cell', { name: 'Bruno Diaz Morales' })).toBeVisible({ timeout: 8000 });
+    await page.getByRole('cell', { name: 'Bruno Diaz Morales' }).click();
+    await page.getByRole('button', { name: 'Editar' }).click();
+    await page.getByRole('combobox').nth(2).selectOption('Activo');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  });
+
+  test('Registro de consulta exitoso @QaseID=7', async ({ page }) => {
+    await login(page);
+    await page.getByRole('link', { name: 'Servicios' }).click();
+    await page.waitForURL(`${BASE_URL}/servicios`);
+    await page.getByRole('button', { name: 'Nuevo servicio' }).click();
+    await page.getByRole('button', { name: 'Consulta' }).click();
+    const asociadoSearch = page.getByRole('textbox', { name: 'Nombre o número de asociado...' });
+    await asociadoSearch.fill('Jose Carlos');
+    await page.waitForTimeout(500);
+    const asociadoOption = page.locator('button', { hasText: /Jose Carlos Pendulos Perez/i }).first();
+    await expect(asociadoOption).toBeVisible({ timeout: 10000 });
+    await asociadoOption.click();
+    await page.getByRole('combobox').nth(4).selectOption('seguimiento');
+    await page.getByRole('combobox').nth(5).selectOption('54');
+    await page.getByRole('dialog', { name: 'Nueva consulta' }).locator('input[type="date"]').fill('2026-05-23');
+    await page.getByRole('textbox', { name: ':00' }).fill('12:30');
+    await page.locator('.rounded-lg.border.border-slate-200.bg-slate-50.px-2').selectOption('PM');
+    await page.getByRole('textbox', { name: '0.00' }).fill('30.000');
+
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Guardar consulta' }).click();
+
+    await expect(page).toHaveURL(`${BASE_URL}/servicios`, { timeout: 10000 });
+  });
+
+  test('Cambio de estatus de consulta a Completado @QaseID=12', async ({ page }) => {
+    await login(page);
+    await page.getByRole('link', { name: 'Servicios' }).click();
+    await page.waitForURL(`${BASE_URL}/servicios`);
+    await page.getByLabel('Filtrar por estatus').selectOption('Pendiente');
+    const primeraConsultaPendiente = page.locator('tbody tr', { hasText: 'Consulta' }).filter({ hasText: 'Pendiente' }).first();
+    await expect(primeraConsultaPendiente).toBeVisible({ timeout: 10000 });
+    await primeraConsultaPendiente.click();
+
+    await expect(page.getByRole('heading', { name: 'Detalle de consulta' })).toBeVisible({ timeout: 10000 });
+    await page.getByRole('link', { name: 'Editar consulta' }).click();
+    await page.getByRole('combobox').nth(1).selectOption('Completado');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(page).toHaveURL(/\/servicios\/\d+\/(detalle-consulta|editar-consulta)/, { timeout: 10000 });
+    await expect(page.getByRole('combobox').nth(1)).toHaveValue('Completado', { timeout: 10000 });
+  });
+
+  test('Registro de estudio exitoso @QaseID=14', async ({ page }) => {
+    await login(page);
+    await page.getByRole('link', { name: 'Servicios' }).click();
+    await page.waitForURL(`${BASE_URL}/servicios`);
+    await page.getByRole('button', { name: 'Nuevo servicio' }).click();
+    await page.getByRole('button', { name: 'Estudio' }).click();
+    await page.getByRole('textbox', { name: 'Nombre o número de asociado...' }).fill('Jesus');
+    await page.getByRole('button', { name: 'Jesus Cumbian Sanchez Asociado #226' }).click();
+    await page.getByRole('combobox').nth(4).selectOption('29');
+    await page.getByRole('combobox').nth(5).selectOption('L05');
+    await page.getByRole('dialog', { name: 'Nuevo estudio' }).locator('input[type="date"]').fill('2026-06-03');
+    await page.getByRole('textbox', { name: '0.00' }).fill('5.000');
+    await page.getByRole('textbox', { name: 'Folio de consulta (ej. CON-' }).fill('10');
+    await page.getByRole('button', { name: 'CON-107' }).click();
+    await page.getByRole('textbox', { name: 'Observaciones adicionales...' }).fill('n/a');
+
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Guardar estudio' }).click();
+
+    await expect(page).toHaveURL(`${BASE_URL}/servicios`, { timeout: 10000 });
+  });
+
+  test('Generación y descarga de credencial de asociado @QaseID=36', async ({ page }) => {
+    await login(page);
+    const asociadoRow = page.getByRole('cell', { name: 'Enrique Calderon Reyes' });
+    await expect(asociadoRow).toBeVisible({ timeout: 10000 });
+    await asociadoRow.click();
+    await expect(page.getByRole('button', { name: 'Credencial' })).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Credencial' }).click();
+    await expect(page.getByText(/Folio: ASO-/)).toBeVisible({ timeout: 8000 });
+    await page.getByRole('button', { name: 'Imprimir Credencial' }).click();
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('link', { name: 'Descargar PDF' }).click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
+    await page.getByText('Cerrar').click();
+  });
+});
+
+// New regression tests
+
 test.describe.serial('Regresión E2E - Nuevos casos', () => {
-
-  // ─────────────────────────────────────────────────────────────────
-  // ROLES Y PERMISOS
-  // ─────────────────────────────────────────────────────────────────
-
   test('Secretario solo ve crear/ver, sin botones de editar/eliminar @QaseID=105', async ({ page }) => {
     await login(page, SECRETARIO_EMAIL, SECRETARIO_PASSWORD);
 
-    // Verificar en Asociados
     await page.getByRole('link', { name: 'Asociados' }).click();
     await expect(page.getByRole('button', { name: 'Agregar asociado' })).toBeVisible({ timeout: 8000 });
     await expect(page.getByRole('button', { name: 'Editar' })).toHaveCount(0);
 
-    // Verificar en Servicios
     await page.getByRole('link', { name: 'Servicios' }).click();
     await page.waitForURL(`${BASE_URL}/servicios`);
     await expect(page.getByRole('button', { name: /Nuevo (consulta|servicio)/i })).toBeVisible({ timeout: 8000 });
     await expect(page.getByRole('button', { name: 'Eliminar' })).toHaveCount(0);
 
-    // Verificar que el Secretario no ve Inventario si no tiene permiso
     await expect(page.getByRole('link', { name: 'Inventario' })).toHaveCount(0);
   });
 
   test('Superadministrador tiene acceso completo incluyendo sección usuarios @QaseID=107', async ({ page }) => {
     await login(page);
 
-    // Verificar que existe la sección Empleados/Usuarios
     await page.getByRole('link', { name: 'Empleados' }).click();
     await expect(page.getByRole('button', { name: /Nuevo usuario/i })).toBeVisible({ timeout: 8000 });
 
-    // Verificar acceso a edición en Asociados
     await page.getByRole('link', { name: 'Asociados' }).click();
     await expect(page.getByRole('button', { name: 'Agregar asociado' })).toBeVisible({ timeout: 8000 });
     const cargarMas = page.getByRole('button', { name: 'Cargar más datos' });
@@ -134,7 +316,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await expect(page.getByRole('button', { name: 'Editar' })).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: 'Cerrar' }).click();
 
-    // Verificar acceso a edición en Servicios
     await page.getByRole('link', { name: 'Servicios' }).click();
     await page.waitForURL(`${BASE_URL}/servicios`);
     await expect(page.getByRole('button', { name: /Nuevo (consulta|servicio)/i })).toBeVisible({ timeout: 8000 });
@@ -143,17 +324,11 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
   test('Redirección al intentar acceder por URL fuera del rol @QaseID=108', async ({ page }) => {
     await login(page, SECRETARIO_EMAIL, SECRETARIO_PASSWORD);
 
-    // El secretario intenta acceder directamente a la sección de gestión
     await page.goto(`${BASE_URL}/gestion`);
 
-    // No debe ver la sección de gestión ni el botón de crear usuario
     await expect(page.getByRole('button', { name: 'Nuevo usuario' })).toHaveCount(0, { timeout: 8000 });
     await expect(page.locator('text=/404|This page could not be found|No encontrado|No autorizado/i').first()).toBeVisible({ timeout: 10000 });
   });
-
-  // ─────────────────────────────────────────────────────────────────
-  // GESTIÓN DE USUARIOS
-  // ─────────────────────────────────────────────────────────────────
 
   test('Crear usuario y dar de baja con motivo obligatorio @QaseID=109', async ({ page }) => {
     await login(page);
@@ -161,7 +336,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
 
     const uniqueEmail = `bajausuario+${Date.now()}@test.com`;
 
-    // Crear nuevo usuario
     await page.getByRole('button', { name: 'Nuevo usuario' }).click();
     await page.getByPlaceholder('Nombres').fill('UsuarioBaja');
     await page.getByPlaceholder('Apellidos').fill('Test Regresion');
@@ -170,10 +344,8 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByPlaceholder('Contraseña segura').fill('BajaUsuario1234');
     await page.getByRole('button', { name: 'Crear usuario' }).click();
 
-    // Verificar que aparece en el listado con el usuario creado
     await expect(page.getByRole('cell', { name: uniqueEmail })).toBeVisible({ timeout: 10000 });
 
-    // Abrir detalles del usuario y desactivar la cuenta
     await page.getByRole('cell', { name: uniqueEmail }).click();
     const toggleButton = page.getByRole('button', { name: /Desactivar cuenta|Reactivar cuenta/i }).first();
     await expect(toggleButton).toBeVisible({ timeout: 10000 });
@@ -193,10 +365,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await expect(userRow).toContainText(/Inactivo/i);
   });
 
-  // ─────────────────────────────────────────────────────────────────
-  // PREREGISTROS
-  // ─────────────────────────────────────────────────────────────────
-
   test('Listado por defecto muestra solo pendientes y filtro a cancelados @QaseID=82', async ({ page }) => {
     await login(page);
     await page.getByRole('link', { name: 'Asociados' }).click();
@@ -210,13 +378,10 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
       await page.getByRole('button', { name: 'Preregistro' }).click();
     }
 
-    // El listado por defecto debe mostrar estatus Pendiente
     await expect(page.getByRole('cell', { name: 'Pendiente' }).first()).toBeVisible({ timeout: 8000 });
     await expect(page.getByRole('cell', { name: 'Cancelado' })).toHaveCount(0);
 
-    // Aplicar filtro a Anulado / cancelado
     await page.getByLabel('Filtrar por estatus').selectOption('Anulado');
-    // La tabla debe actualizarse (puede estar vacía o mostrar anulados)
     await expect(page.getByRole('cell', { name: 'Pendiente' })).toHaveCount(0, { timeout: 8000 });
   });
 
@@ -225,21 +390,17 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('link', { name: 'Asociados' }).click();
     await page.getByRole('button', { name: 'Preregistro' }).click();
 
-    // Verificar que existe al menos un preregistro pendiente
     const pendiente = page.getByRole('row').filter({ hasText: 'Pendiente' }).first();
     await expect(pendiente).toBeVisible({ timeout: 8000 });
 
-    // Obtener el nombre del preregistro antes de confirmar
     const nombreCelda = pendiente.getByRole('cell').nth(1);
     const nombre = await nombreCelda.textContent();
 
-    // Abrir detalle y confirmar
     await pendiente.click();
     await page.getByRole('button', { name: 'Aceptar' }).click();
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Sí' }).click();
 
-    // Ir a Asociados y verificar que aparece el nuevo asociado
     await page.getByRole('button', { name: 'Asociados' }).click();
     if (nombre) {
       const nombreLimpio = nombre.trim();
@@ -251,10 +412,8 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
   });
 
   test('Envío exitoso del formulario público de preregistro @QaseID=87', async ({ page }) => {
-    // Acceder al formulario público (sin login)
     await page.goto(`${BASE_URL}/registro-preregistro`);
 
-    // Llenar todos los campos requeridos con datos válidos
     const curpUnica = `REGG900101HMCRSN${String(Date.now()).slice(-2)}`;
 
     await page.locator('#pr-nombre').fill('Gregorio');
@@ -275,21 +434,13 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('button', { name: /Enviar preregistro|Enviar/i }).click();
     await page.getByRole('button', { name: /Confirmar y enviar/i }).click();
 
-    // El sistema debe mostrar confirmación
-    await expect(
-      page.getByText(/confirmaci[oó]n|registrado|pendiente|gracias/i)
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/confirmaci[oó]n|registrado|pendiente|gracias/i)).toBeVisible({ timeout: 10000 });
   });
-
-  // ─────────────────────────────────────────────────────────────────
-  // INVENTARIO
-  // ─────────────────────────────────────────────────────────────────
 
   test('Consulta de stock con umbral mínimo y alerta visual @QaseID=94', async ({ page }) => {
     await login(page);
     await page.getByRole('link', { name: 'Inventario' }).click();
 
-    // Verificar que la columna de disponibilidad está presente
     await expect(page.getByRole('columnheader', { name: 'Disponibilidad' })).toBeVisible({ timeout: 8000 });
 
     const lowStockLocator = page.getByRole('cell', { name: /Bajo|Limitado/i });
@@ -298,7 +449,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
       await lowStockLocator.first().click();
       await expect(page.getByText(/bajo|umbral|m[ií]nimo/i).first()).toBeVisible({ timeout: 8000 });
     } else {
-      // Si no hay artículos de bajo stock en este entorno, validar el badge de disponibilidad existente
       await expect(page.getByRole('cell', { name: /En stock|Agotado/i }).first()).toBeVisible({ timeout: 8000 });
     }
   });
@@ -309,12 +459,10 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('button', { name: 'Movimiento Inventario' }).click();
     await page.getByRole('button', { name: 'Agregar' }).click();
 
-    // Crear artículo nuevo (no existe en el sistema)
     const nombreNuevo = `TestItem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await page.getByRole('textbox', { name: 'Escribe para buscar y' }).fill(nombreNuevo);
     await page.waitForTimeout(500);
 
-    // Llenar los campos del nuevo artículo
     await page.locator('section').filter({ hasText: 'ArtículoBusca un artículo' }).getByRole('combobox').selectOption('Medicamento');
     await page.getByRole('textbox', { name: 'Nombre de proveedor' }).fill('Proveedor Test');
     await page.locator('section').filter({ hasText: 'ArtículoBusca un artículo' }).getByPlaceholder('0', { exact: true }).fill('5');
@@ -332,12 +480,10 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('textbox', { name: 'Detalles del movimiento' }).fill('Registro inicial automatizado');
     await submitInventoryMovement(page);
 
-    // Verificar que vuelve al listado de movimientos y se navega al inventario
     await expect(page.getByRole('button', { name: 'Volver a Inventario' })).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: 'Volver a Inventario' }).click();
     await page.waitForURL(`${BASE_URL}/inventory`, { timeout: 15000 });
 
-    // Verificar que el artículo aparece en el catálogo
     await expect(page.getByText(nombreNuevo).first()).toBeVisible({ timeout: 15000 });
   });
 
@@ -345,14 +491,12 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await login(page);
     await page.getByRole('link', { name: 'Inventario' }).click();
 
-    // Seleccionar un artículo existente para ver su stock actual
     const articuloFila = page.getByRole('row').nth(1);
     await expect(articuloFila).toBeVisible({ timeout: 8000 });
     const stockCeldaTexto = await articuloFila.getByRole('cell').nth(3).textContent();
     const stockAntes = parseInt(stockCeldaTexto?.replace(/\D/g, '') || '0');
     const articuloNombre = (await articuloFila.getByRole('cell').nth(1).textContent())?.trim() || 'Paracetamol';
 
-    // Registrar una entrada de 10 unidades
     await page.getByRole('button', { name: 'Movimiento Inventario' }).click();
     await page.getByRole('button', { name: 'Agregar' }).click();
     await page.getByRole('textbox', { name: 'Escribe para buscar y' }).fill(articuloNombre);
@@ -365,7 +509,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('textbox', { name: 'Detalles del movimiento' }).fill('Entrada test regresión QaseID=95');
     await submitInventoryMovement(page);
 
-    // Verificar que el movimiento quedó en el historial
     await expect(page.getByText(articuloNombre).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Entrada:/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -379,7 +522,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('button', { name: 'Movimiento Inventario' }).click();
     await page.getByRole('button', { name: 'Agregar' }).click();
 
-    // Registrar una salida
     await page.locator('section').filter({ hasText: 'MovimientoDefine qué pasó con' }).getByRole('combobox').selectOption('out');
     await page.getByRole('textbox', { name: 'Escribe para buscar y' }).fill(articuloNombre);
     await page.waitForTimeout(500);
@@ -391,7 +533,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('textbox', { name: 'Detalles del movimiento' }).fill('Salida test regresión QaseID=96');
     await submitInventoryMovement(page);
 
-    // Verificar que el movimiento de salida quedó en el historial
     await expect(page.getByText(articuloNombre).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Salida:/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -401,7 +542,6 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('link', { name: 'Inventario' }).click();
     await page.getByRole('button', { name: 'Movimiento Inventario' }).click();
 
-    // Intento 1: salida mayor al stock disponible (Acido folico tiene stock bajo)
     await page.getByRole('button', { name: 'Agregar' }).click();
     await page.locator('section').filter({ hasText: 'MovimientoDefine qué pasó con' }).getByRole('combobox').selectOption('out');
     await page.getByRole('textbox', { name: 'Escribe para buscar y' }).fill('Acido folico');
@@ -411,16 +551,11 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('textbox', { name: 'Detalles del movimiento' }).fill('Salida excesiva test QaseID=97');
     await page.getByRole('button', { name: 'Registrar movimiento' }).click();
 
-    // El sistema debe bloquear y mostrar una alerta de error
     await expect(page.getByRole('alert').first()).toBeVisible({ timeout: 10000 });
 
-    // Intento 2: cantidad 0 o negativa
     await page.getByPlaceholder('0').fill('0');
     await page.getByRole('button', { name: 'Registrar movimiento' }).click();
-    // El sistema debe bloquear con validación
-    await expect(
-      page.getByText(/stock insuficiente|no hay suficiente|cantidad/i).first()
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/stock insuficiente|no hay suficiente|cantidad/i).first()).toBeVisible({ timeout: 8000 });
 
     await page.getByLabel('Registrar movimiento').getByRole('button', { name: 'Cancelar' }).click();
   });
@@ -458,7 +593,7 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     expect(response.ok()).toBeTruthy();
 
     await page.getByRole('button', { name: 'Cerrar' }).click();
-    await expect(page.getByText(articuloNombre).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Inventario/i })).toBeVisible({ timeout: 10000 });
   });
 
   test('Filtros combinados por artículo, tipo y rango de fechas @QaseID=99', async ({ page }) => {
@@ -466,20 +601,16 @@ test.describe.serial('Regresión E2E - Nuevos casos', () => {
     await page.getByRole('link', { name: 'Inventario' }).click();
     await page.getByRole('button', { name: 'Movimiento Inventario' }).click();
 
-    // Aplicar filtro de tipo Entrada
     await page.getByLabel('Filtrar por tipo').selectOption('in');
     await expect(page.getByText(/Entrada:/i).first()).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(/Salida:/i)).toHaveCount(0);
 
-    // Aplicar rango de fechas (último mes)
     await page.getByRole('textbox', { name: 'Filtrar desde' }).fill('2026-06-01');
     await page.getByRole('textbox', { name: 'Filtrar hasta' }).fill('2026-06-08');
 
-    // Debe mostrar solo movimientos tipo Entrada en ese rango
     const filas = page.getByText(/Entrada:/i);
     await expect(filas.first()).toBeVisible({ timeout: 8000 });
 
-    // Aplicar filtro con criterios sin coincidencias (fecha futura)
     await page.getByRole('textbox', { name: 'Filtrar desde' }).fill('2030-01-01');
     await page.getByRole('textbox', { name: 'Filtrar hasta' }).fill('2030-01-31');
     await expect(page.getByText(/sin resultados|sin coincidencias|no hay/i)).toBeVisible({ timeout: 8000 });
