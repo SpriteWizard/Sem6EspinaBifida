@@ -1,0 +1,51 @@
+name: Playwright Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: tests/playwright
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/playwright/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env.local
+        run: |
+          cat > .env.local << EOF
+          NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+          QASE_API_TOKEN=${{ secrets.QASE_API_TOKEN }}
+          QASE_PROJECT=${{ secrets.QASE_PROJECT }}
+          PLAYWRIGHT_USER_EMAIL=${{ secrets.PLAYWRIGHT_USER_EMAIL }}
+          PLAYWRIGHT_USER_PASSWORD=${{ secrets.PLAYWRIGHT_USER_PASSWORD }}
+          EOF
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Build app
+        run: npm run build
+
+      - name: Start app
+        run: npm start &
+
+      - name: Wait for app
+        run: npx wait-on http://localhost:3000
+
+      - name: Run tests
+        run: npx playwright test

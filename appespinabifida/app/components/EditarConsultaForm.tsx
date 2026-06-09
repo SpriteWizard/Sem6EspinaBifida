@@ -74,7 +74,7 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
             id_consulta: data.id_consulta,
             id_asociado: data.id_asociado,
             id_medico: idMedico,
-            id_recibo: data.id_recibo ?? null,
+            id_recibo: selectedRecibo ?? null,
             tipo_consulta: tipoConsulta,
             motivo: data.motivo ?? null,
             diagnostico,
