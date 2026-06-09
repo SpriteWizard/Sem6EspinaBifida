@@ -24,7 +24,7 @@ export default function EditarConsultaForm({ id, data }: { id: any,  data: any }
   const [tipoConsulta, setTipoConsulta] = useState(data.tipo_consulta ?? '')
   const [estatus, setEstatus] = useState(data.estatus ?? 'Pendiente')
   const [idMedico, setIdMedico] = useState<number>(data.id_medico ?? 0)
-  const [fecha, setFecha] = useState(data.fecha ?? '')
+  const [fecha, setFecha] = useState(data.fecha.split("T")[0] ?? '')
   const [hora, setHora] = useState(data.hora ?? '')
   const [aportacion, setAportacion] = useState(String(data.aportacion ?? ''))
   const [diagnostico, setDiagnostico] = useState(data.diagnostico ?? '')
