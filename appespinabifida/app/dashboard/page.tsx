@@ -8,5 +8,5 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
-  return <DashboardClient rol={session.user.role} />;
+  return <DashboardClient rol={session!.user.role} />;
 }
