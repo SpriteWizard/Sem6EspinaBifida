@@ -25,8 +25,9 @@ type FieldErrors = Partial<Record<keyof FormState, string>>;
 
 const ROLES = [
   { value: "superadmin", label: "Superadmin" },
-  { value: "admin_tabla", label: "Admin tabla" },
+  { value: "admin", label: "Admin" },
   { value: "secretaria", label: "Secretaria" },
+  { value: "CEO", label: "Director" },
 ];
 
 const initialFormState: FormState = {
