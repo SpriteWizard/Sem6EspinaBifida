@@ -1,8 +1,8 @@
  const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'https://sem6-espina-bifida.vercel.app';
-const USER_EMAIL = process.env.PLAYWRIGHT_USER_EMAIL;
-const USER_PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD;
+const USER_EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || 'test@test.com';
+const USER_PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || 'testpassword';
 
 
 async function login(page, email = USER_EMAIL, password = USER_PASSWORD) {
