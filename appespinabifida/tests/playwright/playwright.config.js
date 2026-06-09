@@ -1,6 +1,14 @@
 // Playwright config (CommonJS). Uses the official playwright-qase-reporter.
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env.local') });
+const fs = require('fs');
+
+const shouldLoadDotEnv = !process.env.GITHUB_ACTIONS && !process.env.CI;
+if (shouldLoadDotEnv) {
+  const dotenvPath = path.join(__dirname, '..', '..', '.env.local');
+  if (fs.existsSync(dotenvPath)) {
+    require('dotenv').config({ path: dotenvPath });
+  }
+}
 
 const config = {
   testDir: './tests',
