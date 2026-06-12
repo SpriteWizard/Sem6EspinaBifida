@@ -29,7 +29,7 @@ function AsociadosContent() {
     id: 0,
     nombre: "",
     fecha: "",
-    estatus: ""
+    estatus: "Activo"
   });
   const [filtrosPreregistro, setFiltrosPreregistro] = useState<FiltrosPreregistroValues>({
     id: null,

@@ -456,7 +456,6 @@ export default function ServiciosPage() {
                     >
                       <option value="Todos">Todos los estatus</option>
                       <option value="Pendiente">Pendiente</option>
-                      <option value="En proceso">En proceso</option>
                       <option value="Completado">Completado</option>
                       <option value="Cancelado">Cancelado</option>
                     </Select>
@@ -504,7 +503,6 @@ export default function ServiciosPage() {
                     >
                       <option value="Todos">Todos los estatus</option>
                       <option value="Pendiente">Pendiente</option>
-                      <option value="En proceso">En proceso</option>
                       <option value="Completado">Completado</option>
                       <option value="Cancelado">Cancelado</option>
                     </Select>

@@ -62,7 +62,7 @@ export function InventoryTable({
                 className={onItemClick ? 'cursor-pointer transition hover:bg-slate-50' : undefined}
                 onClick={onItemClick ? () => onItemClick(it) : undefined}
               >
-                <td className="px-4 py-5 text-sm text-slate-700">{it.id}</td>
+                <td className="px-4 py-5 text-sm text-slate-700">INV-{it.id}</td>
                 <td className="px-4 py-5 text-sm font-medium text-slate-800">
                   {it.name}
                 </td>

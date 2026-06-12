@@ -433,6 +433,11 @@ export function NuevoEstudioModal({
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
             Consulta vinculada
           </h3>
+          {CONSULTAS.length === 0 ? (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              Para agregar un estudio primero debes agregar una consulta en este recibo.
+            </div>
+          ) : (
           <div className="relative flex flex-col gap-1">
             <label className="text-xs text-slate-500">Buscar consulta</label>
             <input
@@ -471,6 +476,7 @@ export function NuevoEstudioModal({
               </div>
             )}
           </div>
+          )}
         </section>
 
         {/* Notas y resultados */}
