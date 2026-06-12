@@ -139,8 +139,9 @@ function EmptyRow({ cols }: { cols: number }) {
 
 // ─── componente principal ─────────────────────────────────────────────────────
 
-export function DashboardClient() {
+export function DashboardClient({ rol }: { rol: string }) {
   const router = useRouter();
+  const canClick = rol === 'superadmin' || rol === 'admin';
   const [fecha, setFecha] = useState(todayISO());
 
   // TODO backend: reemplazar con useEffect + fetch(`/api/dashboard?fecha=${fecha}`)
@@ -223,7 +224,7 @@ export function DashboardClient() {
         </header>
 
         {/* Fila 1: Consultas del día */}
-        <SectionCard title="Consultas del día" hint="Haz clic en una consulta para ver su detalle.">
+        <SectionCard title="Consultas del día" hint={canClick ? "Haz clic en una consulta para ver su detalle." : undefined}>
           <TableWrapper count={data.consultas.length}>
             <table className="w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -242,10 +243,10 @@ export function DashboardClient() {
                   data.consultas.map((c) => {
                     const est = estatusConsulta(c.estatus);
                     return (
-                      <tr key={c.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/servicios/${c.id}/detalle-consulta`)}>
+                      <tr key={c.id} className={`h-11 transition${canClick ? ' cursor-pointer hover:bg-slate-50' : ''}`} onClick={canClick ? () => router.push(`/servicios/${c.id}/detalle-consulta`) : undefined}>
                         <td className="px-4 py-2.5 text-slate-700">{c.hora}</td>
                         <td className="px-4 py-2.5 font-medium text-slate-800">{c.asociado}</td>
-                        <td className="px-4 py-2.5 text-slate-700">{c.servicio}</td>
+                        <td className="px-4 py-2.5 text-slate-700">{c.servicio ? c.servicio.charAt(0).toUpperCase() + c.servicio.slice(1) : ''}</td>
                         <td className="px-4 py-2.5 text-slate-700">Dr. {c.medico}</td>
                         <td className="px-4 py-2.5">
                           <Badge variant={est.variant}>{est.label}</Badge>
@@ -261,7 +262,7 @@ export function DashboardClient() {
 
         {/* Fila 2: Recibos | Inventario */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <SectionCard title="Recibos por vencer" hint="Haz clic en un recibo para ir a registrar su pago.">
+          <SectionCard title="Recibos por vencer" hint={canClick ? "Haz clic en un recibo para ir a registrar su pago." : undefined}>
             <TableWrapper count={recibosPendientes.length}>
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -279,7 +280,7 @@ export function DashboardClient() {
                     recibosPendientes.map((r) => {
                       const est = estatusRecibo(r.montoPagado, r.montoTotal);
                       return (
-                        <tr key={r.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/recibos?desglose=${r.id}`)}>
+                        <tr key={r.id} className={`h-11 transition${canClick ? ' cursor-pointer hover:bg-slate-50' : ''}`} onClick={canClick ? () => router.push(`/recibos?desglose=${r.id}`) : undefined}>
                           <td className="px-4 py-2.5 text-slate-700">REC-{r.id}</td>
                           <td className="px-4 py-2.5 font-medium text-slate-800">{r.asociado}</td>
                           <td className="px-4 py-2.5 text-slate-700">{formatMoneda(r.montoTotal)}</td>
@@ -295,7 +296,7 @@ export function DashboardClient() {
             </TableWrapper>
           </SectionCard>
 
-          <SectionCard title="Alertas de inventario" hint="Haz clic en un artículo para registrar una entrada de inventario.">
+          <SectionCard title="Alertas de inventario" hint={canClick ? "Haz clic en un artículo para registrar una entrada de inventario." : undefined}>
             <TableWrapper count={inventario.length}>
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -313,7 +314,7 @@ export function DashboardClient() {
                     inventario.map((i) => {
                       const est = estatusStock(i.status);
                       return (
-                        <tr key={i.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/inventory/movimientos?entrada=${i.id}&nombre=${encodeURIComponent(i.name)}`)}>
+                        <tr key={i.id} className={`h-11 transition${canClick ? ' cursor-pointer hover:bg-slate-50' : ''}`} onClick={canClick ? () => router.push(`/inventory/movimientos?entrada=${i.id}&nombre=${encodeURIComponent(i.name)}`) : undefined}>
                           <td className="px-4 py-2.5 font-medium text-slate-800">{i.name}</td>
                           <td className="px-4 py-2.5 text-slate-700">{i.categoryName}</td>
                           <td className="px-4 py-2.5 text-slate-700">{i.quantity} / {i.stockMinimo}</td>
@@ -361,7 +362,7 @@ export function DashboardClient() {
             </TableWrapper>
           </SectionCard>
 
-          <SectionCard title="Preregistros pendientes" hint="Haz clic en un preregistro para aceptarlo o rechazarlo.">
+          <SectionCard title="Preregistros pendientes" hint={canClick ? "Haz clic en un preregistro para aceptarlo o rechazarlo." : undefined}>
             <TableWrapper count={preregistros.length}>
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-600 text-white">
@@ -376,7 +377,7 @@ export function DashboardClient() {
                     <EmptyRow cols={3} />
                   ) : (
                     preregistros.map((p) => (
-                      <tr key={p.id} className="h-11 cursor-pointer transition hover:bg-slate-50" onClick={() => router.push(`/asociados?preregistro=${p.id}`)}>
+                      <tr key={p.id} className={`h-11 transition${canClick ? ' cursor-pointer hover:bg-slate-50' : ''}`} onClick={canClick ? () => router.push(`/asociados?preregistro=${p.id}`) : undefined}>
                         <td className="px-4 py-2.5 font-medium text-slate-800">{p.nombre}</td>
                         <td className="px-4 py-2.5 text-slate-700">{p.fechaSolicitud}</td>
                         <td className="px-4 py-2.5">

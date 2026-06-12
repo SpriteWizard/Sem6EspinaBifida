@@ -1329,9 +1329,11 @@ function NuevoReciboModal({
 		return String(consulta?.id_consulta_local ?? consulta?.folio ?? `consulta-${index}`);
 	}
 
+	function capFirst(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
 	function getConsultaLabel(consulta: any, index: number) {
 		const tipo = consulta?.tipo_consulta;
-		if (tipo) return `Consulta ${tipo}`;
+		if (tipo) return `Consulta ${capFirst(tipo)}`;
 		const ref = getConsultaRefId(consulta, index);
 		return ref ? `Consulta ${ref}` : `Consulta ${index + 1}`;
 	}
@@ -1378,7 +1380,7 @@ function NuevoReciboModal({
 		const consultaProductos: ReciboProducto[] = listaNuevaConsulta.map((c, i) => ({
 			itemId: null,
 			itemName: c?.tipo_consulta
-				? `Consulta ${c.tipo_consulta}`
+				? `Consulta ${capFirst(c.tipo_consulta)}`
 				: c?.id_consulta_local
 					? `Consulta ${c.id_consulta_local}`
 					: `Consulta ${i + 1}`,
@@ -1926,7 +1928,7 @@ function NuevoReciboModal({
 										<li key={index} className="flex items-center justify-between gap-2">
 											<div>
 												<span>
-													{consulta.tipo_consulta || consulta.id_consulta_local || `Consulta ${index + 1}`}
+													{consulta.tipo_consulta ? capFirst(consulta.tipo_consulta) : consulta.id_consulta_local || `Consulta ${index + 1}`}
 												</span>
 												{consulta.fecha_cita ? (
 													<span className="ml-2 text-xs text-slate-500">

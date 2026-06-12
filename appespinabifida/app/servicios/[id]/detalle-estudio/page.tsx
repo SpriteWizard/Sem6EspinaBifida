@@ -167,7 +167,7 @@ export default async function DetalleEstudioPage({
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium text-slate-800">
-              {data.tipo_consulta} · CON-{data.id_consulta}
+              {data.tipo_consulta ? data.tipo_consulta.charAt(0).toUpperCase() + data.tipo_consulta.slice(1) : ''} · CON-{data.id_consulta}
             </div>
             <div className="text-xs text-slate-500">
               {formatDateToMMDDYYYY(data.fecha_consulta)} · {data.medico_consulta}

@@ -14,15 +14,15 @@ export default function Filtros({ sendFilters }: FilterProps) {
   const [idStr, setIdStr] = useState<string>("");
   const [nombre, setNombre] = useState<string>("");
   const [fecha, setFecha] = useState<string>("");
-  const [estatus, setEstatus] = useState<string>("");
+  const [estatus, setEstatus] = useState<string>("Activo");
 
-  const hasActiveFilters = idStr !== "" || nombre !== "" || fecha !== "" || estatus !== "";
+  const hasActiveFilters = idStr !== "" || nombre !== "" || fecha !== "" || estatus !== "Activo";
 
   function clearFilters() {
     setIdStr("");
     setNombre("");
     setFecha("");
-    setEstatus("");
+    setEstatus("Activo");
   }
 
   useEffect(() => {

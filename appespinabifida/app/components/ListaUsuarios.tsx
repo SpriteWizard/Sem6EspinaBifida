@@ -89,7 +89,7 @@ export default function ListaUsuarios({ filtros, refreshKey }: ListaUsuariosProp
   const rows = data.map((row) => ({
     key: String(row.id),
     cells: [
-      row.id,
+      `USU-${row.id}`,
       `${row.nombre ?? ""}${row.apellidos ? ` ${row.apellidos}` : ""}`,
       row.email ?? "",
       <span key="estatus" className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${badgeColors[getStatusLabel(row.estatus) as Estatus]}`}>

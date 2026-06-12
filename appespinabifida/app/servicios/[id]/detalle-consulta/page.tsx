@@ -87,7 +87,7 @@ export default async function DetalleConsultaPage({
             <span className="mb-0.5 block text-xs text-slate-500">
               Tipo de consulta
             </span>
-            <span className="text-sm text-slate-800">{data.tipo_consulta}</span>
+            <span className="text-sm text-slate-800">{data.tipo_consulta ? data.tipo_consulta.charAt(0).toUpperCase() + data.tipo_consulta.slice(1) : ''}</span>
           </div>
           <div>
             <span className="mb-0.5 block text-xs text-slate-500">Estatus</span>
