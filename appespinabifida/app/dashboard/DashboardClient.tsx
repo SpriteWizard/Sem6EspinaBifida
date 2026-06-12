@@ -316,7 +316,7 @@ export function DashboardClient({ rol }: { rol: string }) {
                       return (
                         <tr key={i.id} className={`h-11 transition${canClick ? ' cursor-pointer hover:bg-slate-50' : ''}`} onClick={canClick ? () => router.push(`/inventory/movimientos?entrada=${i.id}&nombre=${encodeURIComponent(i.name)}`) : undefined}>
                           <td className="px-4 py-2.5 font-medium text-slate-800">{i.name}</td>
-                          <td className="px-4 py-2.5 text-slate-700">{i.categoryName}</td>
+                          <td className="px-4 py-2.5 text-slate-700">{i.categoryName ? i.categoryName.charAt(0).toUpperCase() + i.categoryName.slice(1) : ''}</td>
                           <td className="px-4 py-2.5 text-slate-700">{i.quantity} / {i.stockMinimo}</td>
                           <td className="px-4 py-2.5">
                             <Badge variant={est.variant}>{est.label}</Badge>
